@@ -25,22 +25,42 @@ export default function PlanPage({ navigate }) {
   const [savingAlert, setSavingAlert] = useState(false)
   const [weekOffset, setWeekOffset] = useState(0)
 
-  const load = useCallback(() => {
-    api('/api/plan').then(setData).catch((e) => setError(e.message))
-  }, [])
+  const getWeekDates = (offset = 0) => {
+    const today = new Date()
+    const dayOfWeek = today.getDay()
+    const diffToSat = (dayOfWeek + 1) % 7
+    const sat = new Date(today)
+    sat.setDate(today.getDate() - diffToSat + (offset * 7))
 
-  useEffect(load, [load])
+    const dates = []
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(sat)
+      d.setDate(sat.getDate() + i)
+      dates.push(d.toISOString().slice(0, 10))
+    }
+    return dates
+  }
 
-  const tick = async (dayIndex, task, status) => {
+  const load = useCallback((offset = weekOffset) => {
+    const dates = getWeekDates(offset)
+    const satStr = dates[0]
+    api(`/api/plan?week_start=${satStr}`).then(setData).catch((e) => setError(e.message))
+  }, [weekOffset]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    load(weekOffset)
+  }, [weekOffset]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const tick = async (dayIndex, task, status, dateStr) => {
     if (busy) return
     setBusy(true)
     const next = task.status === status ? '' : status
     try {
       await api('/api/plan/task', {
         method: 'POST',
-        body: { day_index: dayIndex, task_index: task.index, status: next },
+        body: { day_index: dayIndex, task_index: task.index, status: next, date_str: dateStr },
       })
-      load()
+      load(weekOffset)
     } catch (e) {
       setError(e.message)
     } finally {
@@ -69,7 +89,7 @@ export default function PlanPage({ navigate }) {
         },
       })
       setAlertModalOpen(false)
-      load()
+      load(weekOffset)
     } catch (e) {
       setError(e.message)
     } finally {
@@ -82,7 +102,7 @@ export default function PlanPage({ navigate }) {
     setBusy(true)
     try {
       await api(`/api/plan/capacity-alert/${dateStr}`, { method: 'DELETE' })
-      load()
+      load(weekOffset)
     } catch (e) {
       setError(e.message)
     } finally {
@@ -91,6 +111,7 @@ export default function PlanPage({ navigate }) {
   }
 
   const faDateOnly = (iso) => {
+    if (!iso) return ''
     try {
       const d = new Date(iso + 'T00:00:00')
       return isEn ? d.toLocaleDateString('en-GB') : d.toLocaleDateString('fa-IR')
@@ -110,14 +131,14 @@ export default function PlanPage({ navigate }) {
   if (error) return <div className="empty">⚠️ {error}</div>
   if (!data) return <div className="empty">…</div>
 
-  const today = data.days.find((d) => d.is_today) || null
+  const today = data.days?.find((d) => d.is_today) || null
   const week = data.week || {}
   const sourceIsMentor = data.source === 'mentor'
   const color = week.color === 'ok' ? '#22c55e' : week.color === 'mid' ? '#eab308' : week.color === 'low' ? '#ef4444' : '#94a3b8'
   const pct = week.pct
 
-  const daysList = data.days || []
-  const weekRangeStr = daysList.length >= 7 ? `${faDateOnly(daysList[0].date_str)} — ${faDateOnly(daysList[6].date_str)}` : ''
+  const curWeekDates = getWeekDates(weekOffset)
+  const weekRangeStr = `${faDateOnly(curWeekDates[0])} — ${faDateOnly(curWeekDates[6])}`
 
   return (
     <div className="plan-calendar-page">
@@ -155,11 +176,71 @@ export default function PlanPage({ navigate }) {
         </div>
       </div>
 
-      {!data.plan_exists && <Empty>{t('noPlanYet')}</Empty>}
+      {/* ── WEEK NAVIGATION CONTROLS (هفته قبل / بعد) ── */}
+      <div
+        className="card"
+        style={{
+          borderRadius: 16,
+          padding: '10px 16px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 16,
+          flexWrap: 'wrap',
+          gap: 10,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button
+            className="btn ghost sm"
+            style={{ borderRadius: 10, padding: '6px 14px', fontWeight: 800 }}
+            onClick={() => setWeekOffset((w) => w - 1)}
+          >
+            {t('prevWeekBtn')}
+          </button>
+          <button
+            className="btn ghost sm"
+            style={{ borderRadius: 10, padding: '6px 14px', fontWeight: 800 }}
+            onClick={() => setWeekOffset(0)}
+          >
+            {t('currentWeek')}
+          </button>
+          <button
+            className="btn ghost sm"
+            style={{ borderRadius: 10, padding: '6px 14px', fontWeight: 800 }}
+            onClick={() => setWeekOffset((w) => w + 1)}
+          >
+            {t('nextWeekBtn')}
+          </button>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span className="badge" style={{ background: 'var(--tint-fill)', color: 'var(--primary)', fontSize: 13, padding: '4px 12px' }}>
+            🗓️ {weekRangeStr} {weekOffset !== 0 ? `(${weekOffset > 0 ? `+${weekOffset}` : weekOffset})` : ''}
+          </span>
+        </div>
+      </div>
+
+      {!data.plan_exists && (
+        <div className="card" style={{ textAlign: 'center', padding: '36px 20px', borderRadius: 18, marginBottom: 20 }}>
+          <div style={{ fontSize: 34, marginBottom: 8 }}>🗓️</div>
+          <b style={{ fontSize: 16, color: 'var(--ink)', display: 'block', marginBottom: 6 }}>
+            {weekOffset === 0 ? t('noPlanYet') : 'برای این هفته برنامه‌ای ثبت نشده است'}
+          </b>
+          <p className="small muted">
+            {weekOffset > 0 ? 'مشاور هنوز برنامه این هفته را ارسال نکرده است.' : 'می‌توانید به هفته جاری بازگردید یا با مشاور گفتگو کنید.'}
+          </p>
+          {weekOffset !== 0 && (
+            <button className="btn sm mt" style={{ borderRadius: 10 }} onClick={() => setWeekOffset(0)}>
+              بازگشت به {t('currentWeek')}
+            </button>
+          )}
+        </div>
+      )}
 
       {data.plan_exists && (
         <>
-          {/* Today's Focus Action Section */}
+          {/* Today's Focus Action Section (only if today belongs to this viewed week) */}
           {today && (
             <div style={{ marginBottom: 24 }}>
               <div className="section-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -266,7 +347,7 @@ export default function PlanPage({ navigate }) {
                               title={t('taskDone')}
                               disabled={busy}
                               style={{ borderRadius: 8, padding: '4px 10px', fontSize: 12 }}
-                              onClick={() => tick(today.index, task, 'done')}
+                              onClick={() => tick(today.index, task, 'done', today.date_str)}
                             >
                               ✓ {t('taskDone')}
                             </button>
@@ -275,7 +356,7 @@ export default function PlanPage({ navigate }) {
                               title={t('taskMissed')}
                               disabled={busy}
                               style={{ borderRadius: 8, padding: '4px 10px', fontSize: 12 }}
-                              onClick={() => tick(today.index, task, 'missed')}
+                              onClick={() => tick(today.index, task, 'missed', today.date_str)}
                             >
                               ✕ {t('taskMissed')}
                             </button>
@@ -284,7 +365,7 @@ export default function PlanPage({ navigate }) {
                                 className="task-btn clear"
                                 disabled={busy}
                                 style={{ borderRadius: 8, padding: '4px 8px', fontSize: 11 }}
-                                onClick={() => tick(today.index, task, '')}
+                                onClick={() => tick(today.index, task, '', today.date_str)}
                               >
                                 {t('clearTask')}
                               </button>
@@ -299,58 +380,13 @@ export default function PlanPage({ navigate }) {
             </div>
           )}
 
-          {/* ── WEEK NAVIGATION CONTROLS ── */}
-          <div
-            className="card"
-            style={{
-              borderRadius: 16,
-              padding: '12px 18px',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: 16,
-              flexWrap: 'wrap',
-              gap: 12,
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <button
-                className="btn ghost sm"
-                style={{ borderRadius: 10, padding: '6px 14px', fontWeight: 800 }}
-                onClick={() => setWeekOffset((w) => w - 1)}
-              >
-                {t('prevWeekBtn')}
-              </button>
-              <button
-                className="btn ghost sm"
-                style={{ borderRadius: 10, padding: '6px 14px', fontWeight: 800 }}
-                onClick={() => setWeekOffset(0)}
-              >
-                {t('currentWeek')}
-              </button>
-              <button
-                className="btn ghost sm"
-                style={{ borderRadius: 10, padding: '6px 14px', fontWeight: 800 }}
-                onClick={() => setWeekOffset((w) => w + 1)}
-              >
-                {t('nextWeekBtn')}
-              </button>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span className="badge" style={{ background: 'var(--tint-fill)', color: 'var(--primary)', fontSize: 13, padding: '4px 12px' }}>
-                🗓️ {weekRangeStr} {weekOffset !== 0 ? `(${weekOffset > 0 ? `+${weekOffset}` : weekOffset})` : ''}
-              </span>
-            </div>
-          </div>
-
           {/* Full 7-Day Week Calendar View */}
           <div
             className="calendar-week-grid"
             style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-              gap: 16,
+              gap: 14,
               width: '100%',
             }}
           >
@@ -416,13 +452,14 @@ export default function PlanPage({ navigate }) {
                       d.tasks.map((task) => {
                         const mCfg = METHOD_LABELS[task.study_method] || METHOD_LABELS.study
                         const mLabel = isEn ? mCfg.label_en : mCfg.label_fa
+                        const isDone = task.status === 'done'
                         return (
                           <div
                             key={task.index}
                             className="planner-task-card"
                             style={{
-                              background: 'var(--card)',
-                              border: '1px solid var(--line)',
+                              background: isDone ? 'rgba(34, 197, 94, 0.10)' : 'var(--card)',
+                              border: isDone ? '1.5px solid var(--ok)' : '1px solid var(--line)',
                               borderRadius: 10,
                               padding: '8px 10px',
                               cursor: 'pointer',
@@ -450,6 +487,16 @@ export default function PlanPage({ navigate }) {
                                   📝 {fa(task.question_count)}
                                 </span>
                               )}
+                            </div>
+
+                            <div className="flex" style={{ gap: 4 }} onClick={(e) => e.stopPropagation()}>
+                              <button
+                                className={`task-btn ok ${task.status === 'done' ? 'on' : ''}`}
+                                style={{ padding: '2px 6px', fontSize: 11, borderRadius: 6 }}
+                                onClick={() => tick(d.index, task, 'done', d.date_str)}
+                              >
+                                ✓
+                              </button>
                             </div>
                           </div>
                         )

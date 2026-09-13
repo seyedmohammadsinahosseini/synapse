@@ -5,7 +5,9 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 
+from ..ai_service import ai
 from ..database import get_db
 from ..models import (ConsultSlot, DailyCapacityAlert, ExamAttempt, Grade,
                       PlanProgress, ReportCard, StudentProfile, StudyPlan,
@@ -68,7 +70,8 @@ def my_students(user: User = Depends(get_current_user), db: Session = Depends(ge
 
 
 @router.get("/students/{student_id}")
-def student_detail(student_id: int, user: User = Depends(get_current_user),
+def student_detail(student_id: int, week_start: Optional[str] = None,
+                   user: User = Depends(get_current_user),
                    db: Session = Depends(get_db)):
     _mentor_guard(user)
     profile = db.query(StudentProfile).filter(StudentProfile.user_id == student_id).first()
@@ -85,11 +88,21 @@ def student_detail(student_id: int, user: User = Depends(get_current_user),
                      .order_by(ReportCard.created_at.desc()).all()
 
     today = date.today()
-    start_sat = saturday_start(today)
+    cur_sat = saturday_start(today)
+    if week_start:
+        try:
+            target_sat = saturday_start(date.fromisoformat(week_start))
+        except ValueError:
+            target_sat = cur_sat
+    else:
+        target_sat = cur_sat
+
+    target_sat_str = target_sat.isoformat()
+
     alerts = db.query(DailyCapacityAlert).filter(
         DailyCapacityAlert.student_id == student_id,
-        DailyCapacityAlert.date_str >= start_sat.isoformat(),
-        DailyCapacityAlert.date_str <= (start_sat + timedelta(days=6)).isoformat(),
+        DailyCapacityAlert.date_str >= target_sat_str,
+        DailyCapacityAlert.date_str <= (target_sat + timedelta(days=6)).isoformat(),
     ).all()
     alerts_map = {a.date_str: {"max_hours": a.max_hours, "reason": a.reason} for a in alerts}
 
@@ -111,10 +124,28 @@ def student_detail(student_id: int, user: User = Depends(get_current_user),
         "total": 0, "done": 0, "missed": 0, "pct": None, "color": None,
     }
 
-    weekly_normalized = normalize_weekly_days((plan.content or {}).get("weekly")) if plan else []
+    content = (plan.content or {}) if plan else {}
+    weeks_dict = content.get("weeks", {})
+    specific_week = weeks_dict.get(target_sat_str)
+
+    weekly_raw = []
+    is_ai_draft = False
+    ai_strategy = ""
+    plan_status = "none"
+
+    if specific_week:
+        weekly_raw = specific_week.get("weekly", [])
+        is_ai_draft = (specific_week.get("status") == "draft_ai")
+        ai_strategy = specific_week.get("ai_strategy", "")
+        plan_status = specific_week.get("status", "approved")
+    elif target_sat == cur_sat and content.get("weekly"):
+        weekly_raw = content.get("weekly", [])
+        plan_status = "approved"
+
+    weekly_normalized = normalize_weekly_days(weekly_raw)
     # Check each day against capacity alerts
     for i, day_item in enumerate(weekly_normalized):
-        day_date = start_sat + timedelta(days=i if i < 7 else 0)
+        day_date = target_sat + timedelta(days=i if i < 7 else 0)
         day_date_str = day_date.isoformat()
         total_dur = sum(t["duration_minutes"] for t in day_item["tasks"])
         alert_info = alerts_map.get(day_date_str)
@@ -136,9 +167,13 @@ def student_detail(student_id: int, user: User = Depends(get_current_user),
             "goal_subjects": profile.goal_subjects or [],
         },
         "plan": {
-            "exists": bool(plan),
-            "source": plan.source if plan else None,
-            "generated_at": (plan.content or {}).get("generated_at", "") if plan else "",
+            "exists": bool(weekly_raw and len(weekly_raw) > 0),
+            "week_start": target_sat_str,
+            "source": specific_week.get("source", plan.source if plan else "mentor") if specific_week else (plan.source if plan else None),
+            "status": plan_status,
+            "is_ai_draft": is_ai_draft,
+            "ai_strategy": ai_strategy,
+            "generated_at": specific_week.get("generated_at", content.get("generated_at", "")) if specific_week else content.get("generated_at", ""),
             "weekly": weekly_normalized,
             "capacity_alerts": alerts_map,
             "completion": comp,
@@ -187,7 +222,8 @@ def plan_template(user: User = Depends(get_current_user)):
 
 
 class MentorPlanIn(BaseModel):
-    days: List[Dict[str, Any]]  # [{label, tasks:[{subject, topic, duration_minutes, study_method, question_count, notes}]}]
+    days: List[Dict[str, Any]]
+    week_start: Optional[str] = None
 
 
 @router.put("/students/{student_id}/plan")
@@ -198,16 +234,28 @@ def assign_plan(student_id: int, data: MentorPlanIn,
     if not profile or profile.mentor_id != user.id:
         raise HTTPException(status_code=404, detail="Student is not assigned to your account")
 
+    today = date.today()
+    cur_sat = saturday_start(today)
+    if data.week_start:
+        try:
+            target_sat = saturday_start(date.fromisoformat(data.week_start))
+        except ValueError:
+            target_sat = cur_sat
+    else:
+        target_sat = cur_sat
+
+    target_sat_str = target_sat.isoformat()
+
     weekly = []
     for i, d in enumerate(data.days):
-        label = (d.get("label") or "").strip() or f"Day {i+1}"
+        label = (d.get("label") or d.get("day") or d.get("day_name") or "").strip() or f"Day {i+1}"
         sessions = []
         for j, t in enumerate(d.get("tasks") or []):
             subj = (t.get("subject") or "").strip()
             if not subj:
                 continue
 
-            dur = t.get("duration_minutes")
+            dur = t.get("duration_minutes") or t.get("time_min")
             if dur is None:
                 try:
                     dur = round(float(t.get("hours") or 1.5) * 60)
@@ -220,51 +268,230 @@ def assign_plan(student_id: int, data: MentorPlanIn,
                     dur = 90
 
             dur = max(15, min(360, dur))  # between 15 mins and 6 hours
-            study_method = str(t.get("study_method") or "study").strip().lower()
-            if study_method not in ("test", "essay", "study", "review"):
-                study_method = "study"
+            raw_method = str(t.get("study_method") or t.get("method") or "study").strip().lower()
+            method_map = {
+                "تستی": "test", "test": "test",
+                "تشریحی": "essay", "essay": "essay",
+                "مطالعه": "study", "study": "study",
+                "مرور": "review", "review": "review",
+            }
+            study_method = method_map.get(raw_method, "study")
 
-            q_cnt = t.get("question_count")
+            q_cnt = t.get("question_count") or t.get("q_count")
             if q_cnt is not None:
                 try:
                     q_cnt = int(q_cnt)
                 except (TypeError, ValueError):
                     q_cnt = None
 
+            topic_val = (t.get("topic") or t.get("custom_title") or t.get("focus") or "").strip()
+            notes_val = (t.get("notes") or t.get("description") or "").strip()
+
             sessions.append({
                 "id": t.get("id") or f"sess_{i}_{j}_{int(datetime.utcnow().timestamp())}",
                 "subject": subj,
-                "topic": (t.get("topic") or t.get("focus") or "").strip(),
+                "topic": topic_val,
                 "duration_minutes": dur,
                 "study_method": study_method,
                 "question_count": q_cnt,
-                "notes": (t.get("notes") or "").strip(),
+                "notes": notes_val,
             })
         weekly.append({"day": label, "sessions": sessions})
 
-    content = {
-        "weekly": weekly,
-        "summary": f"Study plan configured by mentor {user.full_name}",
-        "generated_at": datetime.now().strftime("%Y-%m-%d"),
-        "mentor_plan": True,
-    }
-
     plan = db.query(StudyPlan).filter(StudyPlan.student_id == student_id).first()
-    if plan:
-        plan.content = content
-        plan.source = "mentor"
-        plan.mentor_id = user.id
-    else:
+    if not plan:
         plan = StudyPlan(
             student_id=student_id,
-            content=content,
+            content={"weeks": {}},
             source="mentor",
             mentor_id=user.id,
         )
         db.add(plan)
+        db.flush()
+
+    content = plan.content or {}
+    weeks = content.setdefault("weeks", {})
+    weeks[target_sat_str] = {
+        "weekly": weekly,
+        "status": "approved",
+        "source": "mentor",
+        "mentor_id": user.id,
+        "summary": f"برنامه هفتگی تنظیم شده توسط مشاور {user.full_name}",
+        "generated_at": datetime.now().strftime("%Y-%m-%d"),
+    }
+
+    # If saving current week, also update top-level weekly for backward compatibility
+    if target_sat_str == cur_sat.isoformat():
+        content["weekly"] = weekly
+
+    content["summary"] = f"Study plan configured by mentor {user.full_name}"
+    content["generated_at"] = datetime.now().strftime("%Y-%m-%d")
+
+    plan.content = content
+    plan.source = "mentor"
+    plan.mentor_id = user.id
+    flag_modified(plan, "content")
 
     db.commit()
-    return {"ok": True, "source": "mentor"}
+    return {"ok": True, "source": "mentor", "week_start": target_sat_str}
+
+
+@router.post("/students/{student_id}/generate-ai-plan")
+def generate_ai_draft_plan(
+    student_id: int,
+    week_start: Optional[str] = None,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Generates an intelligent AI draft plan for the upcoming week based on student context, report cards, and mentor style."""
+    _mentor_guard(user)
+    profile = db.query(StudentProfile).filter(StudentProfile.user_id == student_id).first()
+    if not profile or profile.mentor_id != user.id:
+        raise HTTPException(status_code=404, detail="Student is not assigned to your account")
+
+    today = date.today()
+    cur_sat = saturday_start(today)
+    next_sat = cur_sat + timedelta(days=7)
+
+    if week_start:
+        try:
+            target_sat = saturday_start(date.fromisoformat(week_start))
+        except ValueError:
+            target_sat = next_sat
+    else:
+        target_sat = next_sat
+
+    target_sat_str = target_sat.isoformat()
+
+    plan = db.query(StudyPlan).filter(StudyPlan.student_id == student_id).first()
+    report_cards = db.query(ReportCard).filter(ReportCard.student_id == student_id).all()
+    comp = plan_completion(db, student_id)
+
+    student_ctx = {
+        "full_name": profile.user.full_name if profile.user else "دانش‌آموز",
+        "grade_level": profile.grade_level,
+        "field_of_study": profile.field_of_study,
+        "goal_type": profile.goal_type,
+        "subject_scores": profile.subject_scores or [],
+        "focus_subjects": (profile.analysis or {}).get("focus_subjects", []),
+    }
+
+    rc_list = [
+        {
+            "title": rc.title,
+            "provider": rc.provider,
+            "overall_traz": rc.total_traz,
+            "subjects": rc.parsed_data.get("subjects", []) if rc.parsed_data else [],
+        }
+        for rc in report_cards
+    ]
+
+    ai_result = ai.generate_next_week_draft_plan(
+        student_info=student_ctx,
+        previous_plan=(plan.content or {}).get("weekly") if plan else None,
+        report_cards=rc_list,
+        completion_stats=comp,
+    )
+
+    draft_weekly = ai_result.get("weekly", [])
+    if not draft_weekly:
+        draft_weekly = template_days()
+
+    if not plan:
+        plan = StudyPlan(
+            student_id=student_id,
+            content={"weeks": {}},
+            source="mentor",
+            mentor_id=user.id,
+        )
+        db.add(plan)
+        db.flush()
+
+    content = plan.content or {}
+    weeks = content.setdefault("weeks", {})
+    weeks[target_sat_str] = {
+        "weekly": draft_weekly,
+        "status": "draft_ai",
+        "source": "ai",
+        "summary": ai_result.get("summary", "پیش‌نویس برنامه هوشمند هفتگی تولید شده توسط AI"),
+        "ai_strategy": ai_result.get("ai_strategy", "تمرکز بر تست‌زنی و جبران افت تراز"),
+        "generated_at": datetime.now().strftime("%Y-%m-%d"),
+    }
+    plan.content = content
+    flag_modified(plan, "content")
+    db.commit()
+
+    return {
+        "ok": True,
+        "is_draft": True,
+        "week_start": target_sat_str,
+        "status": "draft_ai",
+        "summary": ai_result.get("summary"),
+        "ai_strategy": ai_result.get("ai_strategy"),
+        "days": normalize_weekly_days(draft_weekly),
+    }
+
+
+@router.post("/students/{student_id}/trigger-ai-analysis")
+def trigger_ai_analysis(
+    student_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Executes live AI deep diagnostic, generating standardized metrics for interactive animated charts."""
+    _mentor_guard(user)
+    profile = db.query(StudentProfile).filter(StudentProfile.user_id == student_id).first()
+    if not profile or profile.mentor_id != user.id:
+        raise HTTPException(status_code=404, detail="Student is not assigned to your account")
+
+    report_cards = db.query(ReportCard).filter(ReportCard.student_id == student_id).all()
+    attempts = db.query(ExamAttempt).filter(ExamAttempt.student_id == student_id).all()
+    tasks_progress = db.query(PlanProgress).filter(PlanProgress.student_id == student_id).all()
+
+    student_ctx = {
+        "full_name": profile.user.full_name if profile.user else "دانش‌آموز",
+        "grade_level": profile.grade_level,
+        "field_of_study": profile.field_of_study,
+        "last_year_avg": profile.last_year_avg,
+        "goal_type": profile.goal_type,
+        "subject_scores": profile.subject_scores or [],
+    }
+
+    rc_list = [
+        {
+            "title": rc.title,
+            "provider": rc.provider,
+            "exam_date": rc.exam_date,
+            "overall_traz": rc.total_traz,
+            "subjects": rc.parsed_data.get("subjects", []) if rc.parsed_data else [],
+        }
+        for rc in report_cards
+    ]
+
+    attempts_list = [
+        {"kind": a.kind, "score": a.total_score, "date": a.started_at.isoformat() if a.started_at else None}
+        for a in attempts if a.total_score is not None
+    ]
+
+    diagnostic = ai.standardized_student_diagnostic(
+        student_profile=student_ctx,
+        report_cards=rc_list,
+        exam_attempts=attempts_list,
+        task_history=[{"date": t.date_str, "status": t.status} for t in tasks_progress],
+    )
+
+    # Atomically save to profile
+    profile.analysis = diagnostic
+    profile.ai_dossier = {
+        "analytical_dossier": diagnostic.get("confidential_dossier"),
+        "subject_breakdowns": diagnostic.get("subject_breakdowns"),
+        "last_refreshed": diagnostic.get("last_refreshed", datetime.utcnow().isoformat()),
+    }
+    flag_modified(profile, "analysis")
+    flag_modified(profile, "ai_dossier")
+    db.commit()
+
+    return {"ok": True, "analysis": diagnostic}
 
 
 @router.get("/stats")

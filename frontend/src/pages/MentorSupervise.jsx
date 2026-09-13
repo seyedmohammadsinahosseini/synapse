@@ -6,12 +6,23 @@ import PlanSection from '../components/PlanSection.jsx'
 
 const PRE_UNI = ['پیش‌دانشگاهی / کنکوری', 'Pre-University / Konkur']
 
+const METHOD_ICONS = {
+  test: '🎯',
+  essay: '✍️',
+  study: '📖',
+  review: '🔄',
+}
+
 export default function MentorSupervise({ studentId, navigate }) {
   const { t } = useLang()
+  const isEn = getLang() === 'en'
+
   const [s, setS] = useState(null)
   const [error, setError] = useState('')
   const [analysis, setAnalysis] = useState(null)
   const [saving, setSaving] = useState(false)
+  const [runningAi, setRunningAi] = useState(false)
+  const [isIlluminated, setIsIlluminated] = useState(false)
   const [editProf, setEditProf] = useState(false)
   const [form, setForm] = useState(null)
   const [selectedReportCard, setSelectedReportCard] = useState(null)
@@ -29,6 +40,25 @@ export default function MentorSupervise({ studentId, navigate }) {
 
   useEffect(loadDetail, [studentId]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(loadAnalysis, [])         // eslint-disable-line react-hooks/exhaustive-deps
+
+  const triggerLiveAiDiagnostic = async () => {
+    setRunningAi(true)
+    setError('')
+    try {
+      const res = await api(`/api/mentor/students/${studentId}/trigger-ai-analysis`, {
+        method: 'POST',
+      })
+      loadDetail()
+      loadAnalysis()
+      // Trigger illuminating neon animation
+      setIsIlluminated(true)
+      setTimeout(() => setIsIlluminated(false), 3500)
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setRunningAi(false)
+    }
+  }
 
   const openProfileEdit = () => {
     const p = s.student
@@ -59,6 +89,8 @@ export default function MentorSupervise({ studentId, navigate }) {
   const planColor = comp.color === 'ok' ? 'var(--ok)' : comp.color === 'mid' ? 'var(--warn)' : comp.color === 'low' ? 'var(--danger)' : 'var(--muted)'
   const reportCards = s.report_cards || []
   const dossier = s.ai_dossier || {}
+  const diagnostic = s.analysis || {}
+  const subjectBreakdowns = diagnostic.subject_breakdowns || dossier.subject_breakdowns || []
 
   return (
     <div>
@@ -75,9 +107,20 @@ export default function MentorSupervise({ studentId, navigate }) {
             </div>
           </div>
           <div className="flex wrap" style={{ gap: 8 }}>
-            <span className="badge" style={{ background: colorDot, color: '#fff', borderRadius: 10, padding: '6px 12px' }}>
-              {t('completionWeek')}: {comp.pct != null ? fa(comp.pct) + '٪' : '—'}
-            </span>
+            <button
+              className="btn sm"
+              style={{
+                background: 'linear-gradient(135deg, #10b981, #059669)',
+                color: '#fff',
+                borderRadius: 10,
+                boxShadow: '0 4px 14px rgba(16, 185, 129, 0.4)',
+                fontWeight: 800,
+              }}
+              disabled={runningAi}
+              onClick={triggerLiveAiDiagnostic}
+            >
+              {runningAi ? '⚡ در حال پردازش و استخراج تحلیل...' : '⚡ اجرای تحلیل جامع و به‌روزرسانی نمودارهای AI'}
+            </button>
             <button className="btn ghost sm" style={{ color: '#fff', borderColor: 'rgba(255,255,255,.5)', borderRadius: 10 }} onClick={() => navigate('#/chat?student=' + studentId)}>
               💬 {t('goChatStudent')}
             </button>
@@ -168,9 +211,16 @@ export default function MentorSupervise({ studentId, navigate }) {
         onChanged={loadDetail}
       />
 
-      {/* ── performance analysis (beta) ── */}
+      {/* ── performance analysis (beta) with Illuminated Glow Effect ── */}
       <div className="section-title" style={{ marginTop: 30 }}>📈 {t('analysisTitle')} <Badge color="#f59e0b">{t('analysisBeta')}</Badge></div>
-      <Card style={{ borderRadius: 18 }}>
+      <Card
+        style={{
+          borderRadius: 18,
+          transition: 'all 0.6s ease',
+          boxShadow: isIlluminated ? '0 0 35px rgba(99, 102, 241, 0.55)' : 'var(--shadow)',
+          borderColor: isIlluminated ? 'var(--primary)' : 'var(--line)',
+        }}
+      >
         {!analysis && <Empty>…</Empty>}
         {analysis && (
           <>
@@ -192,7 +242,11 @@ export default function MentorSupervise({ studentId, navigate }) {
                       <div className="trend-track">
                         <div
                           className={`trend-fill ${d.pct != null && d.pct < 25 ? 'red' : d.pct != null && d.pct < 50 ? 'yellow' : 'green'}`}
-                          style={{ height: `${d.pct != null ? Math.max(4, d.pct) : 2}%` }}
+                          style={{
+                            height: `${d.pct != null ? Math.max(4, d.pct) : 2}%`,
+                            filter: isIlluminated ? 'brightness(1.3) drop-shadow(0 0 6px rgba(99,102,241,0.6))' : 'none',
+                            transition: 'all 0.8s ease',
+                          }}
                         />
                       </div>
                       <div className="small muted trend-day">{dayLabel}</div>
@@ -208,7 +262,13 @@ export default function MentorSupervise({ studentId, navigate }) {
       {/* ── AI report & history ── */}
       <div className="section-title" style={{ marginTop: 30 }}>🎓 {t('historyOf')} + {t('aiReportForMentor')}</div>
       <div className="grid cols-2">
-        <Card style={{ borderRadius: 18 }}>
+        <Card
+          style={{
+            borderRadius: 18,
+            boxShadow: isIlluminated ? '0 0 30px rgba(168, 85, 247, 0.45)' : 'var(--shadow)',
+            transition: 'all 0.6s ease',
+          }}
+        >
           <h3>{t('analysisSummary')}</h3>
           <div className="analysis-box">{s.analysis?.summary || '—'}</div>
           <div className="small muted mt">{t('strengths')}</div>
@@ -233,6 +293,130 @@ export default function MentorSupervise({ studentId, navigate }) {
           <h3>{t('subjectScores')}</h3>
           <SubjectScores items={s.reported_subjects} />
         </Card>
+      </div>
+
+      {/* ── STANDARDIZED DETAILED AI PROGRESS CHARTS (UNDER EDUCATIONAL HISTORY) ── */}
+      <div className="section-title" style={{ marginTop: 34, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span>📊 تحلیل جزئی پیشرفت دروس و روند رشد هوش مصنوعی (Detailed Subject Breakdown & Progress)</span>
+        <span className="badge" style={{ background: 'var(--grad)', color: '#fff' }}>AI Engine 4o</span>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 18, marginBottom: 30 }}>
+        {subjectBreakdowns.length === 0 ? (
+          <Card style={{ borderRadius: 18, gridColumn: '1 / -1' }}>
+            <div className="empty" style={{ padding: '24px 10px' }}>
+              جهت استخراج و فعال‌سازی نمودارهای تحلیلی هر درس، دکمه «⚡ اجرای تحلیل جامع» بالای صفحه را بزنید.
+            </div>
+          </Card>
+        ) : (
+          subjectBreakdowns.map((sub, idx) => {
+            const isRising = sub.trajectory === 'rising'
+            const isWarning = sub.trajectory === 'needs_attention'
+            const trajColor = isRising ? '#16a34a' : isWarning ? '#dc2626' : '#d97706'
+            const trajLabel = isRising ? '📈 صعودی' : isWarning ? '⚠️ نیازمند تمرکز' : '⚖️ پایدار'
+            const dist = sub.study_methods_dist || { test: 40, study: 35, review: 25 }
+
+            return (
+              <Card
+                key={idx}
+                style={{
+                  borderRadius: 18,
+                  padding: 18,
+                  border: isIlluminated ? '1.5px solid var(--primary)' : '1px solid var(--line)',
+                  boxShadow: isIlluminated ? '0 0 25px rgba(99, 102, 241, 0.35)' : 'var(--shadow)',
+                  transition: 'all 0.5s ease',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 12,
+                }}
+              >
+                {/* Header with Trajectory and Growth Badge */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <b style={{ fontSize: 16, color: 'var(--ink)' }}>📚 {sub.subject}</b>
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <span className="badge" style={{ background: `${trajColor}22`, color: trajColor, fontWeight: 800 }}>
+                      {trajLabel}
+                    </span>
+                    {sub.growth_rate && (
+                      <span className="badge" style={{ background: 'var(--tint-fill)', color: 'var(--primary)', fontWeight: 800 }}>
+                        {sub.growth_rate}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Progress Bar: Current vs Target Level */}
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }} className="muted">
+                    <span>سطح تسلط فعلی: <b>{fa(sub.current_level)}٪</b></span>
+                    <span>هدف‌گذاری: <b style={{ color: 'var(--primary)' }}>{fa(sub.target_level)}٪</b></span>
+                  </div>
+                  <div style={{ position: 'relative', height: 10, background: 'var(--track-fill)', borderRadius: 999, overflow: 'hidden' }}>
+                    {/* Target ghost indicator */}
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        bottom: 0,
+                        left: 0,
+                        width: `${sub.target_level}%`,
+                        background: 'rgba(99, 102, 241, 0.25)',
+                        borderRadius: 999,
+                      }}
+                    />
+                    {/* Current level fill */}
+                    <div
+                      style={{
+                        height: '100%',
+                        width: `${sub.current_level}%`,
+                        background: isRising ? 'linear-gradient(90deg, #10b981, #059669)' : isWarning ? 'linear-gradient(90deg, #f87171, #dc2626)' : 'linear-gradient(90deg, #6366f1, #a855f7)',
+                        borderRadius: 999,
+                        transition: 'width 1s cubic-bezier(0.2, 0.8, 0.2, 1)',
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Study Methods Distribution Badges */}
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', fontSize: 11.5 }}>
+                  {Object.entries(dist).map(([mKey, mVal]) => (
+                    <span
+                      key={mKey}
+                      style={{
+                        background: 'var(--tint-fill)',
+                        color: 'var(--ink)',
+                        padding: '2px 8px',
+                        borderRadius: 6,
+                        fontWeight: 600,
+                      }}
+                    >
+                      {METHOD_ICONS[mKey] || '📝'} {fa(mVal)}٪ {t(`method_${mKey}`) || mKey}
+                    </span>
+                  ))}
+                </div>
+
+                {/* AI Diagnostic Commentary */}
+                {sub.diagnostic_comment && (
+                  <div className="small" style={{ background: 'var(--tint-hover)', padding: '8px 12px', borderRadius: 10, color: 'var(--ink)', lineHeight: 1.6 }}>
+                    💡 {sub.diagnostic_comment}
+                  </div>
+                )}
+
+                {/* Weak Subtopics */}
+                {sub.weak_subtopics?.length > 0 && (
+                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <span className="small muted" style={{ fontSize: 11 }}>تمرکز روی:</span>
+                    {sub.weak_subtopics.map((tp, ti) => (
+                      <span key={ti} className="badge" style={{ fontSize: 11, background: 'rgba(239, 68, 68, 0.12)', color: '#dc2626' }}>
+                        {tp}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </Card>
+            )
+          })
+        )}
       </div>
 
       <div className="section-title" style={{ marginTop: 30 }}>📝 {t('examHistory')}</div>

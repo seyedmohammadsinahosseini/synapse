@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 import re
 import urllib.request
-from datetime import datetime
+from datetime import datetime, timedelta
 from urllib.parse import quote
 
 from dotenv import load_dotenv
@@ -32,37 +32,24 @@ def today_label() -> str:
     return datetime.now().strftime("%Y/%m/%d")
 
 
-MOCK_CHANNELS = [
-    {"title": "Medu IR Education", "url": "https://www.youtube.com/user/medu_ir"},
-    {"title": "PaDars Educational", "url": "https://www.youtube.com/@padars"},
-    {"title": "Alaa Educational TV", "url": "https://www.youtube.com/@alaatv"},
-    {"title": "Moshaveran Learning", "url": "https://www.youtube.com/@moshaveran"},
-    {"title": "Kanoon Ghalemchi", "url": "https://www.youtube.com/@kankon"},
-]
-
-SUBJECT_MAP = {
-    "math": "Mathematics",
-    "physics": "Physics",
-    "chemistry": "Chemistry",
-    "biology": "Biology",
-    "literature": "Literature",
-    "english": "English",
-    "arabic": "Arabic",
-    "religion": "Ethics & Religion",
-}
-
 GOAL_LABELS = {
-    "better_average": "Improve Overall GPA",
-    "specific_subjects": "Master Specific Subjects",
-    "konkur": "University Entrance Prep",
+    "better_average": "افزایش معدل کل",
+    "specific_subjects": "بهبود نمره در درس‌های مشخص",
+    "konkur": "آمادگی برای کنکور",
 }
 
-DIFFICULTY_LABELS = {1: "Easy", 2: "Medium", 3: "Hard", 4: "Very Hard"}
+DIFFICULTY_LABELS = {
+    1: "آسان",
+    2: "متوسط",
+    3: "سخت",
+    4: "خیلی سخت",
+}
+
 MODEL_LABELS = {
-    "random": "Mixed / Random",
-    "essay": "Essay Only",
-    "fill": "Fill-in-the-blank Only",
-    "mcq": "Multiple Choice",
+    "random": "تصادفی",
+    "essay": "تشریحی",
+    "fill": "جای خالی",
+    "mcq": "چهارگزینه‌ای",
 }
 
 
@@ -80,7 +67,7 @@ class AIProvider:
                     {"role": "system", "content": system},
                     {"role": "user", "content": user},
                 ],
-                "temperature": 0.4,
+                "temperature": 0.35,
                 "max_tokens": 4096,
             }
             if json_mode:
@@ -107,6 +94,10 @@ class AIProvider:
 
     def _mock_reply(self, system: str, user: str) -> str:
         profile = json.loads(user) if user.strip().startswith("{") else {}
+        if "generate_next_week_draft_plan" in system:
+            return self._mock_next_week_plan(profile)
+        if "standardized_diagnostic" in system:
+            return self._mock_standardized_diagnostic(profile)
         if "analyze" in system:
             return self._mock_analysis(profile)
         if "essay_grade" in system:
@@ -137,10 +128,10 @@ class AIProvider:
         weaknesses_text = ", ".join(f"{r['subject']} ({r['score']})" for r in worst) or "N/A"
 
         summary = (
-            f"Student in grade {profile.get('grade_level', '')} evaluated with previous average of "
-            f"{profile.get('last_year_avg', 0)} and goal '{GOAL_LABELS.get(goal, goal)}'. "
-            f"Strengths: {strengths_text}. Focus areas: {weaknesses_text}. "
-            f"Recommended strategy involves structured daily study sessions followed by modular tests."
+            f"دانش‌آموز در پایه {profile.get('grade_level', '')} با معدل {profile.get('last_year_avg', 0)} "
+            f"و هدف «{GOAL_LABELS.get(goal, goal)}» مورد ارزیابی قرار گرفت. "
+            f"نقاط قوت: {strengths_text}. نقاط نیازمند بهبود: {weaknesses_text}. "
+            f"برنامه پیشنهادی متکی بر تفکیک پارت‌های تست‌زنی، مطالعه مفهومی و حل تمرینات است."
         )
 
         plan = self._build_plan(rows, focus, goal)
@@ -154,20 +145,20 @@ class AIProvider:
             "goal_label": GOAL_LABELS.get(goal, goal),
             "plan": plan,
             "mentor_report": (
-                f"AI Diagnostic Report for Student:\n"
-                f"• Target Goal: {GOAL_LABELS.get(goal, goal)}\n"
-                f"• Previous GPA: {profile.get('last_year_avg', 0)}\n"
-                f"• Strengths: {strengths_text}\n"
-                f"• Improvement Areas: {weaknesses_text}\n"
-                f"• Suggested Routine: {plan.get('summary', '')}\n"
-                f"Generated: {today_label()}"
+                f"گزارش تشخیصی هوش مصنوعی برای مشاور:\n"
+                f"• هدف: {GOAL_LABELS.get(goal, goal)}\n"
+                f"• معدل سال قبل: {profile.get('last_year_avg', 0)}\n"
+                f"• نقاط قوت: {strengths_text}\n"
+                f"• نقاط ضعف: {weaknesses_text}\n"
+                f"• راهبرد پیشنهادی: {plan.get('summary', '')}\n"
+                f"تاریخ تحلیل: {today_label()}"
             ),
             "analyzed_at": today_label(),
         }
 
     def _build_plan(self, rows, focus, goal) -> dict:
-        days = ["Saturday", "Sunday", "Monday", "Tuesday", "Wednesday"]
-        focus_names = [r["subject"] for r in focus] or [r["subject"] for r in rows[:2]] or ["Mathematics"]
+        days = ["شنبه", "یکشنبه", "دوشنبه", "سه‌شنبه", "چهارشنبه", "پنجشنبه", "جمعه"]
+        focus_names = [r["subject"] for r in focus] or [r["subject"] for r in rows[:2]] or ["زیست‌شناسی", "شیمی", "ریاضی", "فیزیک"]
         weekly = []
         for i, day in enumerate(days):
             main = focus_names[i % len(focus_names)]
@@ -175,196 +166,204 @@ class AIProvider:
             weekly.append({
                 "day": day,
                 "sessions": [
-                    {"subject": main, "hours": 1.5, "focus": "Core concept review and practice"},
-                    {"subject": other, "hours": 1.0, "focus": "Quick drill and problem solving"},
+                    {"subject": main, "duration_minutes": 90, "study_method": "study", "topic": f"مطالعه مفهومی و تسلط بر متن {main}"},
+                    {"subject": other, "duration_minutes": 90, "study_method": "test", "question_count": 35, "topic": f"تست‌زنی و بررسی پاسخ‌نامه {other}"},
                 ],
             })
-        weekly.append({
-            "day": "Friday",
-            "sessions": [
-                {"subject": "Comprehensive Test", "hours": 2.0, "focus": "Weekly review exam"},
-                {"subject": "Review & Rest", "hours": 1.0, "focus": "Notes summary"},
-            ],
-        })
         return {
             "weekly": weekly,
-            "summary": f"Targeting 2.5 hours of daily focused study, emphasizing {', '.join(focus_names[:2])}.",
-            "daily_minutes": 150,
+            "summary": f"هدف‌گذاری ۳ ساعت مطالعه متمرکز روزانه با تمرکز بر {', '.join(focus_names[:2])}.",
+            "daily_minutes": 180,
             "generated_at": today_label(),
         }
 
-    def _mock_essay_grade(self, payload: dict) -> dict:
-        text = payload.get("text", "")
-        keywords = [k for k in payload.get("keywords", []) if k]
-        hits = sum(1 for k in keywords if k and k in text)
-        base = 10.0
-        score = min(20.0, base + hits * 2.0)
-        if len(text) < 20:
-            score = min(score, 8.0)
-        feedback = "Partial understanding shown." if score < 12 else "Good explanation covering key required concepts."
-        return {"score": round(score, 1), "feedback": feedback}
-
-    def _mock_videos(self, payload: dict) -> list:
-        subjects = payload.get("subjects") or ["General"]
-        out = []
-        out.append({
-            "subject": "هوش مصنوعی",
-            "title": "ویدیوهای اختصاصی پس از بررسی دقیق‌تر عملکرد و آزمون‌های شما توسط هوش مصنوعی پیشنهاد خواهند شد.",
-            "url": "#/exam/new",
-            "reason": "هوش مصنوعی بر اساس تحلیل آزمون‌ها و نقاط ضعف شما بهترین ویدیوهای آموزشی آپارات و یوتیوب را انتخاب خواهد کرد.",
-            "source": "ai",
-            "views": 0,
-            "likes": 0,
-        })
-        for s in subjects[:2]:
-            out.append({
-                "subject": s,
-                "title": f"آموزش و حل تست مبحثی {s}",
-                "url": self._aparat_search_url(s),
-                "reason": f"مجموعه ویدیویی آموزشی برای تقویت مباحث {s}.",
-                "source": "aparat",
-                "views": 1500,
-                "likes": 85,
-            })
-        return out
-
-    def _youtube_search_url(self, subject: str) -> str:
-        q = re.sub(r"\s+", "+", subject)
-        return f"https://www.youtube.com/results?search_query=education+{q}&sp=CAMSBAgCEAE%3D"
-
-    def _aparat_search_url(self, subject: str) -> str:
-        return f"https://www.aparat.com/result/{quote(subject)}"
-
-    def _aparat_search(self, subjects: list) -> list:
-        out = []
-        for sub in subjects[:4]:
-            try:
-                url = f"https://www.aparat.com/etc/api/videoBySearch/text/{quote(sub)}/perpage/6"
-                req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-                with urllib.request.urlopen(req, timeout=15) as r:
-                    data = json.loads(r.read().decode("utf-8", "replace"))
-                vids = data.get("videolist") or []
-                for v in vids[:3]:
-                    uid = v.get("uid")
-                    if not uid:
-                        continue
-                    views = int(v.get("visit_cnt") or v.get("views") or 0)
-                    likes = int(v.get("like_cnt") or v.get("likes") or 0)
-                    out.append({
-                        "subject": sub,
-                        "title": v.get("title", f"Lessons for {sub}"),
-                        "url": f"https://www.aparat.com/v/{uid}",
-                        "reason": f"Top rated video with {views:,} views.",
-                        "source": "aparat",
-                        "views": views,
-                        "likes": likes,
-                    })
-            except Exception:
-                continue
-        return out
-
-    def _youtube_search(self, subjects: list) -> list:
-        key = os.environ.get("YOUTUBE_API_KEY", "")
-        if not key:
-            return []
-        out = []
-        for sub in subjects[:4]:
-            try:
-                q = quote(f"education {sub}")
-                su = (f"https://www.googleapis.com/youtube/v3/search?part=snippet&type=video"
-                      f"&maxResults=5&order=viewCount&q={q}&key={key}")
-                with urllib.request.urlopen(su, timeout=15) as r:
-                    sdata = json.loads(r.read().decode())
-                ids = [it["id"]["videoId"] for it in sdata.get("items", []) if it.get("id", {}).get("videoId")]
-                stats = {}
-                if ids:
-                    vu = f"https://www.googleapis.com/youtube/v3/videos?part=statistics&id={','.join(ids[:5])}&key={key}"
-                    with urllib.request.urlopen(vu, timeout=15) as r:
-                        vdata = json.loads(r.read().decode())
-                    for it in vdata.get("items", []):
-                        st = it.get("statistics", {})
-                        stats[it["id"]] = (int(st.get("viewCount") or 0), int(st.get("likeCount") or 0))
-
-                for it in sdata.get("items", [])[:3]:
-                    vid = it.get("id", {}).get("videoId")
-                    if not vid:
-                        continue
-                    views, likes = stats.get(vid, (0, 0))
-                    out.append({
-                        "subject": sub,
-                        "title": it["snippet"]["title"],
-                        "url": f"https://www.youtube.com/watch?v={vid}",
-                        "reason": f"Popular YouTube lecture ({views:,} views).",
-                        "source": "youtube",
-                        "views": views,
-                        "likes": likes,
-                    })
-            except Exception:
-                continue
-        return out
-
-    def _llm_videos(self, subjects: list, lang: str = "fa") -> list:
-        prompt_note = (
-            "For each subject return 2 top educational video channels or search queries. "
-            "Output JSON format only: [{\"subject\": string, \"title\": string, \"channel\": string, "
-            "\"platform\": \"youtube\"|\"aparat\", \"reason\": string}]"
-        )
-        try:
-            raw = self._call_llm(
-                "videos: " + prompt_note,
-                json.dumps({"subjects": subjects[:4]}, ensure_ascii=False),
-                json_mode=True,
-            )
-            data = self._safe_json(raw, [])
-            items = data if isinstance(data, list) else []
-        except Exception:
-            items = []
-
-        if not items:
-            return self._mock_videos({"subjects": subjects})
-
-        out = []
-        for it in items[:8]:
-            subj = it.get("subject") or "General"
-            title = it.get("title") or f"Lectures on {subj}"
-            channel = it.get("channel") or ""
-            platform = (it.get("platform") or "youtube").lower()
-            reason = it.get("reason") or ""
-            if platform == "aparat":
-                url = self._aparat_search_url(subj)
-                src = "aparat"
-            else:
-                url = self._youtube_search_url(subj)
-                src = "youtube"
-            if channel:
-                title = f"{title} — {channel}"
-            out.append({
-                "subject": subj,
-                "title": title,
-                "url": url,
-                "reason": reason,
-                "source": src,
-                "views": 0,
-                "likes": 0,
-            })
-        return out[:6]
-
-    def analyze_student(self, profile: dict) -> dict:
+    def generate_next_week_draft_plan(
+        self,
+        student_info: dict,
+        previous_plan: dict | None,
+        report_cards: list,
+        completion_stats: dict,
+    ) -> dict:
+        """Generates an intelligent AI draft plan for the upcoming week based on student history and mentor style."""
         schema = (
-            'JSON schema: {"summary": string, "strengths": [string], '
-            '"weaknesses": [string], "focus_subjects": [string], '
-            '"goal": string, "goal_label": string, '
-            '"plan": {"weekly": [{"day": string, "sessions": [{"subject": string, '
-            '"hours": number, "focus": string}]}], "summary": string, '
-            '"daily_minutes": number, "generated_at": string}, '
-            '"mentor_report": string, "analyzed_at": string}'
+            'JSON schema: {"weekly": [{"day": string, "sessions": [{"subject": string, '
+            '"duration_minutes": number, "study_method": "test"|"essay"|"study"|"review", '
+            '"question_count": number|null, "topic": string, "notes": string}]}], '
+            '"summary": string, "ai_strategy": string}'
         )
-        raw = self._call_llm(
-            "analyze: " + schema,
-            json.dumps(profile, ensure_ascii=False),
-            json_mode=True,
+        system = (
+            "generate_next_week_draft_plan: You are an expert educational counselor AI. "
+            "Build an adaptive 7-day draft study plan for next week based on the student's weaknesses, "
+            "missed tasks from previous week, and the mentor's pedagogical approach. "
+            + schema
         )
-        return self._safe_json(raw, self._mock_analysis(profile))
+        payload = {
+            "student_info": student_info,
+            "previous_plan": previous_plan,
+            "report_cards": report_cards,
+            "completion_stats": completion_stats,
+        }
+        raw = self._call_llm(system, json.dumps(payload, ensure_ascii=False), json_mode=True)
+        return self._safe_json(raw, self._mock_next_week_plan(payload))
+
+    def _mock_next_week_plan(self, payload: dict) -> dict:
+        student_info = payload.get("student_info", {})
+        focus_subs = student_info.get("focus_subjects", []) or ["زیست‌شناسی", "شیمی", "فیزیک", "ریاضی"]
+        days = ["شنبه", "یکشنبه", "دوشنبه", "سه‌شنبه", "چهارشنبه", "پنجشنبه", "جمعه"]
+        weekly = []
+
+        for i, day in enumerate(days):
+            s1 = focus_subs[i % len(focus_subs)]
+            s2 = focus_subs[(i + 1) % len(focus_subs)]
+            if i == 6:  # جمعه
+                weekly.append({
+                    "day": day,
+                    "sessions": [
+                        {"subject": "آزمون آزمایشی هفتگی", "duration_minutes": 120, "study_method": "test", "question_count": 60, "topic": "شبیه‌سازی شرایط کنکور و آزمون‌های جامع", "notes": "تحلیل فوری کارنامه آزمون بعد از تصحیح"},
+                        {"subject": "مرور و رفع اشکال", "duration_minutes": 60, "study_method": "review", "question_count": None, "topic": "بررسی تست‌های علامت‌دار هفته", "notes": "ثبت اشتباهات پرتکرار در دفترچه یادداشت"},
+                    ]
+                })
+            else:
+                weekly.append({
+                    "day": day,
+                    "sessions": [
+                        {"subject": s1, "duration_minutes": 90, "study_method": "study" if i % 2 == 0 else "test", "question_count": 35 if i % 2 != 0 else None, "topic": f"مطالعه و تثبیت مباحث جدید {s1}", "notes": "خلاصه‌نویسی نکات کلیدی حین مطالعه"},
+                        {"subject": s2, "duration_minutes": 90, "study_method": "test" if i % 2 == 0 else "essay", "question_count": 30 if i % 2 == 0 else 15, "topic": f"حل تمرین و تست‌زنی سرعتی {s2}", "notes": "تایم‌گیری دقیق و یادداشت فرمول‌های مهم"},
+                    ]
+                })
+
+        return {
+            "weekly": weekly,
+            "summary": "پیش‌نویس برنامه هوشمند هفتگی بر اساس تحلیل کارنامه و جبران سرفصل‌های عقب‌مانده هفته قبل.",
+            "ai_strategy": "افزایش سهم تست‌زنی در دروس محاسباتی و مرور دوره‌ای دروس حفظی-مفهومی.",
+            "generated_at": today_label(),
+        }
+
+    def standardized_student_diagnostic(
+        self,
+        student_profile: dict,
+        report_cards: list,
+        exam_attempts: list,
+        task_history: list,
+    ) -> dict:
+        """Generates a standardized deep academic diagnostic payload with subject progress metrics and charts."""
+        schema = (
+            'JSON schema: {'
+            '"summary": string, '
+            '"overall_index": number, '
+            '"overall_trajectory": "rising"|"stable"|"needs_attention", '
+            '"learning_consistency": number, '
+            '"concept_depth_score": number, '
+            '"exam_speed_score": number, '
+            '"strengths": [string], '
+            '"weaknesses": [string], '
+            '"subject_breakdowns": [{'
+            '  "subject": string, '
+            '  "current_level": number, '
+            '  "target_level": number, '
+            '  "growth_rate": string, '
+            '  "trajectory": "rising"|"stable"|"needs_attention", '
+            '  "completion_rate": number, '
+            '  "study_methods_dist": {"test": number, "study": number, "essay": number, "review": number}, '
+            '  "diagnostic_comment": string, '
+            '  "weak_subtopics": [string]'
+            '}], '
+            '"pedagogical_prescriptions": [string], '
+            '"confidential_dossier": string, '
+            '"last_refreshed": string'
+            '}'
+        )
+        system = "standardized_diagnostic: Provide standardized deep academic progress analysis. " + schema
+        payload = {
+            "profile": student_profile,
+            "report_cards": report_cards,
+            "exam_attempts": exam_attempts,
+            "task_history": task_history,
+        }
+        raw = self._call_llm(system, json.dumps(payload, ensure_ascii=False), json_mode=True)
+        return self._safe_json(raw, self._mock_standardized_diagnostic(payload))
+
+    def _mock_standardized_diagnostic(self, payload: dict) -> dict:
+        profile = payload.get("profile", {})
+        report_cards = payload.get("report_cards", [])
+        subjects_reported = profile.get("subject_scores", []) or [
+            {"subject": "زیست‌شناسی", "score": 18.0},
+            {"subject": "شیمی", "score": 16.5},
+            {"subject": "فیزیک", "score": 14.0},
+            {"subject": "ریاضی", "score": 13.5},
+            {"subject": "ادبیات فارسی", "score": 17.5},
+            {"subject": "زبان انگلیسی", "score": 19.0},
+        ]
+
+        breakdowns = []
+        for s in subjects_reported:
+            name = s.get("subject", "درس")
+            base_score = float(s.get("score") or 15.0)
+            cur_pct = round(base_score / 20.0 * 100, 1)
+            target_pct = min(100.0, round(cur_pct + 12.0, 1))
+
+            if cur_pct >= 75:
+                traj = "rising"
+                growth = "+14%"
+                comment = f"تسلط بسیار مطلوب بر مباحث اصلی {name}؛ توصیه به حل تست‌های سخت و زمان‌دار."
+                subtopics = ["تست‌های ترکیبی", "شبیه‌سازی زمان کنکور"]
+            elif cur_pct >= 60:
+                traj = "stable"
+                growth = "+8%"
+                comment = f"درک مفهومی مناسب در {name}؛ نیازمند افزایش تعداد تست و کاهش خطاهای محاسباتی."
+                subtopics = ["تیپ‌تست‌های پرتکرار", "خلاصه‌نویسی فرمول‌ها"]
+            else:
+                traj = "needs_attention"
+                growth = "+5%"
+                comment = f"نیاز به بازیابی پایه‌ای و مرور سرفصل‌های فصل اول و دوم {name}."
+                subtopics = ["مفاهیم پایه‌ای", "حل تمرین تشریحی کتاب"]
+
+            breakdowns.append({
+                "subject": name,
+                "current_level": cur_pct,
+                "target_level": target_pct,
+                "growth_rate": growth,
+                "trajectory": traj,
+                "completion_rate": 84,
+                "study_methods_dist": {"test": 45, "study": 30, "essay": 15, "review": 10},
+                "diagnostic_comment": comment,
+                "weak_subtopics": subtopics,
+            })
+
+        dossier = (
+            f"=== پرونده جامع تحلیلی و راهبردی هوش مصنوعی (محرمانه مشاور) ===\n"
+            f"تاریخ به‌روزرسانی تحلیل: {today_label()}\n"
+            f"شاخص عملکرد کلی: ۷۸.۵٪ | وضعیت پایداری یادگیری: مطلوب و صعودی\n\n"
+            f"۱. ارزیابی تطبیقی کارنامه و آزمون‌ها:\n"
+            f"- دروس با عملکرد ممتاز: زبان انگلیسی و ادبیات (درک مطلب سریع و بازدهی بالای ۸۵٪).\n"
+            f"- دروس اولویت تمرکز و نیازمند جبران: ریاضی و فیزیک (افت سرعت حل مسئله در پارت‌های محاسباتی).\n\n"
+            f"۲. تحلیل الگوهای رفتاری و تعهد به برنامه مطالعاتی:\n"
+            f"- میزان پایبندی به انجام پارت‌های هفتگی: ۸۲٪ با تعهد بالا به پارت‌های صبحگاهی.\n"
+            f"- بیشترین میزان تکالیف انجام‌نشده در پارت‌های پایانی شب رخ داده است.\n\n"
+            f"۳. راهبردهای تجویزی پیشنهادی برای مشاور:\n"
+            f"  الف) قرار دادن پارت‌های محاسباتی ریاضی در ساعات آغازین روز (ساعت ۸ تا ۱۱:۳۰).\n"
+            f"  ب) استفاده از تکنیک تست‌زنی زمان‌دار مضرب ۵ با تحلیل آنی پاسخ‌نامه.\n"
+            f"  ج) تثبیت پیشرفت زیست‌شناسی با اجرای مرورهای منظم ۳ روزه."
+        )
+
+        return {
+            "summary": f"دانش‌آموز دارای پتانسیل پیشرفت بسیار بالا با شاخص پایداری یادگیری ۸۲٪ است. محور اصلی برنامه باید بر ارتقای تست‌زنی دروس محاسباتی متمرکز گردد.",
+            "overall_index": 78.5,
+            "overall_trajectory": "rising",
+            "learning_consistency": 82,
+            "concept_depth_score": 79,
+            "exam_speed_score": 74,
+            "strengths": ["زبان انگلیسی", "ادبیات فارسی", "زیست‌شناسی"],
+            "weaknesses": ["ریاضی", "فیزیک"],
+            "subject_breakdowns": breakdowns,
+            "pedagogical_prescriptions": [
+                "انتقال دروس محاسباتی سنگین به پارت‌های اول صبح",
+                "اجرای آزمون‌های مبحثی ۲۰ تستی با تایم‌گیری استاندارد",
+                "استفاده از دفترچه اشتباهات و بازبینی هفتگی تست‌های نزده"
+            ],
+            "confidential_dossier": dossier,
+            "last_refreshed": datetime.utcnow().isoformat(),
+        }
 
     def grade_essay(self, text: str, keywords: list) -> dict:
         payload = {"text": text, "keywords": keywords}
@@ -376,8 +375,18 @@ class AIProvider:
         )
         return self._safe_json(raw, self._mock_essay_grade(payload))
 
+    def _mock_essay_grade(self, payload: dict) -> dict:
+        text = payload.get("text", "")
+        keywords = [k for k in payload.get("keywords", []) if k]
+        hits = sum(1 for k in keywords if k and k in text)
+        base = 10.0
+        score = min(20.0, base + hits * 2.0)
+        if len(text) < 20:
+            score = min(score, 8.0)
+        feedback = "پاسخ ناقص است." if score < 12 else "توضیح کامل با پوشش کلیدواژه‌های اصلی سوال."
+        return {"score": round(score, 1), "feedback": feedback}
+
     def analyze_report_card(self, text_or_filename: str, source: str = "kheilisabz") -> dict:
-        """Parses report card details, generating subject metrics, percentiles, traz, and deep background dossier."""
         schema = (
             'JSON schema: {'
             '"title": string, '
@@ -409,22 +418,13 @@ class AIProvider:
 
         source_title = "خیلی سبز" if source == "kheilisabz" else ("قلم‌چی" if source == "ghalamchi" else "مدرسه و آزمون‌های جامع")
         dossier = (
-            f"=== COMPREHENSIVE AI STUDENT DOSSIER (CONFIDENTIAL) ===\n"
-            f"Assessment Source: {source.upper()} ({source_title})\n"
-            f"Evaluation Date: {today_label()}\n"
-            f"Overall Academic Traz: {overall_traz} | Average Score: {overall_score}/20\n\n"
-            f"1. COGNITIVE & SUBJECT PERFORMANCE PROFILE:\n"
-            f"- Strongest Domains: English (84%, Traz 6850), Religion (80%), and Literature (78%). Student shows advanced linguistic fluency and high verbal comprehension speed.\n"
-            f"- Critical Improvement Areas: Mathematics (38.5%, Traz 5430) and Physics (46%, Traz 5780). Analysis indicates concept gaps in analytical geometry and kinematics, leading to high error rate in multi-step calculation items.\n"
-            f"- Moderate Consistency: Chemistry (61%) and Biology (72.5%) are well-positioned above cohort averages (+18.5% and +12.5% delta respectively), but require targeted formula consolidation.\n\n"
-            f"2. BEHAVIORAL & TIME BUDGETING DIAGNOSTIC:\n"
-            f"- Problem Solving Velocity: Moderate in numerical subjects, high in conceptual/reading subjects.\n"
-            f"- Recommended Pedagogical Interventions:\n"
-            f"  a) Dedicate first morning study blocks to high-cognitive load mathematics and physics.\n"
-            f"  b) Implement 40-minute test cycles with post-session error logs.\n"
-            f"  c) Maintain weekly spaced repetition on Biology flashcards to protect 70%+ mastery.\n\n"
-            f"3. LONG-TERM ADAPTIVE RECOVERY TRAJECTORY:\n"
-            f"Current percentile places the student in the top 12% bracket. By increasing daily mathematics problem-solving quota to 35 questions/day, expected traz uplift within 6 weeks is +450 to +600 points."
+            f"=== پرونده تحلیلی کارنامه آزمون {source_title} ===\n"
+            f"تاریخ آزمون: {today_label()} | تراز کل: {overall_traz} | معدل: {overall_score}/20\n\n"
+            f"۱. وضعیت دروس:\n"
+            f"- دروس قوی: زبان انگلیسی (۸۴٪، تراز ۶۸۵۰)، ادبیات (۷۸٪) و زیست‌شناسی (۷۲.۵٪).\n"
+            f"- نقاط ضعف نیازمند مداخله فوری: ریاضی (۳۸.۵٪) و فیزیک (۴۶٪).\n\n"
+            f"۲. توصیه مشاوره‌ای:\n"
+            f"افزایش تعداد تست روزانه ریاضی و فیزیک به حداقل ۴۰ تست همراه با ثبت کارنامه اشتباهات."
         )
 
         return {
@@ -451,6 +451,30 @@ class AIProvider:
             return items[:6]
         return self._llm_videos(subjects, lang)
 
+    def _mock_videos(self, payload: dict) -> list:
+        subjects = payload.get("subjects") or ["زیست‌شناسی", "شیمی"]
+        out = []
+        out.append({
+            "subject": "هوش مصنوعی",
+            "title": "ویدیوهای اختصاصی بر اساس نقاط ضعف و آزمون‌های شما پیشنهاد می‌شوند.",
+            "url": "#/plan",
+            "reason": "هوش مصنوعی بهترین آموزش‌های آپارات و یوتیوب را انتخاب می‌کند.",
+            "source": "ai",
+            "views": 0,
+            "likes": 0,
+        })
+        for s in subjects[:2]:
+            out.append({
+                "subject": s,
+                "title": f"آموزش و حل تست مبحثی {s}",
+                "url": f"https://www.aparat.com/result/{quote(s)}",
+                "reason": f"مجموعه ویدیویی آموزشی برای تقویت مباحث {s}.",
+                "source": "aparat",
+                "views": 1500,
+                "likes": 85,
+            })
+        return out
+
     def chat(self, messages: list, student_context: dict) -> str:
         lang = (student_context or {}).get("lang", "fa")
         if lang == "en":
@@ -461,8 +485,8 @@ class AIProvider:
             )
         else:
             system = (
-                "تو دستیار هوشمند آموزشی هستی که به دانش‌آموز کمک می‌کنی. "
-                "کوتاه، دقیق و دوستانه پاسخ بده. مشخصات دانش‌آموز: "
+                "تو دستیار هوشمند آموزشی هستی که به دانش‌آموز یا مشاور کمک می‌کنی. "
+                "کوتاه، دقیق، تحلیلی و دوستانه پاسخ بده. مشخصات: "
                 + json.dumps(student_context, ensure_ascii=False)
             )
         prompt = json.dumps(messages, ensure_ascii=False)
