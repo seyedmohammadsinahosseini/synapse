@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { api, fa, faDate } from '../api.js'
+import { api, fa, faDate, getLang } from '../api.js'
 import { useLang } from '../i18n.jsx'
 import { Card, Badge, Empty, Modal, ScoreBadge, SubjectScores } from '../ui.jsx'
 import PlanSection from '../components/PlanSection.jsx'
