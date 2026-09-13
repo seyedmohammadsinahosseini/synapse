@@ -43,6 +43,40 @@ body {
   background-attachment: fixed;
   color: var(--ink);
   line-height: 1.7;
+  position: relative;
+  min-height: 100vh;
+}
+
+/* ── Living animated background ambient orbs ──────────────────────── */
+body::before {
+  content: '';
+  position: fixed;
+  top: -20%;
+  left: -20%;
+  width: 140%;
+  height: 140%;
+  z-index: -2;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 18% 22%, rgba(99, 102, 241, 0.08) 0%, transparent 40%),
+    radial-gradient(circle at 82% 18%, rgba(168, 85, 247, 0.07) 0%, transparent 36%),
+    radial-gradient(circle at 48% 84%, rgba(59, 130, 246, 0.06) 0%, transparent 42%),
+    radial-gradient(circle at 78% 72%, rgba(236, 72, 153, 0.05) 0%, transparent 35%);
+  animation: living-ambient 22s ease-in-out infinite alternate;
+}
+
+@keyframes living-ambient {
+  0% { transform: translate(0, 0) scale(1) rotate(0deg); }
+  50% { transform: translate(-2.5%, 1.8%) scale(1.03) rotate(1.2deg); }
+  100% { transform: translate(1.8%, -2.2%) scale(0.97) rotate(-1.2deg); }
+}
+
+html[data-theme='dark'] body::before {
+  background:
+    radial-gradient(circle at 18% 22%, rgba(99, 102, 241, 0.18) 0%, transparent 45%),
+    radial-gradient(circle at 82% 18%, rgba(168, 85, 247, 0.15) 0%, transparent 40%),
+    radial-gradient(circle at 48% 84%, rgba(59, 130, 246, 0.12) 0%, transparent 45%),
+    radial-gradient(circle at 78% 72%, rgba(236, 72, 153, 0.09) 0%, transparent 38%);
 }
 button { font-family: inherit; cursor: pointer; }
 input, select, textarea { font-family: inherit; font-size: 14px; }
@@ -915,7 +949,7 @@ html[data-theme='dark'] .btn.slot-done { background: #14532d; color: #bbf7d0; bo
 /* ═══════════════════════════════════════════════════════════════════
    HOME / LANDING PAGE  (guest default) — heavy animations showcase
    ═══════════════════════════════════════════════════════════════════ */
-.hp { position: relative; overflow-x: clip; }
+.hp { position: relative; width: 100%; }
 
 /* scroll progress (very top edge) */
 .hp-progress {
@@ -944,14 +978,15 @@ html[data-theme='dark'] .btn.slot-done { background: #14532d; color: #bbf7d0; bo
 .hp-hero {
   position: relative;
   min-height: calc(100svh - 118px);
-  display: grid; place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   padding: clamp(28px, 5vh, 64px) 0 clamp(56px, 8vh, 90px);
-  overflow: clip; isolation: isolate;
+  width: 100%;
 }
-/* balanced aurora — symmetric washes anchored to the very top so the
-   left / right / top edges are evenly tinted (no empty corners) */
+/* balanced aurora — symmetric washes anchored to the very top */
 .hp-hero::before {
-  content: ''; position: absolute; inset: 0 0 30% 0; z-index: -1; pointer-events: none;
+  content: ''; position: absolute; inset: 0 0 20% 0; z-index: -1; pointer-events: none;
   background:
     radial-gradient(120% 130% at 50% -30%, rgba(79, 70, 229, 0.16), transparent 58%),
     radial-gradient(52% 90% at 0% -24%, rgba(99, 102, 241, 0.13), transparent 62%),
@@ -966,10 +1001,21 @@ html[data-theme='dark'] .hp-hero::before {
 
 .hp-hero-inner {
   position: relative; z-index: 2; width: 100%;
-  display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr);
-  gap: clamp(20px, 4vw, 56px); align-items: center;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  gap: clamp(28px, 4vw, 64px);
 }
-.hp-hero-copy { max-width: 640px; }
+.hp-hero-copy {
+  flex: 1 1 520px;
+  max-width: 650px;
+}
+.hp-stage-wrap {
+  flex: 1 1 480px;
+  max-width: 580px;
+  position: relative;
+}
 
 /* tiny status dot (also used inside phone mockups) */
 .hp-pill-dot {
@@ -1548,35 +1594,87 @@ html[data-theme='dark'] .hp-admin-in::before { background: radial-gradient(circl
 html[data-theme='dark'] .hp-admin-row { background: rgba(255,255,255,.035); border-color: rgba(255,255,255,.07); }
 html[data-theme='dark'] .hp-admin-import { background: rgba(34,197,94,.12); border-color: rgba(74,222,128,.4); color: #4ade80; }
 /* ═══════════════════════════════════════════════════════════════════
-   MODERN UPGRADES: MAXIMIZED ASSISTANT, GLOWING BADGES & SHADOWS
+   STUDY PLANNER CALENDAR & DRAG-AND-DROP TOOLKITS (LIGHT & DARK)
    ═══════════════════════════════════════════════════════════════════ */
-.assistant.assistant-maximized {
-  position: fixed;
-  top: 70px;
-  bottom: 24px;
-  left: 24px;
-  right: 24px;
-  width: auto;
-  max-width: 1200px;
-  margin: 0 auto;
-  height: auto;
-  max-height: none;
-  border-radius: 24px;
-  box-shadow: 0 30px 80px rgba(15, 23, 42, 0.4);
-  z-index: 100;
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+.planner-toolkit-item {
+  transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+  user-select: none;
+}
+.planner-toolkit-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(99, 102, 241, 0.15);
+  border-color: var(--primary) !important;
+}
+.planner-toolkit-item:active {
+  transform: scale(0.96);
 }
 
-.assistant.assistant-maximized .assistant-body {
-  font-size: 15px;
-  padding: 24px;
+.calendar-day-col {
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.calendar-day-col:hover {
+  border-color: var(--primary) !important;
+  box-shadow: 0 8px 24px rgba(23, 20, 62, 0.08);
+}
+html[data-theme='dark'] .calendar-day-col:hover {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
 }
 
-.assistant.assistant-maximized .bubble {
-  max-width: 70%;
-  font-size: 15px;
-  padding: 14px 20px;
-  border-radius: 20px;
+/* Yellow Daily Capacity Warning */
+.day-capacity-alert {
+  background: rgba(234, 179, 8, 0.12) !important;
+  border-color: #eab308 !important;
+  box-shadow: 0 0 0 1.5px #eab308 inset, 0 4px 16px rgba(234, 179, 8, 0.2) !important;
+}
+html[data-theme='dark'] .day-capacity-alert {
+  background: rgba(234, 179, 8, 0.18) !important;
+  border-color: #facc15 !important;
+  box-shadow: 0 0 0 1.5px #facc15 inset, 0 4px 18px rgba(250, 204, 21, 0.25) !important;
+}
+
+/* Planner task cards inside day columns */
+.planner-task-card {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.planner-task-card:hover {
+  transform: translateY(-1.5px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+html[data-theme='dark'] .planner-task-card {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+
+/* Detail Popover Modal */
+.detail-popover-overlay {
+  backdrop-filter: blur(4px);
+}
+
+/* English / LTR Layout Adjustments */
+html[dir='ltr'] .chat-conv-body { text-align: left; }
+html[dir='ltr'] .planner-toolkit-item { text-align: left; }
+html[dir='ltr'] .calendar-day-col { text-align: left; }
+html[dir='ltr'] .tag { font-family: inherit; }
+html[dir='ltr'] .toast { inset-inline-start: 24px; }
+
+/* Dark mode fixes for modals, inputs, and cards */
+html[data-theme='dark'] .detail-popover-overlay .card,
+html[data-theme='dark'] .modal-body .card {
+  background: #182234;
+  border-color: #2a374f;
+}
+html[data-theme='dark'] .input,
+html[data-theme='dark'] select,
+html[data-theme='dark'] textarea {
+  background: #0f172a !important;
+  color: #f1f5f9 !important;
+  border-color: #334155 !important;
+}
+html[data-theme='dark'] .input:focus,
+html[data-theme='dark'] select:focus,
+html[data-theme='dark'] textarea:focus {
+  border-color: #818cf8 !important;
+  box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.2) !important;
 }
 
 .profile-elevated-hero {
