@@ -54,10 +54,31 @@ MODEL_LABELS = {
 
 
 class AIProvider:
-    """Unified AI service adapter supporting OpenAI-compatible APIs and deterministic offline fallbacks."""
+    """Unified AI service adapter supporting OpenAI-compatible APIs, circuit-breaker fallback, and deterministic intelligence."""
+
+    def __init__(self):
+        self._circuit_breaker_until = 0
+        self._failure_count = 0
+
+    def _is_circuit_open(self) -> bool:
+        import time
+        return time.time() < self._circuit_breaker_until
+
+    def _record_success(self):
+        self._failure_count = 0
+        self._circuit_breaker_until = 0
+
+    def _record_failure(self, error: Exception):
+        import time
+        self._failure_count += 1
+        # If 2 consecutive failures or HTTP 410/404, open circuit for 60 seconds
+        err_str = str(error)
+        if self._failure_count >= 2 or "410" in err_str or "404" in err_str:
+            self._circuit_breaker_until = time.time() + 60
+        print(f"[ai] Provider call failed ({error}); falling back to offline intelligence.")
 
     def _call_llm(self, system: str, user: str, json_mode: bool = False) -> str:
-        if USE_MOCK:
+        if USE_MOCK or self._is_circuit_open() or not AI_PROVIDER_KEY:
             return self._mock_reply(system, user)
 
         try:
@@ -81,15 +102,16 @@ class AIProvider:
                     "Authorization": f"Bearer {AI_PROVIDER_KEY}",
                 },
             )
-            with urllib.request.urlopen(req, timeout=120) as resp:
+            with urllib.request.urlopen(req, timeout=4) as resp:
                 body = json.loads(resp.read().decode("utf-8"))
                 message = body["choices"][0]["message"]
                 content = message.get("content")
                 if not content:
                     content = message.get("reasoning_content", "")
+                self._record_success()
                 return (content or "").strip()
         except Exception as e:
-            print(f"[ai] Provider call failed ({e}); falling back to offline mock.")
+            self._record_failure(e)
             return self._mock_reply(system, user)
 
     def _mock_reply(self, system: str, user: str) -> str:
@@ -104,7 +126,16 @@ class AIProvider:
             return self._mock_essay_grade(profile)
         if "videos" in system:
             return self._mock_videos(profile)
-        return "I understand. Please let me know how I can assist with your study plan or questions."
+        
+        # Fallback to intelligent conversational assistant
+        messages = []
+        if isinstance(profile, list):
+            messages = profile
+        elif isinstance(profile, dict) and "messages" in profile:
+            messages = profile["messages"]
+        else:
+            messages = [{"role": "user", "content": user}]
+        return self._mock_chat(messages, {})
 
     def _mock_analysis(self, profile: dict) -> dict:
         scores = profile.get("subject_scores", [])
@@ -476,21 +507,204 @@ class AIProvider:
         return out
 
     def chat(self, messages: list, student_context: dict) -> str:
+        """Interactive educational AI chat with online LLM and rich offline fallback."""
         lang = (student_context or {}).get("lang", "fa")
         if lang == "en":
             system = (
-                "You are an intelligent educational assistant supporting a student. "
-                "Provide helpful, friendly, and concise responses. Student details: "
+                "You are an expert Iranian academic mentor and educational assistant. "
+                "Provide helpful, friendly, encouraging, and precise advice. Student details: "
                 + json.dumps(student_context, ensure_ascii=False)
             )
         else:
             system = (
-                "تو دستیار هوشمند آموزشی هستی که به دانش‌آموز یا مشاور کمک می‌کنی. "
-                "کوتاه، دقیق، تحلیلی و دوستانه پاسخ بده. مشخصات: "
+                "تو مشاور و دستیار هوشمند آموزشی هستی که به دانش‌آموز یا مشاور کمک می‌کنی. "
+                "پاسخ‌هایت باید گرم، دلگرم‌کننده، علمی، کاربردی و به زبان فارسی روان باشد. مشخصات دانش‌آموز: "
                 + json.dumps(student_context, ensure_ascii=False)
             )
-        prompt = json.dumps(messages, ensure_ascii=False)
-        return self._call_llm(system, prompt)
+
+        # Attempt online LLM call if not mock
+        if not USE_MOCK and not self._is_circuit_open() and AI_PROVIDER_KEY:
+            try:
+                llm_msgs = [{"role": "system", "content": system}]
+                for m in messages:
+                    if isinstance(m, dict) and m.get("content"):
+                        llm_msgs.append({"role": m.get("role", "user"), "content": str(m.get("content"))})
+
+                payload = {
+                    "model": AI_MODEL,
+                    "messages": llm_msgs,
+                    "temperature": 0.4,
+                    "max_tokens": 1500,
+                }
+                req = urllib.request.Request(
+                    f"{AI_API_BASE_URL}/chat/completions",
+                    data=json.dumps(payload).encode("utf-8"),
+                    headers={
+                        "Content-Type": "application/json",
+                        "Authorization": f"Bearer {AI_PROVIDER_KEY}",
+                    },
+                )
+                with urllib.request.urlopen(req, timeout=4) as resp:
+                    body = json.loads(resp.read().decode("utf-8"))
+                    msg = body["choices"][0]["message"]
+                    content = msg.get("content") or msg.get("reasoning_content")
+                    if content and str(content).strip():
+                        self._record_success()
+                        return str(content).strip()
+            except Exception as e:
+                self._record_failure(e)
+
+        return self._mock_chat(messages, student_context)
+
+    def _mock_chat(self, messages: list, student_context: dict) -> str:
+        """Generates natural, highly empathetic and actionable educational responses for students/mentors."""
+        lang = (student_context or {}).get("lang", "fa")
+        name = (student_context or {}).get("name") or "دانش‌آموز عزیز"
+        goal = (student_context or {}).get("goal") or "موفقیت تحصیلی و قبولی در کنکور"
+        field = (student_context or {}).get("field") or "تجربی"
+
+        last_text = ""
+        if messages:
+            last = messages[-1]
+            if isinstance(last, dict):
+                last_text = str(last.get("content", ""))
+            else:
+                last_text = str(last)
+        last_clean = last_text.strip().lower()
+
+        is_en = (lang == "en") or any(word in last_clean for word in ["hello", "hi", "how are you", "help", "study", "schedule"])
+
+        if is_en:
+            if any(w in last_clean for w in ["hi", "hello", "hey"]):
+                return f"Hello {name}! 🌟 I'm your dedicated AI academic advisor. How can I assist with your study plan, exam preparation, or subject reviews today?"
+            if any(w in last_clean for w in ["biology", "bio"]):
+                return f"For Biology, focus on line-by-line textbook review, conceptual diagrams, and solving 40-50 multiple-choice questions daily with comprehensive option analysis."
+            if any(w in last_clean for w in ["math", "maths"]):
+                return f"For Mathematics, avoid passive reading. Always solve problems by hand with paper and pencil, categorize questions by difficulty, and log your mistakes in an error notebook."
+            if any(w in last_clean for w in ["chem", "chemistry"]):
+                return f"For Chemistry, divide your sessions between descriptive textbook concepts and daily 15-minute stoichiometry/numerical speed drills."
+            if any(w in last_clean for w in ["physics"]):
+                return f"For Physics, understand physical concepts and free-body diagrams before memorizing formulas. Practice time-boxed problem solving regularly."
+            if any(w in last_clean for w in ["stress", "tired", "motivation", "burnout"]):
+                return f"Take a deep breath, {name}. Studying is a marathon, not a sprint. Take a 15-minute screen-free break, break tasks into 45-minute blocks, and remember that consistent small steps lead to big wins."
+            if any(w in last_clean for w in ["plan", "schedule", "time"]):
+                return f"For effective scheduling, divide your day into 75-90 minute deep-work blocks with 15-minute intervals. Check your calendar in the platform to mark completed tasks."
+            return f"Great question, {name}! To reach your goal of {goal}, consistent daily practice, active error analysis, and balanced study blocks are key. Let me know which specific subject or topic you'd like to dive into!"
+
+        # Persian conversational reasoning
+        # 1. Greetings & check-ins
+        if any(w in last_clean for w in ["سلام", "درود", "صبح بخیر", "عصر بخیر", "شب بخیر", "چطوری", "خوبی", "سلام چطوری", "سلام خوبی"]):
+            return (
+                f"سلام {name} عزیز! 🌟 من مشاور و دستیار هوشمند شما در پلتفرم هستم.\n"
+                f"امروز چطور می‌تونم در مسیر رسیدن به هدفت ({goal}) بهت کمک کنم؟ "
+                "می‌تونی درباره روش مطالعه درس‌ها، تنظیم تایم برنامه‌ریزی، تحلیل آزمون یا رفع اشکال با من صحبت کنی."
+            )
+
+        # 2. Biology
+        if any(w in last_clean for w in ["زیست", "زیست‌شناسی", "ژنتیک", "گیاهی", "فیزیولوژی"]):
+            return (
+                f"برای تسلط کامل روی زیست‌شناسی در رشته {field}، این چرخه ۳ مرحله‌ای رو اجرا کن:\n"
+                "۱. **خط به خط کتاب درسی:** متن، شکل‌ها، زیرنویس‌ها و جدول‌های کتاب درسی منبع اصلی هستند. حتماً نکات مهم رو حاشیه‌نویسی کن.\n"
+                "۲. **تست‌زنی آموزشی و تحلیلی:** در هر پارت حداقل ۳۰ تا ۵۰ تست کار کن و مهم‌تر از پاسخ درست، حتماً علت غلط بودن سایر گزینه‌ها رو بررسی کن.\n"
+                "۳. **ترکیب مباحث:** فصول مرتبط مثل ژنتیک، قلب و گوارش رو به صورت ترکیبی مرور کن و دفترچه نکات طلایی داشته باش."
+            )
+
+        # 3. Mathematics
+        if any(w in last_clean for w in ["ریاضی", "ریاضیات", "حسابان", "هندسه", "آمار", "احتمال", "مشتق", "مثلثات"]):
+            return (
+                "برای درس ریاضی، راز موفقیت **دست به قلم شدن مداوم** است! ✍️\n"
+                "• هرگز فرمول‌ها رو چشمی نخون؛ ابتدا مثال‌ها و تمرینات کتاب رو خودت روی برگه حل کن.\n"
+                "• تست‌ها رو تیپ‌بندی کن و از سطح آموزشی شروع کن و به سمت تست‌های زمان‌دار پیش برو.\n"
+                "• حتماً یک **دفترچه یادداشت اشتباهات** داشته باش تا تیپ سوالاتی که گیر داشتی رو آخر هفته دوباره مرور کنی."
+            )
+
+        # 4. Chemistry
+        if any(w in last_clean for w in ["شیمی", "استوکیومتری", "اسید", "باز", "سینتیک", "شیمی آلی"]):
+            return (
+                "درس شیمی دو وجه متمایز داره که برای هر کدوم استراتژی جداگانه نیازه:\n"
+                "۱. **مفاهیم، حفظیات و شکل‌ها:** متن کتاب، واکنش‌های موازنه‌شده، رنگ ترکیبات و کاربردها رو با خلاصه‌نویسی نموداری تثبیت کن.\n"
+                "۲. **مسائل محاسباتی (استوکیومتری و غلظت):** روزانه یک روتین ۱۰ الی ۱۵ دقیقه‌ای برای تقویت سرعت ساده‌سازی و کسرهای تبدیل قرار بده تا در آزمون‌ها وقت کم نیاری."
+            )
+
+        # 5. Physics
+        if any(w in last_clean for w in ["فیزیک", "حرکت‌شناسی", "دینامیک", "نوسان", "موج", "الکتریسیته", "مغناطیس"]):
+            return (
+                "در فیزیک، پیش از به‌خاطرسپردن هر فرمول، مفهوم پدیده را متوجه شو:\n"
+                "• کشیدن دیاگرام نیروها (رسم شکل مسئله) نصف راه حل هر تست فیزیک است.\n"
+                "• یکاهای SI و تبدیل واحدها را همیشه در ابتدای صورت سوال بررسی کن.\n"
+                "• بعد از یادگیری پایه‌ای، تست‌های تیپ‌های مختلف را با زمان‌بندی استاندارد تمرین کن."
+            )
+
+        # 6. Persian Literature
+        if any(w in last_clean for w in ["ادبیات", "فارسی", "قرابت", "آرایه", "دستور زبان", "لغت و املا"]):
+            return (
+                "برای ادبیات فارسی، مطالعه مبحثی و روتین شبانه بهترین نتیجه را می‌دهد:\n"
+                "• **قرابت معنایی:** روزانه ۵ الی ۱۰ تست برای درک سریع مفهوم و آهنگ ابیات.\n"
+                "• **آرایه‌ها:** تمرین تست‌های چندآرایه‌ای با شیوه رد گزینه.\n"
+                "• **دستور و لغت:** یادگیری فرمول‌های دستوری (نقش‌ها، حذف، جهش ضمیر) و مرور واژگان ستاره‌دار انتهای کتاب."
+            )
+
+        # 7. English Language
+        if any(w in last_clean for w in ["زبان", "انگلیسی", "گرامر", "ریدینگ", "کلوز تست", "وکب"]):
+            return (
+                "در زبان انگلیسی:\n"
+                "• لغات را درون جمله و متن یاد بگیر تا کاربرد حروف اضافه و معانی ثانویه در ذهنت بنشیند.\n"
+                "• تکنیک‌های Skimming (خواندن سریع برای درک ایده کلی) و Scanning (یافتن اطلاعات خاص) را روی متن‌های Reading تمرین کن.\n"
+                "• گرامر را با خلاصه کردن نکات کلیدی و حل تست‌های ترکیبی تثبیت کن."
+            )
+
+        # 8. Arabic
+        if any(w in last_clean for w in ["عربی", "قواعد عربی", "ترجمه و تعریب", "تحلیل صرفی"]):
+            return (
+                "برای درس عربی:\n"
+                "• اولویت اول تسلط بر فنون ترجمه بر مبنای نوع افعال، ضمایر، معرفه/نکره و جمع‌های مکسر است.\n"
+                "• در بخش قواعد، الگوهای ثلاثی مجرد و مزید، اعراب و نقش‌ها را جدولی خلاصه کن.\n"
+                "• درک مطلب و تحلیل صرفی را با حل تست‌های ادوار گذشته به تسلط برسان."
+            )
+
+        # 9. Religious Studies
+        if any(w in last_clean for w in ["دینی", "دین و زندگی", "پیام آیات", "احادیث"]):
+            return (
+                "برای دین و زندگی:\n"
+                "• خط به خط متن کتاب و ارتباط پیام آیات با تیترهای درس را مشخص کن.\n"
+                "• علت و معلول‌ها و زنجیره تقدم و تاخر مفاهیم را حاشیه‌نویسی کن."
+            )
+
+        # 10. Motivation, Stress, Fatigue, Low Morale
+        if any(w in last_clean for w in ["خسته", "خسته‌ام", "انگیزه", "استرس", "ناامید", "افت تراز", "ترازم", "نمی‌تونم", "کم آوردم", "تمرکز ندارم", "بی‌انگیزه", "افسرده"]):
+            return (
+                f"کاملاً حست رو درک می‌کنم {name} عزیز. مسیر موفقیت در کنکور یک ماراتن است، نه مسابقه سرعت! "
+                "خستگی و نوسان انرژی برای همه داوطلبان پیش می‌آید. 🌱\n\n"
+                "چند راهکار کاربردی برای ریکاوری سریع:\n"
+                "۱. به جای فکر کردن به کل حجم باقی‌مانده، فقط روی **پارت مطالعاتی بعدی (مثلاً ۴۵ دقیقه)** تمرکز کن.\n"
+                "۲. یک استراحت باکیفیت بدون گوشی (پیاده‌روی کوتاه در هوای آزاد، نوشیدن آب یا ۱۵ دقیقه خواب کوتاه) داشته باش.\n"
+                f"۳. به یاد بیار که چرا شروع کردی و هدفت ({goal}) چقدر برات ارزشمنده. تداوم روزانه حتی با ساعت مطالعه متوسط، معجزه می‌کنه."
+            )
+
+        # 11. Study Planning & Hours
+        if any(w in last_clean for w in ["برنامه", "برنامه‌ریزی", "ساعت مطالعه", "چند ساعت", "تایم", "کمبود وقت", "وقت کم"]):
+            return (
+                "برای بهینه‌سازی برنامه و ساعات مطالعه:\n"
+                "• روزت را به بلاک‌های ۷۵ الی ۹۰ دقیقه‌ای به همراه ۱۵ دقیقه استراحت تفکیک کن.\n"
+                "• دروس محاسباتی و سنگین‌تر را در پارت‌های اول صبح که تمرکز ذهنی بالاست قرار بده.\n"
+                "• از بخش تقویم پنل می‌تونی تسک‌های روزانه هفتت رو مشاهده کنی و پیشرفتت رو تیک بزنی."
+            )
+
+        # 12. Exam & Test Strategy
+        if any(w in last_clean for w in ["تست", "تست‌زنی", "تکنیک", "ضربدر", "منها", "زمان‌های نقصانی", "تحلیل آزمون"]):
+            return (
+                "۳ تکنیک حیاتی مدیریت جلسه آزمون:\n"
+                "۱. **تکنیک ضربدر و منها (+ / -):** سوالات وقت‌گیر را ضربدر و سوالاتی که تسلط نداری را منها بذار و سریع رد شو.\n"
+                "۲. **استراتژی زمان‌های نقصانی:** برای هر درس ۵ دقیقه زمان اضافه ذخیره کن تا در دور دوم به سوالات علامت‌دار برگردی.\n"
+                "۳. **تحلیل آزمون در همان روز:** سوالات نزده و غلط را علت‌یابی کن و در دفترچه خطاهای خودت ثبت کن."
+            )
+
+        # 13. General Contextual Guidance
+        return (
+            f"نکته بسیار مهمی را مطرح کردی {name} عزیز. در مسیر آمادگی برای {goal} در رشته {field}، "
+            "حفظ استمرار مطالعاتی، تحلیل منظم تست‌ها و اولویت‌بندی نقاط ضعف نقشی کلیدی در افزایش تراز و درصدها دارد.\n"
+            "می‌توانی درباره هر یک از دروس، شیوه مرور یا رفع اشکال مباحث با من گفت‌وگو کنی تا راهکار دقیق‌تری بهت ارائه دهم."
+        )
 
     def _safe_json(self, raw: str, fallback):
         try:
