@@ -1,9 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { api, getLang } from '../api.js'
+import { useAuth } from '../auth.jsx'
 import { useLang } from '../i18n.jsx'
 
 export default function FloatingAssistant({ navigate }) {
+  const { user } = useAuth()
   const { t } = useLang()
+  const isMentor = user?.role === 'mentor'
+
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
@@ -19,11 +23,21 @@ export default function FloatingAssistant({ navigate }) {
         if (h && h.length) {
           setMessages(h.map((m) => ({ role: m.role === 'ai' ? 'ai' : 'me', content: m.content })))
         } else {
-          setMessages([{ role: 'ai', content: t('aiWelcome') }])
+          setMessages([{
+            role: 'ai',
+            content: isMentor
+              ? 'سلام استاد گرامی! من دستیار هوشمند مشاوره‌ای شما هستم. چطور می‌توانم در تحلیل روند دانش‌آموزان، استراتژی‌های بودجه‌بندی درسی یا ارائه راهکارها به شما کمک کنم؟'
+              : t('aiWelcome'),
+          }])
         }
       })
-      .catch(() => setMessages([{ role: 'ai', content: t('aiWelcome') }]))
-  }, [t])
+      .catch(() => setMessages([{
+        role: 'ai',
+        content: isMentor
+          ? 'سلام استاد گرامی! من دستیار هوشمند مشاوره‌ای شما هستم. چطور می‌توانم به شما کمک کنم؟'
+          : t('aiWelcome'),
+      }]))
+  }, [t, isMentor])
 
   useEffect(() => {
     if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight
@@ -77,7 +91,7 @@ export default function FloatingAssistant({ navigate }) {
         body: { message: msg, lang: getLang() },
       })
       setMessages((m) => [...m, { role: 'ai', content: res.reply }])
-      if (res.action === 'open_exam' && res.exam_id) {
+      if (!isMentor && res.action === 'open_exam' && res.exam_id) {
         setOpen(false)
         navigate(`#/exam/${res.exam_id}`)
       }
@@ -88,12 +102,25 @@ export default function FloatingAssistant({ navigate }) {
     }
   }
 
+  const chips = isMentor ? [
+    ['/students_overview', '📊 تحلیل وضعیت دانش‌آموزان'],
+    ['/plan_strategy', '💡 راهبرد بودجه‌بندی برنامه'],
+    ['/motivation', '🎯 راهکارهای انگیزش'],
+    ['', '🛠️ ' + t('supportChip')],
+  ] : [
+    ['/test', '🎯 ' + t('chipTest')],
+    ['/exam', '📝 ' + t('chipExam')],
+    ['/plan', '📋 ' + t('chipPlan')],
+    ['/report', '📊 کارنامه'],
+    ['', '🛠️ ' + t('supportChip')],
+  ]
+
   return (
     <>
       <button
         className={`fab ${open ? '' : 'pulse'}`}
         onClick={toggleOpen}
-        title="دستیار هوشمند تحصیلی"
+        title={isMentor ? 'دستیار هوشمند مشاوره‌ای' : 'دستیار هوشمند تحصیلی'}
         aria-label="AI Assistant"
       >
         <svg viewBox="0 0 48 48" width="34" height="34" fill="none">
@@ -114,10 +141,10 @@ export default function FloatingAssistant({ navigate }) {
               </span>
               <div>
                 <div className="title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  {t('assistantTitle')}
+                  {isMentor ? 'دستیار هوشمند مشاور' : t('assistantTitle')}
                   <span style={{ fontSize: 10, background: 'rgba(255,255,255,0.25)', padding: '2px 6px', borderRadius: 10 }}>AI 4o</span>
                 </div>
-                <div className="sub">{t('assistantSub')}</div>
+                <div className="sub">{isMentor ? 'مشاوره، بودجه‌بندی و راهبرد تحصیلی' : t('assistantSub')}</div>
               </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -168,13 +195,7 @@ export default function FloatingAssistant({ navigate }) {
               </div>
             ) : (
               <>
-                {[
-                  ['/test', '🎯 ' + t('chipTest')],
-                  ['/exam', '📝 ' + t('chipExam')],
-                  ['/plan', '📋 ' + t('chipPlan')],
-                  ['/report', '📊 کارنامه'],
-                  ['', '🛠️ ' + t('supportChip')],
-                ].map(([code, label]) => (
+                {chips.map(([code, label]) => (
                   <button
                     key={code || 'support'}
                     className="cmd-chip"
@@ -193,7 +214,7 @@ export default function FloatingAssistant({ navigate }) {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && send()}
-              placeholder={t('askPlaceholder')}
+              placeholder={isMentor ? 'از هوش مصنوعی بپرسید (مثلا راهکار جبران افت تراز)...' : t('askPlaceholder')}
             />
             <button className="btn sm" onClick={() => send()} disabled={typing}>
               {t('send')}

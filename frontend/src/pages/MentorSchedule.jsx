@@ -5,24 +5,24 @@ import { Card, Empty } from '../ui.jsx'
 import { useToast } from '../components/Toast.jsx'
 
 const DAY_LABELS = ['ش', 'ی', 'د', 'س', 'چ', 'پ', 'ج']
-const MINUTES_OPT = []          // 06:00 … 22:00 in 30-min steps
-for (let m = 6 * 60; m <= 22 * 60; m += 30) MINUTES_OPT.push(m)
+const MINUTES_OPT = [] // 06:00 … 22:30 in 15-min steps
+for (let m = 6 * 60; m <= 22 * 60 + 30; m += 15) MINUTES_OPT.push(m)
 
 const toHM = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
 const fmt = (m) => fa(toHM(m))
 
-/** Mentor consultation schedule: monthly calendar, opens windows per day,
- * each window (half-hour boundaries, total multiple of 45) becomes 45-min
- * slots that students book first-come-first-served. */
+const DURATION_PRESETS = [30, 45, 60, 90, 120]
+
 export default function MentorSchedule({ navigate }) {
   const { t } = useLang()
   const today = new Date()
   const [ym, setYm] = useState({ y: today.getFullYear(), m: today.getMonth() + 1 })
-  const [cal, setCal] = useState(null)         // {days: {date:[slots]}}
+  const [cal, setCal] = useState(null)
   const [selDate, setSelDate] = useState(null)
   const [error, setError] = useState('')
-  const [startM, setStartM] = useState(11 * 60 + 30)
-  const [endM, setEndM] = useState(13 * 60)
+  const [slotDuration, setSlotDuration] = useState(45)
+  const [startM, setStartM] = useState(11 * 60)
+  const [endM, setEndM] = useState(12 * 60 + 30)
   const [saving, setSaving] = useState(false)
   const { show, view } = useToast()
 
@@ -33,30 +33,37 @@ export default function MentorSchedule({ navigate }) {
       .then(setCal)
       .catch((e) => setError(e.message))
   }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => load(), [])
+
+  useEffect(() => {
+    load()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const mShift = (delta) => {
     let { y, m } = ym
     m += delta
     if (m < 1) { m = 12; y -= 1 }
     if (m > 12) { m = 1; y += 1 }
-    setYm({ y, m }); setSelDate(null); load(y, m)
+    setYm({ y, m })
+    setSelDate(null)
+    load(y, m)
   }
 
   const cells = useMemo(() => {
     const y = ym.y, m = ym.m
-    const firstDow = new Date(y, m - 1, 1).getDay()          // 0=Sun..6=Sat
-    // offset to Saturday start (iran weekday of day 1)
+    const firstDow = new Date(y, m - 1, 1).getDay()
     const iranFirst = (firstDow + 2) % 7
     const startDate = new Date(y, m - 1, 1 - iranFirst)
     const out = []
-    const dim = new Date(y, m, 0).getDate()
     for (let i = 0; i < 42; i++) {
       const d = new Date(startDate)
       d.setDate(startDate.getDate() + i)
-      out.push({ y: d.getFullYear(), m: d.getMonth() + 1, d: d.getDate(),
-                 inMonth: d.getMonth() + 1 === m, ds: iso(d.getFullYear(), d.getMonth() + 1, d.getDate()) })
+      out.push({
+        y: d.getFullYear(),
+        m: d.getMonth() + 1,
+        d: d.getDate(),
+        inMonth: d.getMonth() + 1 === m,
+        ds: iso(d.getFullYear(), d.getMonth() + 1, d.getDate()),
+      })
     }
     return out
   }, [ym])
@@ -65,21 +72,32 @@ export default function MentorSchedule({ navigate }) {
   const todayStr = iso(today.getFullYear(), today.getMonth() + 1, today.getDate())
 
   const lengthMin = endM - startM
-  const lengthOk = lengthMin >= 45 && lengthMin % 45 === 0
+  const numSlots = Math.floor(lengthMin / slotDuration)
+  const lengthOk = lengthMin >= slotDuration && slotDuration >= 15
 
   const addWindow = async () => {
-    if (!lengthOk) { show(t('windowError'), 'err'); return }
+    if (!lengthOk || !selDate) {
+      show('مدت بازه زمانی باید حداقل به اندازه یک جلسه باشد', 'err')
+      return
+    }
     setSaving(true)
     try {
       await api('/api/mentor/consult/window', {
         method: 'POST',
-        body: { date_str: selDate, start: toHM(startM), end: toHM(endM) },
+        body: {
+          date_str: selDate,
+          start: toHM(startM),
+          end: toHM(endM),
+          duration_min: parseInt(slotDuration) || 45,
+        },
       })
-      show(t('windowAddedToast'))
+      show('بازه جلسات مشاوره با موفقیت ثبت شد')
       load()
     } catch (e) {
       show(String(e.message || t('windowConflict')), 'err')
-    } finally { setSaving(false) }
+    } finally {
+      setSaving(false)
+    }
   }
 
   const completeHeld = async (slot) => {
@@ -89,8 +107,11 @@ export default function MentorSchedule({ navigate }) {
       await api(`/api/mentor/consult/slot/${slot.id}/complete`, { method: 'POST' })
       show(t('heldToast'))
       load()
-    } catch (e) { show(String(e.message || ''), 'err') }
-    finally { setSaving(false) }
+    } catch (e) {
+      show(String(e.message || ''), 'err')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const removeSlot = async (id) => {
@@ -99,8 +120,11 @@ export default function MentorSchedule({ navigate }) {
       await api(`/api/mentor/consult/slot/${id}`, { method: 'DELETE' })
       show(t('slotRemovedToast'))
       load()
-    } catch (e) { show(String(e.message || ''), 'err') }
-    finally { setSaving(false) }
+    } catch (e) {
+      show(String(e.message || ''), 'err')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const monthName = fa(new Date(ym.y, ym.m - 1, 1).toLocaleDateString('fa-IR', { year: 'numeric', month: 'long' }))
@@ -113,7 +137,7 @@ export default function MentorSchedule({ navigate }) {
       </div>
       {error && <div className="error-box">{error}</div>}
 
-      <div className="grid" style={{ gridTemplateColumns: 'minmax(0, 2.2fr) minmax(0, 1fr)', gap: 18 }}>
+      <div className="grid" style={{ gridTemplateColumns: 'minmax(0, 2.2fr) minmax(0, 1.2fr)', gap: 18 }}>
         {/* calendar */}
         <Card>
           <div className="between mb">
@@ -155,27 +179,89 @@ export default function MentorSchedule({ navigate }) {
 
             {selDate && (
               <>
-                {/* add a window */}
-                <div className="small muted mb">{t('addWindow')}</div>
-                <div className="two-col mb" style={{ gridTemplateColumns: '1fr 1fr' }}>
+                <div className="small muted mb" style={{ fontWeight: 700, color: 'var(--primary)' }}>
+                  ⚙️ تنظیم مدت زمان و بازه زمانی جلسات:
+                </div>
+
+                {/* Custom Session Duration Input ABOVE start/end times */}
+                <div style={{ marginBottom: 14 }}>
+                  <label className="field" style={{ marginBottom: 6 }}>
+                    <span style={{ fontWeight: 800 }}>⏱️ مدت زمان هر جلسه مشاوره (دقیقه):</span>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
+                      {DURATION_PRESETS.map((p) => (
+                        <button
+                          key={p}
+                          type="button"
+                          className={`btn sm ${slotDuration === p ? '' : 'ghost'}`}
+                          style={{ borderRadius: 8, padding: '4px 10px', fontSize: 12 }}
+                          onClick={() => {
+                            setSlotDuration(p)
+                            if (endM <= startM || (endM - startM) < p) {
+                              setEndM(startM + p)
+                            }
+                          }}
+                        >
+                          {fa(p)} دقیقه
+                        </button>
+                      ))}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
+                      <span className="small muted">یا وارد کردن دستی:</span>
+                      <input
+                        type="number"
+                        min="15"
+                        max="240"
+                        step="5"
+                        className="input"
+                        style={{ width: 90, padding: '6px 10px', fontSize: 13, borderRadius: 8 }}
+                        value={slotDuration}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value) || 15
+                          setSlotDuration(val)
+                          if (endM <= startM || (endM - startM) < val) {
+                            setEndM(startM + val)
+                          }
+                        }}
+                      />
+                      <span className="small muted">دقیقه</span>
+                    </div>
+                  </label>
+                </div>
+
+                {/* Start & End Time Selectors */}
+                <div className="two-col mb" style={{ gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                   <label className="field">
                     <span>{t('startTime')}</span>
-                    <select className="input" value={startM} onChange={(e) => setStartM(Number(e.target.value))}>
+                    <select
+                      className="input"
+                      value={startM}
+                      onChange={(e) => {
+                        const s = Number(e.target.value)
+                        setStartM(s)
+                        if (endM <= s) setEndM(s + slotDuration)
+                      }}
+                    >
                       {MINUTES_OPT.slice(0, -1).map((m) => <option key={m} value={m}>{fmt(m)}</option>)}
                     </select>
                   </label>
                   <label className="field">
                     <span>{t('endTime')}</span>
-                    <select className="input" value={endM} onChange={(e) => setEndM(Number(e.target.value))}>
+                    <select
+                      className="input"
+                      value={endM}
+                      onChange={(e) => setEndM(Number(e.target.value))}
+                    >
                       {MINUTES_OPT.filter((m) => m > startM).map((m) => <option key={m} value={m}>{fmt(m)}</option>)}
                     </select>
                   </label>
                 </div>
-                <div className="small mb" style={{ color: lengthOk ? '#16a34a' : '#dc2626', fontWeight: 700 }}>
-                  {t('windowLength')}: {lengthMin > 0 ? fmt(lengthMin) : '—'}
+
+                <div className="small mb" style={{ color: lengthOk ? '#16a34a' : '#dc2626', fontWeight: 700, lineHeight: 1.6 }}>
+                  کل بازه: {lengthMin > 0 ? `${fa(lengthMin)} دقیقه` : '—'} · ایجاد {fa(numSlots)} اسلات {fa(slotDuration)} دقیقه‌ای
                 </div>
+
                 <button className="btn block" disabled={saving || !lengthOk} onClick={addWindow}>
-                  + {t('addWindow')}
+                  + ثبت و ایجاد اسلات‌های مشاوره
                 </button>
               </>
             )}
@@ -189,7 +275,7 @@ export default function MentorSchedule({ navigate }) {
                 <div key={s.id} className="list-item between">
                   <div className="flex">
                     <span className={`slot-chip ${s.student_id ? 'taken' : 'free'}`}>
-                      {fmt(s.start_min)}
+                      {fmt(s.start_min)} ({fa(s.duration_min || 45)}′)
                     </span>
                     {s.student_id ? (
                       <span className="small muted">🧑‍🎓 {s.student_name}</span>

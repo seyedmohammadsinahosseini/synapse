@@ -56,14 +56,14 @@ export default function MentorSupervise({ studentId, navigate }) {
   const isPreUni = PRE_UNI.includes(st.grade_level)
   const comp = s.plan?.completion || {}
   const colorDot = comp.color === 'ok' ? '#22c55e' : comp.color === 'mid' ? '#eab308' : comp.color === 'low' ? '#ef4444' : '#94a3b8'
-  const planColor = comp.color === 'ok' ? '#16a34a' : comp.color === 'mid' ? '#a16207' : comp.color === 'low' ? '#b91c1c' : '#6b7280'
+  const planColor = comp.color === 'ok' ? 'var(--ok)' : comp.color === 'mid' ? 'var(--warn)' : comp.color === 'low' ? 'var(--danger)' : 'var(--muted)'
   const reportCards = s.report_cards || []
   const dossier = s.ai_dossier || {}
 
   return (
     <div>
       {/* ── hero / profile ── */}
-      <div className="hero" style={{ borderRadius: 20, boxShadow: '0 12px 30px rgba(0,0,0,0.12)', marginBottom: 24 }}>
+      <div className="hero" style={{ borderRadius: 20, boxShadow: 'var(--shadow)', marginBottom: 24 }}>
         <div className="flex wrap between">
           <div className="flex" style={{ gap: 14 }}>
             <div className="avatar" style={{ width: 62, height: 62, fontSize: 26, background: 'rgba(255,255,255,.25)', color: '#fff', borderRadius: 16 }}>
@@ -93,11 +93,11 @@ export default function MentorSupervise({ studentId, navigate }) {
           <span className="badge">🎯 {t('goal_' + st.goal_type) || st.goal_type}</span>
           <span className="badge">{isPreUni ? t('diplomaAvg') : t('lastYearAvg')}: {fa(st.last_year_avg)}</span>
           {st.goal_subjects?.length > 0 && <span className="badge">📚 {st.goal_subjects.join('، ')}</span>}
-          <span className="badge" style={{ background: '#fff', color: planColor, fontWeight: 700 }}>
+          <span className="badge" style={{ background: 'var(--card)', color: planColor, fontWeight: 700 }}>
             {t('studentStates')}: {comp.done}✓ / {comp.missed}✕
           </span>
           {reportCards.length > 0 && (
-            <span className="badge" style={{ background: '#e0e7ff', color: '#4338ca' }}>
+            <span className="badge" style={{ background: 'var(--tint-fill)', color: 'var(--primary)' }}>
               📊 {fa(reportCards.length)} کارنامه آزمون بارگذاری شده
             </span>
           )}
@@ -113,7 +113,7 @@ export default function MentorSupervise({ studentId, navigate }) {
               <Card key={rc.id} style={{ borderRadius: 16, padding: 16, border: '1px solid var(--line)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                   <b>{rc.title}</b>
-                  <span className="badge" style={{ fontSize: 11, background: '#e0e7ff', color: '#4338ca' }}>
+                  <span className="badge" style={{ fontSize: 11, background: 'var(--tint-fill)', color: 'var(--primary)' }}>
                     {rc.provider}
                   </span>
                 </div>
@@ -149,7 +149,7 @@ export default function MentorSupervise({ studentId, navigate }) {
         <div style={{ marginBottom: 30 }}>
           <div className="section-title">🤖 پرونده تحلیلی هوش مصنوعی (AI Dossier) برای مشاور</div>
           <Card style={{ borderRadius: 16, background: 'var(--tint-hover)', border: '1.5px solid var(--line)' }}>
-            <div className="small" style={{ color: 'var(--ink)', lineHeight: 1.7, whiteSpace: 'pre-line' }}>
+            <div className="small" style={{ color: 'var(--ink)', lineHeight: 1.8, whiteSpace: 'pre-line' }}>
               {dossier.analytical_dossier}
             </div>
           </Card>
@@ -157,7 +157,7 @@ export default function MentorSupervise({ studentId, navigate }) {
       )}
 
       {/* ── WEEKLY STUDY CALENDAR PLANNER (Central Drag & Drop Planner) ── */}
-      <div className="section-title">🗓️ تقویم هفتگی برنامه درسی دانش‌آموز (Study Calendar Planner)</div>
+      <div className="section-title">🗓️ تقویم هفتگی ۷ روزه برنامه درسی دانش‌آموز (Study Calendar Planner)</div>
       <div className="small muted mb" style={{ marginBottom: 14 }}>
         با استفاده از جعبه‌ابزار درگ و دراپ، دروس و متدهای مطالعه چهارگانه را روی تقویم هفتگی دانش‌آموز تنظیم و ارسال کنید.
       </div>
@@ -259,7 +259,7 @@ export default function MentorSupervise({ studentId, navigate }) {
       {selectedReportCard && (
         <Modal title={`📊 ${selectedReportCard.title}`} onClose={() => setSelectedReportCard(null)}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', background: 'var(--tint-hover)', padding: 12, borderRadius: 10 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', background: 'var(--tint-hover)', padding: 12, borderRadius: 10, border: '1px solid var(--line)' }}>
               <div><b>صادرکننده:</b> {selectedReportCard.provider}</div>
               <div><b>تاریخ:</b> {fa(selectedReportCard.exam_date || 'نامشخص')}</div>
               {selectedReportCard.total_traz && <div><b>تراز:</b> {fa(selectedReportCard.total_traz)}</div>}
@@ -288,8 +288,8 @@ export default function MentorSupervise({ studentId, navigate }) {
             )}
 
             {selectedReportCard.ai_insights?.diagnostic_summary && (
-              <div style={{ background: 'rgba(34,197,94,0.12)', border: '1px solid #86efac', borderRadius: 10, padding: 12 }}>
-                <b style={{ color: '#166534', display: 'block', marginBottom: 4 }}>💡 تحلیل و جمع‌بندی هوش مصنوعی:</b>
+              <div style={{ background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: 10, padding: 12 }}>
+                <b style={{ color: 'var(--ok)', display: 'block', marginBottom: 4 }}>💡 تحلیل و جمع‌بندی هوش مصنوعی:</b>
                 <div className="small" style={{ color: 'var(--ink)', lineHeight: 1.6 }}>
                   {selectedReportCard.ai_insights.diagnostic_summary}
                 </div>

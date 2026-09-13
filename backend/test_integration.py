@@ -1,5 +1,7 @@
 """Comprehensive integration tests for the Mentor & Student Platform."""
 import os
+import sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.environ["AI_USE_MOCK"] = "1"
 import unittest
 from fastapi.testclient import TestClient
