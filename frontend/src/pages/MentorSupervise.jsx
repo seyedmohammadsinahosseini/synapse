@@ -1,45 +1,16 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { api, fa, faDate } from '../api.js'
 import { useLang } from '../i18n.jsx'
 import { Card, Badge, Empty, Modal, ScoreBadge, SubjectScores } from '../ui.jsx'
 import PlanSection from '../components/PlanSection.jsx'
 
-const PARTS = [
-  { part: 0, from: '08:00', to: '09:30' },
-  { part: 1, from: '09:45', to: '11:15' },
-  { part: 2, from: '11:30', to: '13:00' },
-  { part: 3, from: '16:00', to: '17:30' },
-  { part: 4, from: '17:45', to: '19:15' },
-  { part: 5, from: '19:30', to: '21:00' },
-]
 const PRE_UNI = ['پیش‌دانشگاهی / کنکوری', 'Pre-University / Konkur']
-const DAYS_SHORT = ['ش', 'ی', 'د', 'س', 'چ', 'پ', 'ج']
-
-const satOf = (d) => {
-  const x = new Date(d)
-  const dow = (x.getDay() + 2) % 7   // Sat=0
-  x.setDate(x.getDate() - dow)
-  return x
-}
-const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-const faDateOnly = (ds) => {
-  try { return fa(new Date(ds + 'T00:00:00').toLocaleDateString('fa-IR')) } catch { return ds }
-}
-const addDays = (ds, n) => {
-  const d = new Date(ds + 'T00:00:00')
-  d.setDate(d.getDate() + n)
-  return iso(d)
-}
 
 export default function MentorSupervise({ studentId, navigate }) {
   const { t } = useLang()
   const [s, setS] = useState(null)
   const [error, setError] = useState('')
-  const [start, setStart] = useState(() => iso(satOf(new Date())))
-  const [week, setWeek] = useState(null)
   const [analysis, setAnalysis] = useState(null)
-  const [cell, setCell] = useState(null)
-  const [cellVal, setCellVal] = useState('')
   const [saving, setSaving] = useState(false)
   const [editProf, setEditProf] = useState(false)
   const [form, setForm] = useState(null)
@@ -50,11 +21,6 @@ export default function MentorSupervise({ studentId, navigate }) {
       .then(setS)
       .catch((e) => setError(e.message))
   }
-  const loadWeek = (st = start) => {
-    api(`/api/mentor/students/${studentId}/supervision?start=${st}`)
-      .then(setWeek)
-      .catch(() => {})
-  }
   const loadAnalysis = () => {
     api(`/api/mentor/students/${studentId}/analysis`)
       .then(setAnalysis)
@@ -62,30 +28,7 @@ export default function MentorSupervise({ studentId, navigate }) {
   }
 
   useEffect(loadDetail, [studentId]) // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => loadWeek(), [])     // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(loadAnalysis, [])         // eslint-disable-line react-hooks/exhaustive-deps
-
-  const weekShift = (delta) => {
-    const ns = addDays(start, delta * 7)
-    setStart(ns)
-    loadWeek(ns)
-  }
-
-  const openCell = (dateStr, part, current) => {
-    setCell({ date_str: dateStr, part })
-    setCellVal(current || '')
-  }
-  const saveCell = async () => {
-    setSaving(true)
-    try {
-      await api(`/api/mentor/students/${studentId}/supervision/day`, {
-        method: 'PUT',
-        body: { date_str: cell.date_str, parts: [{ part: cell.part, text: cellVal }] },
-      })
-      setCell(null)
-      loadWeek()
-    } catch (e) { setError(e.message) } finally { setSaving(false) }
-  }
 
   const openProfileEdit = () => {
     const p = s.student
@@ -106,17 +49,6 @@ export default function MentorSupervise({ studentId, navigate }) {
     } catch (e) { setError(e.message) } finally { setSaving(false) }
   }
 
-  const dayIndex = (ds) => { const d = new Date(ds + 'T00:00:00'); return (d.getDay() + 2) % 7 }
-  const weekDays = useMemo(() => {
-    if (!week) return []
-    const arr = []
-    for (let i = 0; i < 7; i++) {
-      const ds = addDays(week.start, i)
-      arr.push({ ds, label: DAYS_SHORT[dayIndex(ds)] })
-    }
-    return arr
-  }, [week])
-
   if (error) return <div className="empty">⚠️ {error}</div>
   if (!s) return <div className="empty">…</div>
 
@@ -127,8 +59,6 @@ export default function MentorSupervise({ studentId, navigate }) {
   const planColor = comp.color === 'ok' ? '#16a34a' : comp.color === 'mid' ? '#a16207' : comp.color === 'low' ? '#b91c1c' : '#6b7280'
   const reportCards = s.report_cards || []
   const dossier = s.ai_dossier || {}
-
-  const textFor = (dateStr, part) => week?.days?.find((d) => d.date_str === dateStr)?.parts?.find((p) => p.part === part)
 
   return (
     <div>
@@ -180,7 +110,7 @@ export default function MentorSupervise({ studentId, navigate }) {
           <div className="section-title">📊 کارنامه‌های آزمون‌های آزمایشی دانش‌آموز (خیلی سبز / قلم‌چی / مدرسه)</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
             {reportCards.map((rc) => (
-              <Card key={rc.id} style={{ borderRadius: 16, padding: 16, border: '1px solid #e2e8f0' }}>
+              <Card key={rc.id} style={{ borderRadius: 16, padding: 16, border: '1px solid var(--line)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                   <b>{rc.title}</b>
                   <span className="badge" style={{ fontSize: 11, background: '#e0e7ff', color: '#4338ca' }}>
@@ -218,54 +148,25 @@ export default function MentorSupervise({ studentId, navigate }) {
       {dossier?.analytical_dossier && (
         <div style={{ marginBottom: 30 }}>
           <div className="section-title">🤖 پرونده تحلیلی هوش مصنوعی (AI Dossier) برای مشاور</div>
-          <Card style={{ borderRadius: 16, background: '#f8fafc', border: '1.5px solid #cbd5e1' }}>
-            <div className="small" style={{ color: '#475569', lineHeight: 1.7, whiteSpace: 'pre-line' }}>
+          <Card style={{ borderRadius: 16, background: 'var(--tint-hover)', border: '1.5px solid var(--line)' }}>
+            <div className="small" style={{ color: 'var(--ink)', lineHeight: 1.7, whiteSpace: 'pre-line' }}>
               {dossier.analytical_dossier}
             </div>
           </Card>
         </div>
       )}
 
-      {/* ── study plan assignment (Drag & Drop Planner) ── */}
-      <div className="section-title">📋 {t('planAssignment')}</div>
-      <div className="small muted mb" style={{ marginBottom: 12 }}>{t('currentPlanHint')}</div>
+      {/* ── WEEKLY STUDY CALENDAR PLANNER (Central Drag & Drop Planner) ── */}
+      <div className="section-title">🗓️ تقویم هفتگی برنامه درسی دانش‌آموز (Study Calendar Planner)</div>
+      <div className="small muted mb" style={{ marginBottom: 14 }}>
+        با استفاده از جعبه‌ابزار درگ و دراپ، دروس و متدهای مطالعه چهارگانه را روی تقویم هفتگی دانش‌آموز تنظیم و ارسال کنید.
+      </div>
       <PlanSection
         studentId={studentId}
         plan={s.plan}
         capacityAlerts={s.plan?.capacity_alerts || {}}
         onChanged={loadDetail}
       />
-
-      {/* ── weekly supervision grid ── */}
-      <div className="section-title" style={{ marginTop: 30 }}>🛠️ {t('supervisionTitle')}</div>
-      <div className="small muted mb">{t('supervisionSub')}</div>
-      <Card className="superv-week-card" style={{ borderRadius: 18 }}>
-        <div className="between mb">
-          <button className="btn ghost sm" onClick={() => weekShift(-1)}>→ {t('prevWeek')}</button>
-          <b>{week ? weekOf(week.start) : ''}</b>
-          <button className="btn ghost sm" onClick={() => weekShift(1)}>{t('nextWeek')} ←</button>
-        </div>
-
-        <div className="superv-grid">
-          <div className="superv-corner"></div>
-          {weekDays.map((d) => (
-            <div key={d.ds} className="superv-day-head">
-              <b>{d.label}</b>
-              <div className="small muted">{faDateOnly(d.ds)}</div>
-            </div>
-          ))}
-
-          {PARTS.map((p) => (
-            <FragmentRow
-              key={p.part}
-              part={p}
-              weekDays={weekDays}
-              textFor={textFor}
-              openCell={openCell}
-            />
-          ))}
-        </div>
-      </Card>
 
       {/* ── performance analysis (beta) ── */}
       <div className="section-title" style={{ marginTop: 30 }}>📈 {t('analysisTitle')} <Badge color="#f59e0b">{t('analysisBeta')}</Badge></div>
@@ -358,7 +259,7 @@ export default function MentorSupervise({ studentId, navigate }) {
       {selectedReportCard && (
         <Modal title={`📊 ${selectedReportCard.title}`} onClose={() => setSelectedReportCard(null)}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', background: '#f8fafc', padding: 12, borderRadius: 10 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', background: 'var(--tint-hover)', padding: 12, borderRadius: 10 }}>
               <div><b>صادرکننده:</b> {selectedReportCard.provider}</div>
               <div><b>تاریخ:</b> {fa(selectedReportCard.exam_date || 'نامشخص')}</div>
               {selectedReportCard.total_traz && <div><b>تراز:</b> {fa(selectedReportCard.total_traz)}</div>}
@@ -387,9 +288,9 @@ export default function MentorSupervise({ studentId, navigate }) {
             )}
 
             {selectedReportCard.ai_insights?.diagnostic_summary && (
-              <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: 12 }}>
+              <div style={{ background: 'rgba(34,197,94,0.12)', border: '1px solid #86efac', borderRadius: 10, padding: 12 }}>
                 <b style={{ color: '#166534', display: 'block', marginBottom: 4 }}>💡 تحلیل و جمع‌بندی هوش مصنوعی:</b>
-                <div className="small" style={{ color: '#14532d', lineHeight: 1.6 }}>
+                <div className="small" style={{ color: 'var(--ink)', lineHeight: 1.6 }}>
                   {selectedReportCard.ai_insights.diagnostic_summary}
                 </div>
               </div>
@@ -397,27 +298,6 @@ export default function MentorSupervise({ studentId, navigate }) {
           </div>
           <div style={{ marginTop: 18, textAlign: 'end' }}>
             <button className="btn sm" onClick={() => setSelectedReportCard(null)}>بستن</button>
-          </div>
-        </Modal>
-      )}
-
-      {/* ── cell editor ── */}
-      {cell && (
-        <Modal title={`${t('editPartTitle')} — ${faDateOnly(cell.date_str)}`} onClose={() => setCell(null)}>
-          <div className="small muted mb">
-            {PARTS.find((p) => p.part === cell.part)?.from} – {PARTS.find((p) => p.part === cell.part)?.to}
-          </div>
-          <textarea
-            className="input"
-            rows={4}
-            autoFocus
-            placeholder={t('partTextPlaceholder')}
-            value={cellVal}
-            onChange={(e) => setCellVal(e.target.value)}
-          />
-          <div className="flex mt" style={{ justifyContent: 'space-between' }}>
-            <button className="btn ghost sm danger" onClick={() => { setCellVal(''); saveCell() }}>{t('clearPart')}</button>
-            <button className="btn" disabled={saving} onClick={saveCell}>{t('savePart')}</button>
           </div>
         </Modal>
       )}
@@ -453,36 +333,4 @@ export default function MentorSupervise({ studentId, navigate }) {
       )}
     </div>
   )
-}
-
-function FragmentRow({ part, weekDays, textFor, openCell }) {
-  const { t } = useLang()
-  return (
-    <>
-      <div className="superv-time-col">
-        <div className="small muted">{fa(part.from)}</div>
-        <div className="small muted">{fa(part.to)}</div>
-      </div>
-      {weekDays.map((d) => {
-        const entry = textFor(d.ds, part.part)
-        const status = entry?.status
-        return (
-          <button
-            key={d.ds}
-            className={`superv-cell ${entry ? 'has' : ''} ${status === 'done' ? 'is-done' : status === 'missed' ? 'is-missed' : ''}`}
-            onClick={() => openCell(d.ds, part.part, entry?.text)}
-            title={entry ? entry.text : t('partEmpty')}
-          >
-            {entry ? entry.text : <span className="muted">+</span>}
-          </button>
-        )
-      })}
-    </>
-  )
-}
-
-function weekOf(start) {
-  try {
-    return fa(new Date(start + 'T00:00:00').toLocaleDateString('fa-IR', { year: 'numeric', month: 'long', day: 'numeric' }))
-  } catch { return start }
 }

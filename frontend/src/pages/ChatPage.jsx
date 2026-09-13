@@ -1,36 +1,74 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { api, faDate, getToken } from '../api.js'
+import { api, faDate, getLang, getToken } from '../api.js'
 import { useAuth } from '../auth.jsx'
 import { useLang } from '../i18n.jsx'
 import ChatPanel from '../components/ChatPanel.jsx'
 
-/**
- * Full messenger page (reached from the slide-bar "Chat" button).
- * Two panes: the conversation LIST sits on the right (with the last message
- * of each peer); clicking one opens the full threaded chat on the left.
- *
- * Works for both roles:
- *  - student → the single conversation with their mentor (or a connect prompt)
- *  - mentor  → every connected student; optional pre-select via ?student=ID
- */
 export default function ChatPage({ navigate, preselectStudent = null }) {
   const { user } = useAuth()
   const { t } = useLang()
   const isMentor = user?.role === 'mentor'
 
-  const [convs, setConvs] = useState(null)          // null = loading
-  const [sel, setSel] = useState(null)              // {student_id, peer_name, subtitle}
+  const [convs, setConvs] = useState(null)
+  const [sel, setSel] = useState({ type: 'ai', student_id: 'ai', peer_name: 'دستیار هوشمند تحصیلی (AI)', subtitle: 'تحلیل، برنامه‌ریزی، آزمون و رفع اشکال هوشمند' })
   const [connectCode, setConnectCode] = useState('')
   const [connecting, setConnecting] = useState(false)
   const [msg, setMsg] = useState('')
   const [error, setError] = useState('')
   const wsReady = useRef(false)
 
+  // AI Chat dedicated state in Thread view
+  const [aiMessages, setAiMessages] = useState([])
+  const [aiInput, setAiInput] = useState('')
+  const [aiTyping, setAiTyping] = useState(false)
+  const aiBodyRef = useRef(null)
+
+  const loadAiHistory = () => {
+    api('/api/ai/chat/history')
+      .then((h) => {
+        if (h && h.length) {
+          setAiMessages(h.map((m) => ({ role: m.role === 'ai' ? 'ai' : 'me', content: m.content })))
+        } else {
+          setAiMessages([{ role: 'ai', content: t('aiWelcome') }])
+        }
+      })
+      .catch(() => setAiMessages([{ role: 'ai', content: t('aiWelcome') }]))
+  }
+
+  useEffect(() => {
+    loadAiHistory()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (aiBodyRef.current) aiBodyRef.current.scrollTop = aiBodyRef.current.scrollHeight
+  }, [aiMessages, aiTyping, sel])
+
+  const sendAiMessage = async (text) => {
+    const msg = (text || aiInput).trim()
+    if (!msg || aiTyping) return
+    setAiInput('')
+    setAiMessages((prev) => [...prev, { role: 'me', content: msg }])
+    setAiTyping(true)
+    try {
+      const res = await api('/api/ai/chat', {
+        method: 'POST',
+        body: { message: msg, lang: getLang() },
+      })
+      setAiMessages((prev) => [...prev, { role: 'ai', content: res.reply }])
+      if (res.action === 'open_exam' && res.exam_id) {
+        navigate(`#/exam/${res.exam_id}`)
+      }
+    } catch (e) {
+      setAiMessages((prev) => [...prev, { role: 'ai', content: '⚠️ ' + e.message }])
+    } finally {
+      setAiTyping(false)
+    }
+  }
+
   const load = () => {
     api('/api/chat/conversations')
       .then((rows) => {
         setConvs(rows)
-        // pre-selection
         if (preselectStudent) {
           const hit = rows.find((r) => r.student_id === preselectStudent)
           if (hit) setSel(hit)
@@ -39,10 +77,9 @@ export default function ChatPage({ navigate, preselectStudent = null }) {
       })
       .catch((e) => setError(e.message))
   }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(load, [preselectStudent])
 
-  // realtime: prepend new conversations / update last message
+  useEffect(load, [preselectStudent]) // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     const token = getToken()
     if (!token) return
@@ -56,11 +93,11 @@ export default function ChatPage({ navigate, preselectStudent = null }) {
     }
     wsReady.current = ws
     return () => { if (ws) ws.close() }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const connect = async () => {
-    setConnecting(true); setMsg('')
+    setConnecting(true)
+    setMsg('')
     try {
       await api('/api/dashboard/connect-mentor', {
         method: 'POST', body: { code: connectCode },
@@ -76,31 +113,69 @@ export default function ChatPage({ navigate, preselectStudent = null }) {
   }
 
   const sorted = useMemo(() => [...(convs || [])], [convs])
-
   const noMentorStudent = !isMentor && convs && convs.length === 0
 
   return (
     <div className="chat-page">
       {/* right pane: conversation list */}
-      <aside className="chat-list-pane">
-        <div className="chat-list-head">
-          <h3>{t('chatPageTitle')}</h3>
-          {convs && <span className="small muted">{convs.length}</span>}
+      <aside className="chat-list-pane" style={{ borderRadius: 20, boxShadow: 'var(--shadow)', border: '1.5px solid var(--line)' }}>
+        <div className="chat-list-head" style={{ padding: '16px 18px', borderBottom: '1px solid var(--line)' }}>
+          <h3 style={{ margin: 0, fontSize: 17, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span>💬</span>
+            <span>{t('chatPageTitle')}</span>
+          </h3>
+          {convs && <span className="badge" style={{ fontSize: 11 }}>{convs.length + 1} گفتگو</span>}
         </div>
-        <div className="chat-list-scroll">
-          {!convs && <div className="empty">…</div>}
+
+        <div className="chat-list-scroll" style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {/* PINNED AI ASSISTANT CONVERSATION AT TOP */}
+          <div
+            className={`chat-conv ${sel?.type === 'ai' ? 'active' : ''}`}
+            style={{
+              background: sel?.type === 'ai' ? 'linear-gradient(135deg, rgba(99, 102, 241, 0.16) 0%, rgba(168, 85, 247, 0.16) 100%)' : 'var(--tint-hover)',
+              border: '1.5px solid',
+              borderColor: sel?.type === 'ai' ? 'var(--primary)' : 'var(--line)',
+              borderRadius: 16,
+              padding: '12px 14px',
+              position: 'relative',
+              boxShadow: '0 4px 12px rgba(99, 102, 241, 0.08)',
+            }}
+            onClick={() => {
+              setSel({ type: 'ai', student_id: 'ai', peer_name: 'دستیار هوشمند تحصیلی (AI)', subtitle: 'تحلیل، برنامه‌ریزی، آزمون و رفع اشکال هوشمند' })
+              setError('')
+            }}
+          >
+            <div className="avatar" style={{ background: 'var(--grad)', fontSize: 20 }}>🤖</div>
+            <div className="chat-conv-body">
+              <div className="between" style={{ gap: 6, marginBottom: 2 }}>
+                <b className="chat-conv-name" style={{ color: 'var(--primary)' }}>دستیار هوشمند (AI)</b>
+                <span className="badge" style={{ fontSize: 10, background: 'var(--grad)', color: '#fff', padding: '1px 6px' }}>📌 پین شده</span>
+              </div>
+              <div className="small muted chat-conv-preview" style={{ fontSize: 11.5 }}>
+                آماده پاسخ به سوالات، ایجاد آزمون و تحلیل...
+              </div>
+            </div>
+          </div>
+
+          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', margin: '8px 6px 4px 6px' }}>
+            {isMentor ? 'دانش‌آموزان شما' : 'گفتگو با مشاور'}
+          </div>
+
+          {!convs && <div className="empty">در حال بارگذاری گفتگوها...</div>}
           {convs && sorted.length === 0 && !noMentorStudent && (
-            <div className="empty">{t('chatNoConversations')}</div>
+            <div className="empty small muted">{t('chatNoConversations')}</div>
           )}
           {convs && noMentorStudent && (
-            <div className="empty">{t('noMentorYet')}</div>
+            <div className="empty small muted">هنوز به مشاور متصل نشده‌اید</div>
           )}
+
           {sorted.map((c) => {
-            const active = sel?.student_id === c.student_id
+            const active = sel?.type !== 'ai' && sel?.student_id === c.student_id
             return (
               <div
                 key={c.student_id}
                 className={`chat-conv ${active ? 'active' : ''}`}
+                style={{ borderRadius: 14 }}
                 onClick={() => { setSel(c); setError('') }}
               >
                 <div className="avatar">{c.peer_name.slice(0, 1)}</div>
@@ -122,8 +197,87 @@ export default function ChatPage({ navigate, preselectStudent = null }) {
       </aside>
 
       {/* left pane: chat thread */}
-      <section className="chat-thread-pane">
-        {sel ? (
+      <section className="chat-thread-pane" style={{ borderRadius: 20, boxShadow: 'var(--shadow)', border: '1.5px solid var(--line)' }}>
+        {sel?.type === 'ai' ? (
+          /* Dedicated AI Chat Thread View */
+          <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+            <div className="chat-thread-head" style={{ padding: '14px 18px', background: 'var(--card)', borderBottom: '1px solid var(--line)' }}>
+              <div className="flex" style={{ gap: 12 }}>
+                <div className="avatar" style={{ background: 'var(--grad)', fontSize: 20 }}>🤖</div>
+                <div>
+                  <b style={{ fontSize: 16, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span>دستیار هوشمند تحصیلی هوش مصنوعی</span>
+                    <span className="badge" style={{ fontSize: 10, background: '#e0e7ff', color: '#4338ca' }}>GPT-4o</span>
+                  </b>
+                  <div className="small muted">تحلیل سوابق، ساخت آزمون، مشاوره درسی و رفع اشکال ۲۴ ساعته</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="assistant-body" ref={aiBodyRef} style={{ flex: 1, padding: 20, overflowY: 'auto' }}>
+              {aiMessages.map((m, i) => (
+                <div
+                  key={i}
+                  className={`bubble ${m.role === 'me' ? 'me' : 'ai'}`}
+                  style={{
+                    borderRadius: 18,
+                    padding: '12px 18px',
+                    fontSize: 14.5,
+                    lineHeight: 1.8,
+                  }}
+                >
+                  {m.content}
+                </div>
+              ))}
+              {aiTyping && (
+                <div className="bubble ai" style={{ borderRadius: 18, padding: '12px 18px' }}>
+                  <span className="typing"><span /><span /><span /></span>
+                </div>
+              )}
+            </div>
+
+            {/* AI Command Chips */}
+            <div className="chip-row" style={{ padding: '10px 18px', display: 'flex', gap: 8, flexWrap: 'wrap', background: 'var(--card)' }}>
+              {[
+                ['/test', '🎯 ساخت آزمون تستی سریع'],
+                ['/exam', '📝 ایجاد امتحان کامل جامع'],
+                ['/plan', '📋 وضعیت برنامه درسی'],
+                ['/report', '📊 تحلیل کارنامه و تراز'],
+              ].map(([code, label]) => (
+                <button
+                  key={code}
+                  className="cmd-chip"
+                  disabled={aiTyping}
+                  style={{ borderRadius: 10, padding: '6px 14px', fontSize: 12.5 }}
+                  onClick={() => sendAiMessage(code)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {/* AI Input Box */}
+            <div className="assistant-input" style={{ padding: '14px 18px', background: 'var(--card)', borderTop: '1px solid var(--line)' }}>
+              <input
+                className="input"
+                style={{ borderRadius: 14, padding: '12px 16px' }}
+                value={aiInput}
+                onChange={(e) => setAiInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && sendAiMessage()}
+                placeholder="از هوش مصنوعی بپرسید (مثلا: در زیست‌شناسی چطور تست بزنم؟ یا دستور /test)..."
+              />
+              <button
+                className="btn"
+                style={{ borderRadius: 14, padding: '10px 24px' }}
+                onClick={() => sendAiMessage()}
+                disabled={aiTyping || !aiInput.trim()}
+              >
+                {aiTyping ? 'در حال ارسال...' : 'ارسال'}
+              </button>
+            </div>
+          </div>
+        ) : sel ? (
+          /* Standard Mentor / Peer Chat Panel */
           <>
             <div className="chat-thread-head">
               <div className="flex">
@@ -142,7 +296,7 @@ export default function ChatPage({ navigate, preselectStudent = null }) {
         ) : (
           <div className="chat-thread-empty">
             {noMentorStudent ? (
-              <div className="card" style={{ maxWidth: 420, margin: '0 auto', textAlign: 'center' }}>
+              <div className="card" style={{ maxWidth: 420, margin: '0 auto', textAlign: 'center', borderRadius: 20, padding: 30 }}>
                 <div style={{ fontSize: 34 }}>🧑‍🏫</div>
                 <h3 className="mb">{t('noMentorYet')}</h3>
                 <div className="small muted mb">{t('noMentorConnect')}</div>

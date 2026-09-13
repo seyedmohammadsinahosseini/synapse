@@ -207,25 +207,24 @@ class AIProvider:
     def _mock_videos(self, payload: dict) -> list:
         subjects = payload.get("subjects") or ["General"]
         out = []
-        for s in subjects[:3]:
+        out.append({
+            "subject": "هوش مصنوعی",
+            "title": "ویدیوهای اختصاصی پس از بررسی دقیق‌تر عملکرد و آزمون‌های شما توسط هوش مصنوعی پیشنهاد خواهند شد.",
+            "url": "#/exam/new",
+            "reason": "هوش مصنوعی بر اساس تحلیل آزمون‌ها و نقاط ضعف شما بهترین ویدیوهای آموزشی آپارات و یوتیوب را انتخاب خواهد کرد.",
+            "source": "ai",
+            "views": 0,
+            "likes": 0,
+        })
+        for s in subjects[:2]:
             out.append({
                 "subject": s,
-                "title": f"Educational lectures for {s}",
-                "url": self._youtube_search_url(s),
-                "reason": f"Recommended video series for mastering {s}.",
-                "source": "search",
-                "views": 0,
-                "likes": 0,
-            })
-        for ch in MOCK_CHANNELS[:2]:
-            out.append({
-                "subject": "General",
-                "title": ch["title"],
-                "url": ch["url"],
-                "reason": "Popular open educational channel.",
-                "source": "youtube",
-                "views": 0,
-                "likes": 0,
+                "title": f"آموزش و حل تست مبحثی {s}",
+                "url": self._aparat_search_url(s),
+                "reason": f"مجموعه ویدیویی آموزشی برای تقویت مباحث {s}.",
+                "source": "aparat",
+                "views": 1500,
+                "likes": 85,
             })
         return out
 

@@ -5,7 +5,6 @@ import { useLang } from '../i18n.jsx'
 export default function FloatingAssistant({ navigate }) {
   const { t } = useLang()
   const [open, setOpen] = useState(false)
-  const [maximized, setMaximized] = useState(false)
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
   const [typing, setTyping] = useState(false)
@@ -28,7 +27,7 @@ export default function FloatingAssistant({ navigate }) {
 
   useEffect(() => {
     if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight
-  }, [messages, typing, open, maximized])
+  }, [messages, typing, open])
 
   useEffect(() => {
     const onOtherOpen = (e) => {
@@ -46,13 +45,8 @@ export default function FloatingAssistant({ navigate }) {
 
   const close = () => {
     setOpen(false)
-    setMaximized(false)
     setSupportOn(false)
     setSupportText('')
-  }
-
-  const toggleMaximize = () => {
-    setMaximized(!maximized)
   }
 
   const sendSupport = async () => {
@@ -112,7 +106,7 @@ export default function FloatingAssistant({ navigate }) {
       </button>
 
       {open && (
-        <div className={`assistant ${maximized ? 'assistant-maximized' : ''}`}>
+        <div className="assistant">
           <div className="assistant-head">
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <span className="logo" style={{ width: 36, height: 36, borderRadius: 12, background: 'rgba(255,255,255,.22)', display: 'grid', placeItems: 'center', fontSize: 18 }}>
@@ -121,20 +115,12 @@ export default function FloatingAssistant({ navigate }) {
               <div>
                 <div className="title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   {t('assistantTitle')}
-                  <span style={{ fontSize: 10, background: 'rgba(255,255,255,0.25)', padding: '2px 6px', borderRadius: 10 }}>GPT-4o</span>
+                  <span style={{ fontSize: 10, background: 'rgba(255,255,255,0.25)', padding: '2px 6px', borderRadius: 10 }}>AI 4o</span>
                 </div>
                 <div className="sub">{t('assistantSub')}</div>
               </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <button
-                className="btn ghost sm"
-                style={{ color: '#fff', borderColor: 'rgba(255,255,255,.4)', padding: '4px 8px', fontSize: 13 }}
-                onClick={toggleMaximize}
-                title={maximized ? 'کوچک‌نمایی' : 'بزرگ‌نمایی پنجره'}
-              >
-                {maximized ? '🗗' : '🗖'}
-              </button>
               <button
                 className="btn ghost sm"
                 style={{ color: '#fff', borderColor: 'rgba(255,255,255,.4)', padding: '4px 8px', fontSize: 13 }}
@@ -186,7 +172,7 @@ export default function FloatingAssistant({ navigate }) {
                   ['/test', '🎯 ' + t('chipTest')],
                   ['/exam', '📝 ' + t('chipExam')],
                   ['/plan', '📋 ' + t('chipPlan')],
-                  ['/report', '📊 تحلیل کارنامه'],
+                  ['/report', '📊 کارنامه'],
                   ['', '🛠️ ' + t('supportChip')],
                 ].map(([code, label]) => (
                   <button
