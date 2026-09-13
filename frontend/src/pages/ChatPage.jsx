@@ -10,7 +10,12 @@ export default function ChatPage({ navigate, preselectStudent = null }) {
   const isMentor = user?.role === 'mentor'
 
   const [convs, setConvs] = useState(null)
-  const [sel, setSel] = useState({ type: 'ai', student_id: 'ai', peer_name: 'دستیار هوشمند تحصیلی (AI)', subtitle: 'تحلیل، برنامه‌ریزی، آزمون و رفع اشکال هوشمند' })
+  const [sel, setSel] = useState({
+    type: 'ai',
+    student_id: 'ai',
+    peer_name: isMentor ? 'دستیار مشاوره‌ای هوش مصنوعی (AI)' : 'دستیار هوشمند تحصیلی (AI)',
+    subtitle: isMentor ? 'راهبردهای مشاوره‌ای، بودجه‌بندی و تحلیل پیشرفت' : 'تحلیل، برنامه‌ریزی، آزمون و رفع اشکال هوشمند',
+  })
   const [connectCode, setConnectCode] = useState('')
   const [connecting, setConnecting] = useState(false)
   const [msg, setMsg] = useState('')
@@ -29,33 +34,43 @@ export default function ChatPage({ navigate, preselectStudent = null }) {
         if (h && h.length) {
           setAiMessages(h.map((m) => ({ role: m.role === 'ai' ? 'ai' : 'me', content: m.content })))
         } else {
-          setAiMessages([{ role: 'ai', content: t('aiWelcome') }])
+          setAiMessages([{
+            role: 'ai',
+            content: isMentor
+              ? 'سلام استاد گرامی! من دستیار هوشمند مشاوره‌ای شما هستم. می‌توانید درباره استراتژی‌های بودجه‌بندی، ارتقای عملکرد دانش‌آموزان یا متدهای مشاوره‌ای با من گفتگو کنید.'
+              : t('aiWelcome'),
+          }])
         }
       })
-      .catch(() => setAiMessages([{ role: 'ai', content: t('aiWelcome') }]))
+      .catch(() => setAiMessages([{
+        role: 'ai',
+        content: isMentor
+          ? 'سلام استاد گرامی! من دستیار هوشمند مشاوره‌ای شما هستم. چطور می‌توانم به شما کمک کنم؟'
+          : t('aiWelcome'),
+      }]))
   }
 
   useEffect(() => {
     loadAiHistory()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isMentor]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (aiBodyRef.current) aiBodyRef.current.scrollTop = aiBodyRef.current.scrollHeight
   }, [aiMessages, aiTyping, sel])
 
   const sendAiMessage = async (text) => {
-    const msg = (text || aiInput).trim()
-    if (!msg || aiTyping) return
+    const messageText = (text || aiInput).trim()
+    if (!messageText || aiTyping) return
     setAiInput('')
-    setAiMessages((prev) => [...prev, { role: 'me', content: msg }])
+    setAiMessages((prev) => [...prev, { role: 'me', content: messageText }])
     setAiTyping(true)
     try {
       const res = await api('/api/ai/chat', {
         method: 'POST',
-        body: { message: msg, lang: getLang() },
+        body: { message: messageText, lang: getLang() },
       })
       setAiMessages((prev) => [...prev, { role: 'ai', content: res.reply }])
-      if (res.action === 'open_exam' && res.exam_id) {
+      if (!isMentor && res.action === 'open_exam' && res.exam_id) {
         navigate(`#/exam/${res.exam_id}`)
       }
     } catch (e) {
@@ -115,6 +130,22 @@ export default function ChatPage({ navigate, preselectStudent = null }) {
   const sorted = useMemo(() => [...(convs || [])], [convs])
   const noMentorStudent = !isMentor && convs && convs.length === 0
 
+  const mentorChips = [
+    ['/students_overview', '📊 تحلیل وضعیت کلی دانش‌آموزان'],
+    ['/plan_strategy', '💡 راهبرد و بودجه‌بندی برنامه هفتگی'],
+    ['/motivation', '🎯 متدهای افزایش انگیزه و تمرکز'],
+    ['/weakness_guide', '🔍 تکنیک‌های جبران افت تراز'],
+  ]
+
+  const studentChips = [
+    ['/test', '🎯 ساخت آزمون تستی سریع'],
+    ['/exam', '📝 ایجاد امتحان کامل جامع'],
+    ['/plan', '📋 وضعیت برنامه درسی'],
+    ['/report', '📊 تحلیل کارنامه و تراز'],
+  ]
+
+  const activeChips = isMentor ? mentorChips : studentChips
+
   return (
     <div className="chat-page">
       {/* right pane: conversation list */}
@@ -132,7 +163,7 @@ export default function ChatPage({ navigate, preselectStudent = null }) {
           <div
             className={`chat-conv ${sel?.type === 'ai' ? 'active' : ''}`}
             style={{
-              background: sel?.type === 'ai' ? 'linear-gradient(135deg, rgba(99, 102, 241, 0.16) 0%, rgba(168, 85, 247, 0.16) 100%)' : 'var(--tint-hover)',
+              background: sel?.type === 'ai' ? 'var(--tint-fill)' : 'transparent',
               border: '1.5px solid',
               borderColor: sel?.type === 'ai' ? 'var(--primary)' : 'var(--line)',
               borderRadius: 16,
@@ -141,18 +172,25 @@ export default function ChatPage({ navigate, preselectStudent = null }) {
               boxShadow: '0 4px 12px rgba(99, 102, 241, 0.08)',
             }}
             onClick={() => {
-              setSel({ type: 'ai', student_id: 'ai', peer_name: 'دستیار هوشمند تحصیلی (AI)', subtitle: 'تحلیل، برنامه‌ریزی، آزمون و رفع اشکال هوشمند' })
+              setSel({
+                type: 'ai',
+                student_id: 'ai',
+                peer_name: isMentor ? 'دستیار مشاوره‌ای هوش مصنوعی (AI)' : 'دستیار هوشمند تحصیلی (AI)',
+                subtitle: isMentor ? 'راهبردهای مشاوره‌ای، بودجه‌بندی و تحلیل پیشرفت' : 'تحلیل، برنامه‌ریزی، آزمون و رفع اشکال هوشمند',
+              })
               setError('')
             }}
           >
             <div className="avatar" style={{ background: 'var(--grad)', fontSize: 20 }}>🤖</div>
             <div className="chat-conv-body">
               <div className="between" style={{ gap: 6, marginBottom: 2 }}>
-                <b className="chat-conv-name" style={{ color: 'var(--primary)' }}>دستیار هوشمند (AI)</b>
+                <b className="chat-conv-name" style={{ color: 'var(--primary)' }}>
+                  {isMentor ? 'دستیار مشاور (AI)' : 'دستیار هوشمند (AI)'}
+                </b>
                 <span className="badge" style={{ fontSize: 10, background: 'var(--grad)', color: '#fff', padding: '1px 6px' }}>📌 پین شده</span>
               </div>
               <div className="small muted chat-conv-preview" style={{ fontSize: 11.5 }}>
-                آماده پاسخ به سوالات، ایجاد آزمون و تحلیل...
+                {isMentor ? 'راهبردهای مشاوره‌ای و بودجه‌بندی...' : 'آماده پاسخ به سوالات، ایجاد آزمون و تحلیل...'}
               </div>
             </div>
           </div>
@@ -206,10 +244,14 @@ export default function ChatPage({ navigate, preselectStudent = null }) {
                 <div className="avatar" style={{ background: 'var(--grad)', fontSize: 20 }}>🤖</div>
                 <div>
                   <b style={{ fontSize: 16, display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span>دستیار هوشمند تحصیلی هوش مصنوعی</span>
-                    <span className="badge" style={{ fontSize: 10, background: '#e0e7ff', color: '#4338ca' }}>GPT-4o</span>
+                    <span>{isMentor ? 'دستیار تخصصی مشاوره‌ای هوش مصنوعی' : 'دستیار هوشمند تحصیلی هوش مصنوعی'}</span>
+                    <span className="badge" style={{ fontSize: 10, background: 'var(--tint-fill)', color: 'var(--primary)' }}>GPT-4o</span>
                   </b>
-                  <div className="small muted">تحلیل سوابق، ساخت آزمون، مشاوره درسی و رفع اشکال ۲۴ ساعته</div>
+                  <div className="small muted">
+                    {isMentor
+                      ? 'راهنمای بودجه‌بندی، تحلیل روند دانش‌آموزان و ارائه راهکارهای مشاوره‌ای'
+                      : 'تحلیل سوابق، ساخت آزمون، مشاوره درسی و رفع اشکال ۲۴ ساعته'}
+                  </div>
                 </div>
               </div>
             </div>
@@ -238,12 +280,7 @@ export default function ChatPage({ navigate, preselectStudent = null }) {
 
             {/* AI Command Chips */}
             <div className="chip-row" style={{ padding: '10px 18px', display: 'flex', gap: 8, flexWrap: 'wrap', background: 'var(--card)' }}>
-              {[
-                ['/test', '🎯 ساخت آزمون تستی سریع'],
-                ['/exam', '📝 ایجاد امتحان کامل جامع'],
-                ['/plan', '📋 وضعیت برنامه درسی'],
-                ['/report', '📊 تحلیل کارنامه و تراز'],
-              ].map(([code, label]) => (
+              {activeChips.map(([code, label]) => (
                 <button
                   key={code}
                   className="cmd-chip"
@@ -264,7 +301,7 @@ export default function ChatPage({ navigate, preselectStudent = null }) {
                 value={aiInput}
                 onChange={(e) => setAiInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && sendAiMessage()}
-                placeholder="از هوش مصنوعی بپرسید (مثلا: در زیست‌شناسی چطور تست بزنم؟ یا دستور /test)..."
+                placeholder={isMentor ? 'از هوش مصنوعی بپرسید (مثلا: راهکار افزایش تمرکز در دروس محاسباتی)...' : 'از هوش مصنوعی بپرسید (مثلا: چطور زیست را ۱۰۰ بزنم؟)...'}
               />
               <button
                 className="btn"

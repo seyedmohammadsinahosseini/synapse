@@ -446,7 +446,15 @@ html[data-theme='dark'] .list-item:hover { background: #101a2c; }
 html[data-theme='dark'] .step.cur { background: #232f46; }
 html[data-theme='dark'] .step-num { background: #334155; color: #cbd5e1; }
 html[data-theme='dark'] .step.cur .step-num { box-shadow: 0 0 0 4px #312e81; }
-html[data-theme='dark'] .analysis-box { background: #1e1b4b; border-right-color: #c084fc; }
+html[data-theme='dark'] .analysis-box {
+  background: rgba(99, 102, 241, 0.12);
+  border-right-color: #a855f7;
+  color: var(--ink);
+}
+html[dir='ltr'][data-theme='dark'] .analysis-box {
+  border-left-color: #a855f7;
+  border-right-color: transparent;
+}
 html[data-theme='dark'] .error-box { background: #450a0a; border-color: #7f1d1d; color: #fca5a5; }
 html[data-theme='dark'] .assistant { background: var(--card); }
 html[data-theme='dark'] .assistant-body { background: var(--bg); }

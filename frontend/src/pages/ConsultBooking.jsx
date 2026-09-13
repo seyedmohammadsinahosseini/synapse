@@ -4,7 +4,6 @@ import { useLang } from '../i18n.jsx'
 import { Card, Empty } from '../ui.jsx'
 import { useToast } from '../components/Toast.jsx'
 
-/** Student booking of in-person consultation slots (45-min, first come). */
 export default function ConsultBooking({ navigate }) {
   const { t } = useLang()
   const [data, setData] = useState(null)
@@ -20,7 +19,7 @@ export default function ConsultBooking({ navigate }) {
   useEffect(load, [])
 
   const book = async (slot) => {
-    if (!window.confirm(`${t('bookingConfirm')}\n${slot.date_str} — ${slot.start}`)) return
+    if (!window.confirm(`${t('bookingConfirm')}\n${slot.date_str} — ساعت ${slot.start} (${slot.duration_min} دقیقه)`)) return
     setBusy(true)
     try {
       await api('/api/consult/book', { method: 'POST', body: { slot_id: slot.id } })
@@ -66,9 +65,11 @@ export default function ConsultBooking({ navigate }) {
         {data?.my_bookings.map((s) => (
           <div key={s.id} className="list-item between">
             <div className="flex">
-              <span className="badge" style={{ background: '#dbeafe', color: '#1d4ed8' }}>{s.date_str ? dKey(s.date_str) : s.date_str}</span>
+              <span className="badge" style={{ background: 'var(--tint-fill)', color: 'var(--primary)' }}>
+                {s.date_str ? dKey(s.date_str) : s.date_str}
+              </span>
               <b>{fa(s.start)}</b>
-              <span className="small muted">۴۵′</span>
+              <span className="small muted">({fa(s.duration_min || 45)} دقیقه)</span>
             </div>
             <button className="btn ghost sm danger" disabled={busy} onClick={() => cancel(s)}>
               {t('cancelSlot')}
@@ -91,7 +92,7 @@ export default function ConsultBooking({ navigate }) {
                 disabled={busy}
                 onClick={() => book(s)}
               >
-                {fa(s.start)} · ۴۵′
+                {fa(s.start)} · {fa(s.duration_min || 45)} دقیقه
               </button>
             ))}
           </div>

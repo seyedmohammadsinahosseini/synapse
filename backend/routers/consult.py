@@ -1,8 +1,9 @@
 """Consultation booking router: mentor window scheduling and student atomic slot reservations."""
 from datetime import date, datetime, timedelta
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from ..database import get_db
@@ -13,18 +14,15 @@ mentor_router = APIRouter(prefix="/api/mentor/consult", tags=["mentor-consult"])
 student_router = APIRouter(prefix="/api/consult", tags=["consult"])
 
 DAY_MIN = 6 * 60       # 06:00
-NIGHT_MIN = 22 * 60    # 22:00
-SLOT_DURATION = 45     # 45-minute slots
+NIGHT_MIN = 23 * 60    # 23:00
 
 
 def _parse_mm(v: str) -> int:
     try:
-        hh, mm = v.split(":")
-        total = int(hh) * 60 + int(mm)
+        parts = v.split(":")
+        total = int(parts[0]) * 60 + int(parts[1])
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid time format (HH:MM expected)")
-    if mm not in ("00", "30"):
-        raise HTTPException(status_code=400, detail="Times must be on half-hour boundaries (:00 or :30)")
     return total
 
 
@@ -39,7 +37,7 @@ def _slot_payload(s: ConsultSlot, db: Session):
         "date_str": s.date_str,
         "start_min": s.start_min,
         "start": _fmt(s.start_min),
-        "duration_min": s.duration_min,
+        "duration_min": s.duration_min or 45,
         "student_id": s.student_id,
         "student_name": stu.full_name if stu else None,
         "booked_at": s.booked_at.isoformat() if s.booked_at else None,
@@ -52,6 +50,7 @@ class WindowIn(BaseModel):
     date_str: str
     start: str
     end: str
+    duration_min: Optional[int] = Field(default=45, ge=15, le=240)
 
 
 @mentor_router.post("/window")
@@ -71,12 +70,14 @@ def open_window(data: WindowIn, user: User = Depends(get_current_user),
     if end <= start:
         raise HTTPException(status_code=400, detail="End time must be after start time")
     if start < DAY_MIN or end > NIGHT_MIN:
-        raise HTTPException(status_code=400, detail="Working hours must be between 06:00 and 22:00")
+        raise HTTPException(status_code=400, detail="Working hours must be between 06:00 and 23:00")
+
+    slot_duration = max(15, min(240, data.duration_min or 45))
     length = end - start
-    if length % SLOT_DURATION != 0:
+    if length < slot_duration:
         raise HTTPException(
             status_code=400,
-            detail=f"Time window length must be a multiple of {SLOT_DURATION} minutes (e.g. 45, 90, 135 mins)",
+            detail=f"Time window length ({length} mins) is shorter than slot duration ({slot_duration} mins)",
         )
 
     # Check for overlapping slots
@@ -85,21 +86,21 @@ def open_window(data: WindowIn, user: User = Depends(get_current_user),
                         ConsultSlot.date_str == data.date_str)
                 .all())
     for e in existing:
-        e_end = e.start_min + e.duration_min
-        for m in range(start, end - (SLOT_DURATION - 1), SLOT_DURATION):
-            if m < e_end and m + SLOT_DURATION > e.start_min:
+        e_end = e.start_min + (e.duration_min or slot_duration)
+        for m in range(start, end - (slot_duration - 1), slot_duration):
+            if m < e_end and m + slot_duration > e.start_min:
                 raise HTTPException(
                     status_code=409,
                     detail="Window overlaps with an existing time slot. Please remove conflicting slots first.",
                 )
 
     created = []
-    for m in range(start, end - (SLOT_DURATION - 1), SLOT_DURATION):
+    for m in range(start, end - (slot_duration - 1), slot_duration):
         slot = ConsultSlot(
             mentor_id=user.id,
             date_str=data.date_str,
             start_min=m,
-            duration_min=SLOT_DURATION,
+            duration_min=slot_duration,
         )
         db.add(slot)
         created.append(slot)
@@ -222,7 +223,6 @@ def book_slot(data: dict, user: User = Depends(get_current_user),
     if slot.student_id:
         raise HTTPException(status_code=409, detail="This time slot is already booked")
 
-    # Atomic first-come-first-served claim
     claimed = (db.query(ConsultSlot)
                .filter(ConsultSlot.id == slot.id,
                        ConsultSlot.student_id.is_(None))
