@@ -31,11 +31,6 @@ const addDays = (ds, n) => {
   return iso(d)
 }
 
-/**
- * Mentor Supervision View:
- * Comprehensive student monitoring, weekly 6-slot agenda management,
- * analytics chart, study plan builder, and AI diagnostic insights.
- */
 export default function MentorSupervise({ studentId, navigate }) {
   const { t } = useLang()
   const [s, setS] = useState(null)
@@ -43,11 +38,12 @@ export default function MentorSupervise({ studentId, navigate }) {
   const [start, setStart] = useState(() => iso(satOf(new Date())))
   const [week, setWeek] = useState(null)
   const [analysis, setAnalysis] = useState(null)
-  const [cell, setCell] = useState(null)          // {date_str, part, text} to edit
+  const [cell, setCell] = useState(null)
   const [cellVal, setCellVal] = useState('')
   const [saving, setSaving] = useState(false)
   const [editProf, setEditProf] = useState(false)
   const [form, setForm] = useState(null)
+  const [selectedReportCard, setSelectedReportCard] = useState(null)
 
   const loadDetail = () => {
     api(`/api/mentor/students/${studentId}`)
@@ -110,8 +106,6 @@ export default function MentorSupervise({ studentId, navigate }) {
     } catch (e) { setError(e.message) } finally { setSaving(false) }
   }
 
-  // ── NOTE: every hook must stay ABOVE the early returns below, otherwise
-  // React throws "Rendered more hooks than during the previous render".
   const dayIndex = (ds) => { const d = new Date(ds + 'T00:00:00'); return (d.getDay() + 2) % 7 }
   const weekDays = useMemo(() => {
     if (!week) return []
@@ -131,53 +125,121 @@ export default function MentorSupervise({ studentId, navigate }) {
   const comp = s.plan?.completion || {}
   const colorDot = comp.color === 'ok' ? '#22c55e' : comp.color === 'mid' ? '#eab308' : comp.color === 'low' ? '#ef4444' : '#94a3b8'
   const planColor = comp.color === 'ok' ? '#16a34a' : comp.color === 'mid' ? '#a16207' : comp.color === 'low' ? '#b91c1c' : '#6b7280'
+  const reportCards = s.report_cards || []
+  const dossier = s.ai_dossier || {}
 
   const textFor = (dateStr, part) => week?.days?.find((d) => d.date_str === dateStr)?.parts?.find((p) => p.part === part)
-
 
   return (
     <div>
       {/* ── hero / profile ── */}
-      <div className="hero">
+      <div className="hero" style={{ borderRadius: 20, boxShadow: '0 12px 30px rgba(0,0,0,0.12)', marginBottom: 24 }}>
         <div className="flex wrap between">
           <div className="flex" style={{ gap: 14 }}>
-            <div className="avatar" style={{ width: 58, height: 58, fontSize: 24, background: 'rgba(255,255,255,.25)', color: '#fff' }}>
+            <div className="avatar" style={{ width: 62, height: 62, fontSize: 26, background: 'rgba(255,255,255,.25)', color: '#fff', borderRadius: 16 }}>
               {st.full_name.slice(0, 1)}
             </div>
             <div>
-              <h2>{st.full_name} <span style={{ fontSize: 15 }}>({fa(st.last_year_avg)})</span></h2>
-              <p>{st.field_of_study} — {st.grade_level} · {st.email} · {st.phone || '—'}</p>
+              <h2 style={{ margin: '0 0 4px 0' }}>{st.full_name} <span style={{ fontSize: 16 }}>({fa(st.last_year_avg)})</span></h2>
+              <p style={{ margin: 0, opacity: 0.9 }}>{st.field_of_study} — {st.grade_level} · {st.email} · {st.phone || '—'}</p>
             </div>
           </div>
           <div className="flex wrap" style={{ gap: 8 }}>
-            <span className="badge" style={{ background: colorDot, color: '#fff' }}>
+            <span className="badge" style={{ background: colorDot, color: '#fff', borderRadius: 10, padding: '6px 12px' }}>
               {t('completionWeek')}: {comp.pct != null ? fa(comp.pct) + '٪' : '—'}
             </span>
-            <button className="btn ghost sm" style={{ color: '#fff', borderColor: 'rgba(255,255,255,.5)' }} onClick={() => navigate('#/chat?student=' + studentId)}>
+            <button className="btn ghost sm" style={{ color: '#fff', borderColor: 'rgba(255,255,255,.5)', borderRadius: 10 }} onClick={() => navigate('#/chat?student=' + studentId)}>
               💬 {t('goChatStudent')}
             </button>
-            <button className="btn ghost sm" style={{ color: '#fff', borderColor: 'rgba(255,255,255,.5)' }} onClick={openProfileEdit}>
+            <button className="btn ghost sm" style={{ color: '#fff', borderColor: 'rgba(255,255,255,.5)', borderRadius: 10 }} onClick={openProfileEdit}>
               ✏️ {t('profileEdit')}
             </button>
-            <button className="btn ghost sm" style={{ color: '#fff', borderColor: 'rgba(255,255,255,.5)' }} onClick={() => navigate('#/mentor/students')}>
+            <button className="btn ghost sm" style={{ color: '#fff', borderColor: 'rgba(255,255,255,.5)', borderRadius: 10 }} onClick={() => navigate('#/mentor/students')}>
               ← {t('backBtn')}
             </button>
           </div>
         </div>
-        <div className="flex wrap mt">
+        <div className="flex wrap mt" style={{ marginTop: 16, gap: 8 }}>
           <span className="badge">🎯 {t('goal_' + st.goal_type) || st.goal_type}</span>
           <span className="badge">{isPreUni ? t('diplomaAvg') : t('lastYearAvg')}: {fa(st.last_year_avg)}</span>
           {st.goal_subjects?.length > 0 && <span className="badge">📚 {st.goal_subjects.join('، ')}</span>}
           <span className="badge" style={{ background: '#fff', color: planColor, fontWeight: 700 }}>
             {t('studentStates')}: {comp.done}✓ / {comp.missed}✕
           </span>
+          {reportCards.length > 0 && (
+            <span className="badge" style={{ background: '#e0e7ff', color: '#4338ca' }}>
+              📊 {fa(reportCards.length)} کارنامه آزمون بارگذاری شده
+            </span>
+          )}
         </div>
       </div>
 
+      {/* ── Report Cards & Diagnostic Dossier ── */}
+      {reportCards.length > 0 && (
+        <div style={{ marginBottom: 30 }}>
+          <div className="section-title">📊 کارنامه‌های آزمون‌های آزمایشی دانش‌آموز (خیلی سبز / قلم‌چی / مدرسه)</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
+            {reportCards.map((rc) => (
+              <Card key={rc.id} style={{ borderRadius: 16, padding: 16, border: '1px solid #e2e8f0' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <b>{rc.title}</b>
+                  <span className="badge" style={{ fontSize: 11, background: '#e0e7ff', color: '#4338ca' }}>
+                    {rc.provider}
+                  </span>
+                </div>
+                <div className="small muted" style={{ marginBottom: 8 }}>
+                  تاریخ آزمون: {fa(rc.exam_date || 'نامشخص')} {rc.total_traz ? `· تراز کل: ${fa(rc.total_traz)}` : ''} {rc.overall_rank ? `· رتبه: ${fa(rc.overall_rank)}` : ''}
+                </div>
+                <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                  <button
+                    className="btn ghost sm"
+                    style={{ borderRadius: 8, fontSize: 12 }}
+                    onClick={() => setSelectedReportCard(rc)}
+                  >
+                    🔍 مشاهده کارنامه
+                  </button>
+                  <a
+                    href={`/api/report-card/pdf/${rc.id}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="btn ghost sm"
+                    style={{ borderRadius: 8, fontSize: 12, textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
+                  >
+                    📄 دانلود PDF پرونده
+                  </a>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Confidential AI Diagnostic Dossier ── */}
+      {dossier?.analytical_dossier && (
+        <div style={{ marginBottom: 30 }}>
+          <div className="section-title">🤖 پرونده تحلیلی هوش مصنوعی (AI Dossier) برای مشاور</div>
+          <Card style={{ borderRadius: 16, background: '#f8fafc', border: '1.5px solid #cbd5e1' }}>
+            <div className="small" style={{ color: '#475569', lineHeight: 1.7, whiteSpace: 'pre-line' }}>
+              {dossier.analytical_dossier}
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* ── study plan assignment (Drag & Drop Planner) ── */}
+      <div className="section-title">📋 {t('planAssignment')}</div>
+      <div className="small muted mb" style={{ marginBottom: 12 }}>{t('currentPlanHint')}</div>
+      <PlanSection
+        studentId={studentId}
+        plan={s.plan}
+        capacityAlerts={s.plan?.capacity_alerts || {}}
+        onChanged={loadDetail}
+      />
+
       {/* ── weekly supervision grid ── */}
-      <div className="section-title">🛠️ {t('supervisionTitle')}</div>
+      <div className="section-title" style={{ marginTop: 30 }}>🛠️ {t('supervisionTitle')}</div>
       <div className="small muted mb">{t('supervisionSub')}</div>
-      <Card className="superv-week-card">
+      <Card className="superv-week-card" style={{ borderRadius: 18 }}>
         <div className="between mb">
           <button className="btn ghost sm" onClick={() => weekShift(-1)}>→ {t('prevWeek')}</button>
           <b>{week ? weekOf(week.start) : ''}</b>
@@ -185,7 +247,6 @@ export default function MentorSupervise({ studentId, navigate }) {
         </div>
 
         <div className="superv-grid">
-          {/* day headers */}
           <div className="superv-corner"></div>
           {weekDays.map((d) => (
             <div key={d.ds} className="superv-day-head">
@@ -194,7 +255,6 @@ export default function MentorSupervise({ studentId, navigate }) {
             </div>
           ))}
 
-          {/* time-part rows */}
           {PARTS.map((p) => (
             <FragmentRow
               key={p.part}
@@ -208,8 +268,8 @@ export default function MentorSupervise({ studentId, navigate }) {
       </Card>
 
       {/* ── performance analysis (beta) ── */}
-      <div className="section-title">📈 {t('analysisTitle')} <Badge color="#f59e0b">{t('analysisBeta')}</Badge></div>
-      <Card>
+      <div className="section-title" style={{ marginTop: 30 }}>📈 {t('analysisTitle')} <Badge color="#f59e0b">{t('analysisBeta')}</Badge></div>
+      <Card style={{ borderRadius: 18 }}>
         {!analysis && <Empty>…</Empty>}
         {analysis && (
           <>
@@ -240,15 +300,10 @@ export default function MentorSupervise({ studentId, navigate }) {
         )}
       </Card>
 
-      {/* ── study plan assignment ── */}
-      <div className="section-title">📋 {t('planAssignment')}</div>
-      <div className="small muted mb">{t('currentPlanHint')}</div>
-      <PlanSection studentId={studentId} plan={s.plan} onChanged={loadDetail} />
-
       {/* ── AI report & history ── */}
-      <div className="section-title">🎓 {t('historyOf')} + {t('aiReportForMentor')}</div>
+      <div className="section-title" style={{ marginTop: 30 }}>🎓 {t('historyOf')} + {t('aiReportForMentor')}</div>
       <div className="grid cols-2">
-        <Card>
+        <Card style={{ borderRadius: 18 }}>
           <h3>{t('analysisSummary')}</h3>
           <div className="analysis-box">{s.analysis?.summary || '—'}</div>
           <div className="small muted mt">{t('strengths')}</div>
@@ -269,14 +324,14 @@ export default function MentorSupervise({ studentId, navigate }) {
           </div>
         </Card>
 
-        <Card>
+        <Card style={{ borderRadius: 18 }}>
           <h3>{t('subjectScores')}</h3>
           <SubjectScores items={s.reported_subjects} />
         </Card>
       </div>
 
-      <div className="section-title">📝 {t('examHistory')}</div>
-      <Card>
+      <div className="section-title" style={{ marginTop: 30 }}>📝 {t('examHistory')}</div>
+      <Card style={{ borderRadius: 18 }}>
         {s.attempts.length === 0 && <Empty>{t('noExamsYet')}</Empty>}
         {s.attempts.length > 0 && (
           <table className="table">
@@ -299,18 +354,54 @@ export default function MentorSupervise({ studentId, navigate }) {
         )}
       </Card>
 
-      {s.videos?.length > 0 && (
-        <>
-          <div className="section-title">🎥 {t('bestVideos')}</div>
-          <div className="flex wrap">
-            {s.videos.map((v, i) => (
-              <a key={i} className="chip" href={v.url} target="_blank" rel="noreferrer">🎥 {v.title}</a>
-            ))}
+      {/* ── Report Card Detail Modal ── */}
+      {selectedReportCard && (
+        <Modal title={`📊 ${selectedReportCard.title}`} onClose={() => setSelectedReportCard(null)}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', background: '#f8fafc', padding: 12, borderRadius: 10 }}>
+              <div><b>صادرکننده:</b> {selectedReportCard.provider}</div>
+              <div><b>تاریخ:</b> {fa(selectedReportCard.exam_date || 'نامشخص')}</div>
+              {selectedReportCard.total_traz && <div><b>تراز:</b> {fa(selectedReportCard.total_traz)}</div>}
+              {selectedReportCard.overall_rank && <div><b>رتبه:</b> {fa(selectedReportCard.overall_rank)}</div>}
+            </div>
+
+            {selectedReportCard.parsed_data?.subjects?.length > 0 && (
+              <div>
+                <b className="small muted">ریز درصدهای آزمون:</b>
+                <table className="table" style={{ marginTop: 6 }}>
+                  <thead>
+                    <tr><th>درس</th><th>درصد (%)</th><th>تراز</th><th>میانگین</th></tr>
+                  </thead>
+                  <tbody>
+                    {selectedReportCard.parsed_data.subjects.map((sub, idx) => (
+                      <tr key={idx}>
+                        <td><b>{sub.subject}</b></td>
+                        <td>{fa(sub.percentage ?? sub.score)}٪</td>
+                        <td>{fa(sub.traz || '—')}</td>
+                        <td>{fa(sub.class_average || '—')}٪</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {selectedReportCard.ai_insights?.diagnostic_summary && (
+              <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: 12 }}>
+                <b style={{ color: '#166534', display: 'block', marginBottom: 4 }}>💡 تحلیل و جمع‌بندی هوش مصنوعی:</b>
+                <div className="small" style={{ color: '#14532d', lineHeight: 1.6 }}>
+                  {selectedReportCard.ai_insights.diagnostic_summary}
+                </div>
+              </div>
+            )}
           </div>
-        </>
+          <div style={{ marginTop: 18, textAlign: 'end' }}>
+            <button className="btn sm" onClick={() => setSelectedReportCard(null)}>بستن</button>
+          </div>
+        </Modal>
       )}
 
-      {/* ── cell editor (floating small window) ── */}
+      {/* ── cell editor ── */}
       {cell && (
         <Modal title={`${t('editPartTitle')} — ${faDateOnly(cell.date_str)}`} onClose={() => setCell(null)}>
           <div className="small muted mb">

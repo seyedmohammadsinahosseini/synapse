@@ -1,14 +1,15 @@
 """Mentor router: student roster management, diagnostic inspections, study plan assignments, and daily supervision."""
 from datetime import date, datetime, timedelta
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..models import (ConsultSlot, ExamAttempt, Grade, PlanProgress,
-                      StudentProfile, StudyPlan, SupervisionEntry, User,
-                      VideoSuggestion)
+from ..models import (ConsultSlot, DailyCapacityAlert, ExamAttempt, Grade,
+                      PlanProgress, ReportCard, StudentProfile, StudyPlan,
+                      SupervisionEntry, User, VideoSuggestion)
 from ..routers.plan import (SUPERVISION_PARTS, iran_weekday,
                             normalize_weekly_days, plan_completion,
                             saturday_start, supervision_week,
@@ -32,6 +33,8 @@ def my_students(user: User = Depends(get_current_user), db: Session = Depends(ge
     out = []
     for p in profiles:
         stu = db.query(User).filter(User.id == p.user_id).first()
+        if not stu:
+            continue
         attempts = db.query(ExamAttempt).filter(
             ExamAttempt.student_id == p.user_id,
             ExamAttempt.status == "submitted",
@@ -42,6 +45,8 @@ def my_students(user: User = Depends(get_current_user), db: Session = Depends(ge
         comp = plan_completion(db, stu.id) if plan else {
             "total": 0, "done": 0, "missed": 0, "pct": None, "color": None,
         }
+        report_cards_count = db.query(ReportCard).filter(ReportCard.student_id == stu.id).count()
+
         out.append({
             "id": stu.id,
             "full_name": stu.full_name,
@@ -52,6 +57,7 @@ def my_students(user: User = Depends(get_current_user), db: Session = Depends(ge
             "goal_label": p.analysis.get("goal_label") if p.analysis else None,
             "exam_avg": avg,
             "exam_count": len(attempts),
+            "report_cards_count": report_cards_count,
             "joined": stu.created_at.isoformat() if stu.created_at else None,
             "analysis_ready": bool(p.analysis),
             "plan_source": plan.source if plan else None,
@@ -75,6 +81,17 @@ def student_detail(student_id: int, user: User = Depends(get_current_user),
     grades = db.query(Grade).filter(Grade.student_id == student_id)\
               .order_by(Grade.created_at.desc()).all()
     videos = db.query(VideoSuggestion).filter(VideoSuggestion.student_id == student_id).all()
+    report_cards = db.query(ReportCard).filter(ReportCard.student_id == student_id)\
+                     .order_by(ReportCard.created_at.desc()).all()
+
+    today = date.today()
+    start_sat = saturday_start(today)
+    alerts = db.query(DailyCapacityAlert).filter(
+        DailyCapacityAlert.student_id == student_id,
+        DailyCapacityAlert.date_str >= start_sat.isoformat(),
+        DailyCapacityAlert.date_str <= (start_sat + timedelta(days=6)).isoformat(),
+    ).all()
+    alerts_map = {a.date_str: {"max_hours": a.max_hours, "reason": a.reason} for a in alerts}
 
     subject_stats = {}
     for g in grades:
@@ -94,6 +111,18 @@ def student_detail(student_id: int, user: User = Depends(get_current_user),
         "total": 0, "done": 0, "missed": 0, "pct": None, "color": None,
     }
 
+    weekly_normalized = normalize_weekly_days((plan.content or {}).get("weekly")) if plan else []
+    # Check each day against capacity alerts
+    for i, day_item in enumerate(weekly_normalized):
+        day_date = start_sat + timedelta(days=i if i < 7 else 0)
+        day_date_str = day_date.isoformat()
+        total_dur = sum(t["duration_minutes"] for t in day_item["tasks"])
+        alert_info = alerts_map.get(day_date_str)
+        day_item["date_str"] = day_date_str
+        day_item["total_minutes"] = total_dur
+        day_item["capacity_limit"] = alert_info
+        day_item["is_over_capacity"] = bool(alert_info and total_dur > (alert_info["max_hours"] * 60))
+
     return {
         "student": {
             "id": stu.id,
@@ -110,10 +139,23 @@ def student_detail(student_id: int, user: User = Depends(get_current_user),
             "exists": bool(plan),
             "source": plan.source if plan else None,
             "generated_at": (plan.content or {}).get("generated_at", "") if plan else "",
-            "weekly": normalize_weekly_days((plan.content or {}).get("weekly")) if plan else [],
+            "weekly": weekly_normalized,
+            "capacity_alerts": alerts_map,
             "completion": comp,
         },
         "analysis": profile.analysis or {},
+        "ai_dossier": profile.ai_dossier or {},
+        "report_cards": [{
+            "id": rc.id,
+            "title": rc.title,
+            "provider": rc.provider,
+            "exam_date": rc.exam_date,
+            "total_traz": rc.total_traz,
+            "overall_rank": rc.overall_rank,
+            "parsed_data": rc.parsed_data,
+            "ai_insights": rc.ai_insights,
+            "created_at": rc.created_at.isoformat() if rc.created_at else None,
+        } for rc in report_cards],
         "reported_subjects": profile.subject_scores or [],
         "attempts": [{
             "id": a.id,
@@ -145,7 +187,7 @@ def plan_template(user: User = Depends(get_current_user)):
 
 
 class MentorPlanIn(BaseModel):
-    days: list  # [{label, tasks:[{subject,hours,focus}]}]
+    days: List[Dict[str, Any]]  # [{label, tasks:[{subject, topic, duration_minutes, study_method, question_count, notes}]}]
 
 
 @router.put("/students/{student_id}/plan")
@@ -160,18 +202,43 @@ def assign_plan(student_id: int, data: MentorPlanIn,
     for i, d in enumerate(data.days):
         label = (d.get("label") or "").strip() or f"Day {i+1}"
         sessions = []
-        for t in d.get("tasks") or []:
+        for j, t in enumerate(d.get("tasks") or []):
             subj = (t.get("subject") or "").strip()
             if not subj:
                 continue
-            try:
-                hours = round(float(t.get("hours") or 1), 1)
-            except (TypeError, ValueError):
-                hours = 1.0
+
+            dur = t.get("duration_minutes")
+            if dur is None:
+                try:
+                    dur = round(float(t.get("hours") or 1.5) * 60)
+                except (TypeError, ValueError):
+                    dur = 90
+            else:
+                try:
+                    dur = int(dur)
+                except (TypeError, ValueError):
+                    dur = 90
+
+            dur = max(15, min(360, dur))  # between 15 mins and 6 hours
+            study_method = str(t.get("study_method") or "study").strip().lower()
+            if study_method not in ("test", "essay", "study", "review"):
+                study_method = "study"
+
+            q_cnt = t.get("question_count")
+            if q_cnt is not None:
+                try:
+                    q_cnt = int(q_cnt)
+                except (TypeError, ValueError):
+                    q_cnt = None
+
             sessions.append({
+                "id": t.get("id") or f"sess_{i}_{j}_{int(datetime.utcnow().timestamp())}",
                 "subject": subj,
-                "hours": min(12.0, max(0.5, hours)),
-                "focus": (t.get("focus") or "").strip(),
+                "topic": (t.get("topic") or t.get("focus") or "").strip(),
+                "duration_minutes": dur,
+                "study_method": study_method,
+                "question_count": q_cnt,
+                "notes": (t.get("notes") or "").strip(),
             })
         weekly.append({"day": label, "sessions": sessions})
 
@@ -232,7 +299,7 @@ def mentor_stats(user: User = Depends(get_current_user), db: Session = Depends(g
 
 class SupervDayIn(BaseModel):
     date_str: str
-    parts: list  # [{part, text}]
+    parts: list
 
 
 @router.put("/students/{student_id}/supervision/day")

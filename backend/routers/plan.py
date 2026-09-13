@@ -1,13 +1,14 @@
-"""Study plan and supervision router: daily tasks progress tracking and schedule templates."""
+"""Study plan and supervision router: drag-and-drop planning, capacity alerts, and completion tracking."""
 from datetime import date, datetime, timedelta
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..models import (PlanProgress, StudentProfile, StudyPlan,
-                      SupervisionEntry, User)
+from ..models import (DailyCapacityAlert, PlanProgress, StudentProfile,
+                      StudyPlan, SupervisionEntry, User)
 from ..security import get_current_user
 
 router = APIRouter(prefix="/api", tags=["plan"])
@@ -36,30 +37,30 @@ def weekday_of_label(label: str):
 DEFAULT_TEMPLATE = {
     "weekly": [
         {"day": "شنبه", "sessions": [
-            {"subject": "ریاضی", "hours": 2, "focus": "حل تمرین و مرور فرمول‌ها"},
-            {"subject": "فیزیک", "hours": 1.5, "focus": "مرور فصل جاری و تست آموزشی"},
+            {"subject": "ریاضی", "topic": "حل تمرین و مرور فرمول‌ها", "duration_minutes": 90, "study_method": "study", "notes": ""},
+            {"subject": "فیزیک", "topic": "مرور فصل جاری و تست آموزشی", "duration_minutes": 90, "study_method": "test", "question_count": 30, "notes": "کتاب تست خیلی سبز"},
         ]},
         {"day": "یکشنبه", "sessions": [
-            {"subject": "شیمی", "hours": 2, "focus": "خواندن درس + تست"},
-            {"subject": "زبان انگلیسی", "hours": 1, "focus": "لغات و گرامر"},
+            {"subject": "شیمی", "topic": "خواندن درس + تست", "duration_minutes": 100, "study_method": "test", "question_count": 25, "notes": ""},
+            {"subject": "زبان انگلیسی", "topic": "لغات و گرامر", "duration_minutes": 60, "study_method": "review", "notes": ""},
         ]},
         {"day": "دوشنبه", "sessions": [
-            {"subject": "ریاضی", "hours": 1.5, "focus": "تمرین نکات مهم"},
-            {"subject": "زیست‌شناسی", "hours": 2, "focus": "مطالعه و مرور"},
+            {"subject": "ریاضی", "topic": "تمرین نکات مهم", "duration_minutes": 90, "study_method": "essay", "question_count": 15, "notes": ""},
+            {"subject": "زیست‌شناسی", "topic": "مطالعه و مرور متن کتاب", "duration_minutes": 120, "study_method": "study", "notes": "نکته‌برداری در حاشیه"},
         ]},
         {"day": "سه‌شنبه", "sessions": [
-            {"subject": "فیزیک", "hours": 1.5, "focus": "حل مسئله"},
-            {"subject": "ادبیات فارسی", "hours": 1, "focus": "آرایه‌ها و قرابت معنایی"},
+            {"subject": "فیزیک", "topic": "حل مسئله", "duration_minutes": 90, "study_method": "study", "notes": ""},
+            {"subject": "ادبیات فارسی", "topic": "آرایه‌ها و قرابت معنایی", "duration_minutes": 60, "study_method": "review", "notes": ""},
         ]},
         {"day": "چهارشنبه", "sessions": [
-            {"subject": "شیمی", "hours": 1.5, "focus": "تست و جمع‌بندی"},
-            {"subject": "عربی", "hours": 1, "focus": "قواعد و ترجمه"},
+            {"subject": "شیمی", "topic": "تست و جمع‌بندی", "duration_minutes": 90, "study_method": "test", "question_count": 30, "notes": ""},
+            {"subject": "عربی", "topic": "قواعد و ترجمه", "duration_minutes": 60, "study_method": "study", "notes": ""},
         ]},
         {"day": "پنجشنبه", "sessions": [
-            {"subject": "مرور هفتگی", "hours": 2, "focus": "جمع‌بندی دروس هفته"},
+            {"subject": "مرور هفتگی", "topic": "جمع‌بندی دروس هفته", "duration_minutes": 120, "study_method": "review", "notes": ""},
         ]},
         {"day": "جمعه", "sessions": [
-            {"subject": "آزمون و استراحت", "hours": 1, "focus": "آزمون آزمایشی یا مرور سبک"},
+            {"subject": "آزمون آزمایشی", "topic": "آزمون جامع هفتگی", "duration_minutes": 90, "study_method": "test", "question_count": 50, "notes": ""},
         ]},
     ],
 }
@@ -73,14 +74,8 @@ def get_student_plan(db: Session, student_id: int) -> StudyPlan | None:
     return db.query(StudyPlan).filter(StudyPlan.student_id == student_id).first()
 
 
-def _today_range() -> tuple[date, date]:
-    end = date.today()
-    start = end - timedelta(days=6)
-    return start, end
-
-
 def plan_completion(db: Session, student_id: int, days: int = 7):
-    """Calculate task completion percentage over the given trailing days."""
+    """Calculate task completion percentage and engagement color."""
     end = date.today()
     start = end - timedelta(days=days - 1)
     rows = (db.query(PlanProgress)
@@ -121,11 +116,19 @@ def normalize_weekly_days(weekly):
         sess = w.get("sessions") or w.get("tasks") or []
         tasks = []
         for j, s in enumerate(sess):
+            dur = s.get("duration_minutes")
+            if dur is None:
+                dur = round(float(s.get("hours", 1.5)) * 60)
             tasks.append({
+                "id": s.get("id") or f"task_{j}_{int(datetime.utcnow().timestamp())}",
                 "index": j,
                 "subject": s.get("subject", ""),
-                "hours": s.get("hours", 1),
-                "focus": s.get("focus", ""),
+                "topic": s.get("topic") or s.get("focus") or "",
+                "duration_minutes": int(dur),
+                "hours": round(int(dur) / 60, 1),
+                "study_method": s.get("study_method") or "study",
+                "question_count": s.get("question_count"),
+                "notes": s.get("notes") or "",
             })
         out.append({"label": label, "tasks": tasks, "weekday": weekday_of_label(label)})
     return out
@@ -140,6 +143,15 @@ def my_plan(user: User = Depends(get_current_user), db: Session = Depends(get_db
     plan = get_student_plan(db, user.id)
     today = date.today()
     t_idx = iran_weekday(today)
+    start_sat = saturday_start(today)
+
+    alerts = db.query(DailyCapacityAlert).filter(
+        DailyCapacityAlert.student_id == user.id,
+        DailyCapacityAlert.date_str >= start_sat.isoformat(),
+        DailyCapacityAlert.date_str <= (start_sat + timedelta(days=6)).isoformat(),
+    ).all()
+    alerts_map = {a.date_str: {"max_hours": a.max_hours, "reason": a.reason} for a in alerts}
+
     base = {
         "plan_exists": bool(plan),
         "source": plan.source if plan else None,
@@ -147,6 +159,7 @@ def my_plan(user: User = Depends(get_current_user), db: Session = Depends(get_db
         "date_str": today.isoformat(),
         "today_index": t_idx,
         "days": [],
+        "capacity_alerts": alerts_map,
         "week": {"total": 0, "done": 0, "missed": 0, "pct": None, "color": None},
     }
     if not plan:
@@ -164,16 +177,45 @@ def my_plan(user: User = Depends(get_current_user), db: Session = Depends(get_db
                           PlanProgress.date_str == today.isoformat())
                   .all())
     for r in today_rows:
-        done_map[(r.day_index, r.task_index)] = r.status
+        done_map[(r.day_index, r.task_index)] = {
+            "status": r.status,
+            "completed_at": r.completed_at.isoformat() if r.completed_at else None,
+        }
 
     out_days = []
     for i, d in enumerate(days):
+        day_date = start_sat + timedelta(days=i if i < 7 else 0)
+        day_date_str = day_date.isoformat()
         is_today = (d["weekday"] == t_idx)
+
+        total_day_min = sum(t["duration_minutes"] for t in d["tasks"])
+        alert_info = alerts_map.get(day_date_str)
+        is_over_cap = False
+        cap_warning = None
+        if alert_info and total_day_min > (alert_info["max_hours"] * 60):
+            is_over_cap = True
+            cap_warning = f"زمان اختصاص داده شده ({round(total_day_min/60, 1)} ساعت) بیشتر از ظرفیت اعلامی شما ({alert_info['max_hours']} ساعت) است."
+
         tasks = []
         for task in d["tasks"]:
-            st = done_map.get((i, task["index"]))
-            tasks.append({**task, "status": st if is_today else None})
-        out_days.append({"index": i, "label": d["label"], "is_today": is_today, "tasks": tasks})
+            st_info = done_map.get((i, task["index"]))
+            tasks.append({
+                **task,
+                "status": st_info["status"] if (is_today and st_info) else None,
+                "completed_at": st_info["completed_at"] if (is_today and st_info) else None,
+            })
+
+        out_days.append({
+            "index": i,
+            "label": d["label"],
+            "date_str": day_date_str,
+            "is_today": is_today,
+            "total_minutes": total_day_min,
+            "is_over_capacity": is_over_cap,
+            "capacity_warning": cap_warning,
+            "capacity_limit": alert_info,
+            "tasks": tasks,
+        })
 
     base["days"] = out_days
     base["week"] = plan_completion(db, user.id)
@@ -216,6 +258,7 @@ def set_task(data: TaskIn, user: User = Depends(get_current_user),
             db.commit()
         return {"ok": True, "status": None}
 
+    now_ts = datetime.utcnow()
     if not row:
         row = PlanProgress(
             plan_id=plan.id,
@@ -224,15 +267,80 @@ def set_task(data: TaskIn, user: User = Depends(get_current_user),
             day_index=data.day_index,
             task_index=data.task_index,
             status=data.status,
+            completed_at=now_ts if data.status == "done" else None,
         )
         db.add(row)
     else:
         row.status = data.status
+        row.completed_at = now_ts if data.status == "done" else None
 
     db.commit()
-    return {"ok": True, "status": data.status}
+    return {
+        "ok": True,
+        "status": data.status,
+        "completed_at": row.completed_at.isoformat() if row.completed_at else None,
+    }
 
 
+# ── Capacity Alerts (Student Time Constraints) ─────────────────────────────
+class CapacityAlertIn(BaseModel):
+    date_str: str = Field(min_length=10, max_length=10)
+    max_hours: float = Field(ge=0.5, le=16.0)
+    reason: str = Field(default="", max_length=255)
+
+
+@router.post("/plan/capacity-alert")
+def set_capacity_alert(
+    data: CapacityAlertIn,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if user.role != "student":
+        raise HTTPException(status_code=403, detail="Student access required")
+
+    row = db.query(DailyCapacityAlert).filter(
+        DailyCapacityAlert.student_id == user.id,
+        DailyCapacityAlert.date_str == data.date_str,
+    ).first()
+
+    if not row:
+        row = DailyCapacityAlert(
+            student_id=user.id,
+            date_str=data.date_str,
+            max_hours=data.max_hours,
+            reason=data.reason.strip(),
+        )
+        db.add(row)
+    else:
+        row.max_hours = data.max_hours
+        row.reason = data.reason.strip()
+
+    db.commit()
+    return {
+        "ok": True,
+        "date_str": data.date_str,
+        "max_hours": data.max_hours,
+        "reason": data.reason,
+    }
+
+
+@router.delete("/plan/capacity-alert/{date_str}")
+def delete_capacity_alert(
+    date_str: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if user.role != "student":
+        raise HTTPException(status_code=403, detail="Student access required")
+    db.query(DailyCapacityAlert).filter(
+        DailyCapacityAlert.student_id == user.id,
+        DailyCapacityAlert.date_str == date_str,
+    ).delete()
+    db.commit()
+    return {"ok": True}
+
+
+# ── Supervision Program (Mentor Daily Agenda) ──────────────────────────────
 SUPERVISION_PARTS = [
     {"part": 0, "from": "08:00", "to": "09:30"},
     {"part": 1, "from": "09:45", "to": "11:15"},
@@ -294,7 +402,7 @@ def supervision_week(db: Session, student_id: int, start: date | None = None,
 class SupervTaskIn(BaseModel):
     date_str: str = ""
     part: int = 0
-    status: str = ""          # done | missed | "" (reset)
+    status: str = ""
 
 
 @router.post("/plan/supervision/task")

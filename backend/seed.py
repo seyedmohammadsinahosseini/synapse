@@ -21,10 +21,17 @@ def _migrate(db):
             if name not in cols:
                 conn.exec_driver_sql(f"ALTER TABLE video_suggestions ADD COLUMN {name} {ddl}")
 
-        # Drop legacy overall_avg column if present
+        # Student profile ai_dossier
         pcols = [r[1] for r in conn.exec_driver_sql("PRAGMA table_info(student_profiles)")]
         if "overall_avg" in pcols:
             conn.exec_driver_sql("ALTER TABLE student_profiles DROP COLUMN overall_avg")
+        if "ai_dossier" not in pcols:
+            conn.exec_driver_sql("ALTER TABLE student_profiles ADD COLUMN ai_dossier TEXT DEFAULT ''")
+
+        # Plan progress completed_at timestamp
+        prog_cols = [r[1] for r in conn.exec_driver_sql("PRAGMA table_info(plan_progress)")]
+        if "completed_at" not in prog_cols:
+            conn.exec_driver_sql("ALTER TABLE plan_progress ADD COLUMN completed_at DATETIME")
 
         # User profile fields
         ucols = [r[1] for r in conn.exec_driver_sql("PRAGMA table_info(users)")]
