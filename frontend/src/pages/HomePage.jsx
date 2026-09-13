@@ -92,7 +92,7 @@ const CONTENT = {
   fa: {
     h1a: 'برنامه‌ریزی، آزمون و مربیِ تو،',
     h1b: 'در یک پلتفرم هوشمند',
-    sub: 'پلتفرم دانش‌آموز و مربی: برنامهٔ مطالعاتی هفتگیِ شخصی‌سازی‌شده با هوش مصنوعی، آزمون آنلاین با تصحیح خودکار، دستیارِ همیشه‌بیدار و همراهیِ واقعی مربی — از ثبت‌نام تا قبولی.',
+    sub: 'سیناپس (Synapse): پلتفرم هوشمند تحصیلی و مشاوره؛ برنامهٔ مطالعاتی هفتگیِ شخصی‌سازی‌شده با هوش مصنوعی، آزمون آنلاین با تصحیح خودکار، تحلیل جامع کارنامه و همراهیِ واقعی مشاور — از اولین گام تا رتبه برتر.',
     cta1: 'شروع رایگان',
     cta2: 'ورود به حساب',
     trust: ['بدون نیاز به کارت بانکی', 'فعال‌سازی فوری', 'مناسب کنکور و مدرسه'],
@@ -169,7 +169,7 @@ const CONTENT = {
   en: {
     h1a: 'Your study plan, tests and mentor,',
     h1b: 'all in one smart platform',
-    sub: 'A student–mentor platform: AI-personalised weekly study plans, online exams with auto-grading, an always-on assistant and real mentor support — from sign-up to success.',
+    sub: 'Synapse: AI-personalised weekly study plans, online exams with auto-grading, an always-on assistant and real mentor support — from sign-up to success.',
     cta1: 'Get started free',
     cta2: 'Log in',
     trust: ['No credit card needed', 'Instant activation', 'For school & university entrance'],

@@ -8,8 +8,8 @@ export const GRADES_EN = ['7th', '8th', '9th', '10th', '11th', '12th', 'Pre-Univ
 export const PRE_UNIVERSITY = [6] // پیش‌دانشگاهی / کنکوری
 
 const fa = {
-  appName: 'پلتفرم دانش‌آموز و مربی',
-  footer: 'هوش مصنوعی برای برنامه‌ریزی، تحلیل و آزمون',
+  appName: 'سیناپس | Synapse',
+  footer: 'سیناپس (Synapse) — پلتفرم هوشمند تحصیلی، برنامه‌ریزی، تحلیل کارنامه و مشاوره',
   logout: 'خروج',
   themeDark: 'حالت تیره',
   themeLight: 'حالت روشن',
@@ -17,8 +17,8 @@ const fa = {
   aiMentor: 'هوش مصنوعی',
 
   // login
-  loginTitle: 'ورود به پلتفرم',
-  loginSub: 'دستیار هوشمند مطالعه، آزمون و ارتباط با مربی',
+  loginTitle: 'ورود به سیناپس',
+  loginSub: 'پلتفرم هوشمند مطالعه، تحلیل کارنامه، آزمون و ارتباط با مشاور',
   emailLabel: 'ایمیل',
   passwordLabel: 'رمز عبور',
   loginBtn: 'ورود',
@@ -230,8 +230,8 @@ const fa = {
 }
 
 const en = {
-  appName: 'Student & Mentor Platform',
-  footer: 'AI for planning, analysis and exams',
+  appName: 'Synapse | AI Mentorship',
+  footer: 'Synapse — AI Study Planning, Diagnostic Analysis & Mentorship Platform',
   logout: 'Log out',
   themeDark: 'Dark mode',
   themeLight: 'Light mode',
