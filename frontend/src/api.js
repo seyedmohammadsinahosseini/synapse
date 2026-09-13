@@ -130,7 +130,7 @@ export const faClock = (sec) => {
   return fa(`${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`)
 }
 
-// compact number: 12345 -> ۱۲٫۳هزار / 12.3K
+// Compact number formatting: 12345 -> 12.3K / Persian thousands
 export const faCompact = (n) => {
   const v = Number(n) || 0
   if (_lang === 'en') {
