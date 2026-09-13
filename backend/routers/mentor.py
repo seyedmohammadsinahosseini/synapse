@@ -368,7 +368,7 @@ def get_supervision(student_id: int, start: str | None = None,
 
 
 @router.get("/students/{student_id}/analysis")
-def performance_analysis(student_id: int, user: User = Depends(get_current_user),
+def performance_analysis(student_id: int, lang: str = "fa", user: User = Depends(get_current_user),
                          db: Session = Depends(get_db)):
     _mentor_guard(user)
     profile = db.query(StudentProfile).filter(StudentProfile.user_id == student_id).first()
@@ -400,13 +400,20 @@ def performance_analysis(student_id: int, user: User = Depends(get_current_user)
         }
 
     days = []
-    day_names = ["Sat", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri"]
+    fa_days = ["شنبه", "یکشنبه", "دوشنبه", "سه‌شنبه", "چهارشنبه", "پنج‌شنبه", "جمعه"]
+    fa_short_days = ["ش", "ی", "د", "س", "چ", "پ", "ج"]
+    en_days = ["Sat", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri"]
     for i in range(14):
         d = start + timedelta(days=i)
         st = _stats_for(d)
+        w_idx = iran_weekday(d)
         days.append({
             "date": d.isoformat(),
-            "label": day_names[iran_weekday(d)],
+            "weekday_index": w_idx,
+            "label": en_days[w_idx] if lang == "en" else fa_short_days[w_idx],
+            "label_fa": fa_short_days[w_idx],
+            "label_fa_full": fa_days[w_idx],
+            "label_en": en_days[w_idx],
             **st,
         })
     week = plan_completion(db, student_id)
