@@ -1,4 +1,4 @@
-"""Study plan and supervision router: drag-and-drop planning, capacity alerts, and completion tracking."""
+"""Study plan and supervision router: drag-and-drop planning, capacity alerts, and multi-week completion tracking."""
 from datetime import date, datetime, timedelta
 from typing import List, Optional
 
@@ -32,6 +32,18 @@ def weekday_of_label(label: str):
     if lab in _EN_DAYS:
         return _EN_DAYS.index(lab)
     return None
+
+
+def saturday_start(day: date) -> date:
+    return day - timedelta(days=iran_weekday(day))
+
+
+def week_dates(start: date) -> list[date]:
+    return [start + timedelta(days=i) for i in range(7)]
+
+
+def persian_day_label(d: date) -> str:
+    return PERSIAN_DAYS[iran_weekday(d)]
 
 
 DEFAULT_TEMPLATE = {
@@ -136,25 +148,36 @@ def normalize_weekly_days(weekly):
 
 # ── Student Endpoints ──────────────────────────────────────────────────────
 @router.get("/plan")
-def my_plan(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def my_plan(week_start: Optional[str] = None, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     if user.role != "student":
         raise HTTPException(status_code=403, detail="Student access required")
 
     plan = get_student_plan(db, user.id)
     today = date.today()
-    t_idx = iran_weekday(today)
-    start_sat = saturday_start(today)
+    cur_sat = saturday_start(today)
+
+    if week_start:
+        try:
+            target_sat = saturday_start(date.fromisoformat(week_start))
+        except ValueError:
+            target_sat = cur_sat
+    else:
+        target_sat = cur_sat
+
+    target_sat_str = target_sat.isoformat()
+    t_idx = iran_weekday(today) if target_sat == cur_sat else -1
 
     alerts = db.query(DailyCapacityAlert).filter(
         DailyCapacityAlert.student_id == user.id,
-        DailyCapacityAlert.date_str >= start_sat.isoformat(),
-        DailyCapacityAlert.date_str <= (start_sat + timedelta(days=6)).isoformat(),
+        DailyCapacityAlert.date_str >= target_sat_str,
+        DailyCapacityAlert.date_str <= (target_sat + timedelta(days=6)).isoformat(),
     ).all()
     alerts_map = {a.date_str: {"max_hours": a.max_hours, "reason": a.reason} for a in alerts}
 
     base = {
-        "plan_exists": bool(plan),
-        "source": plan.source if plan else None,
+        "plan_exists": False,
+        "week_start": target_sat_str,
+        "source": None,
         "mentor_name": None,
         "date_str": today.isoformat(),
         "today_index": t_idx,
@@ -167,28 +190,77 @@ def my_plan(user: User = Depends(get_current_user), db: Session = Depends(get_db
 
     mentor = db.query(User).filter(User.id == plan.mentor_id).first() if plan.mentor_id else None
     content = plan.content or {}
-    days = normalize_weekly_days(content.get("weekly"))
     base["mentor_name"] = mentor.full_name if mentor else None
 
+    # Check if a plan exists for this specific week_start
+    weeks_dict = content.get("weeks", {})
+    specific_week_data = weeks_dict.get(target_sat_str)
+
+    weekly_raw = None
+    plan_source = plan.source or "mentor"
+
+    if specific_week_data:
+        # If it is a draft AI plan, student CANNOT see it until mentor approves!
+        if specific_week_data.get("status") == "approved":
+            weekly_raw = specific_week_data.get("weekly")
+            plan_source = specific_week_data.get("source", "mentor")
+            base["plan_exists"] = True
+    elif target_sat == cur_sat:
+        # Backward compatibility for current week
+        weekly_raw = content.get("weekly")
+        base["plan_exists"] = bool(weekly_raw and len(weekly_raw) > 0)
+
+    base["source"] = plan_source
+
+    if not weekly_raw:
+        # Return empty 7 days for this week
+        empty_days = []
+        for i, dname in enumerate(PERSIAN_DAYS):
+            d_date = target_sat + timedelta(days=i)
+            empty_days.append({
+                "index": i,
+                "label": dname,
+                "date_str": d_date.isoformat(),
+                "is_today": (target_sat == cur_sat and i == t_idx),
+                "total_minutes": 0,
+                "is_over_capacity": False,
+                "capacity_warning": None,
+                "capacity_limit": alerts_map.get(d_date.isoformat()),
+                "tasks": [],
+            })
+        base["days"] = empty_days
+        return base
+
+    days = normalize_weekly_days(weekly_raw)
+
     done_map = {}
-    today_rows = (db.query(PlanProgress)
-                  .filter(PlanProgress.plan_id == plan.id,
-                          PlanProgress.student_id == user.id,
-                          PlanProgress.date_str == today.isoformat())
-                  .all())
-    for r in today_rows:
-        done_map[(r.day_index, r.task_index)] = {
+    progress_rows = (db.query(PlanProgress)
+                     .filter(PlanProgress.plan_id == plan.id,
+                             PlanProgress.student_id == user.id,
+                             PlanProgress.date_str >= target_sat_str,
+                             PlanProgress.date_str <= (target_sat + timedelta(days=6)).isoformat())
+                     .all())
+    for r in progress_rows:
+        done_map[(r.date_str, r.day_index, r.task_index)] = {
             "status": r.status,
             "completed_at": r.completed_at.isoformat() if r.completed_at else None,
         }
 
-    out_days = []
+    # Map normalized days to their weekday index (0..6)
+    day_map = {d["weekday"]: d for d in days if d["weekday"] is not None}
     for i, d in enumerate(days):
-        day_date = start_sat + timedelta(days=i if i < 7 else 0)
-        day_date_str = day_date.isoformat()
-        is_today = (d["weekday"] == t_idx)
+        if d.get("weekday") is None and i < 7 and i not in day_map:
+            day_map[i] = d
 
-        total_day_min = sum(t["duration_minutes"] for t in d["tasks"])
+    out_days = []
+    for i, dname in enumerate(PERSIAN_DAYS):
+        day_date = target_sat + timedelta(days=i)
+        day_date_str = day_date.isoformat()
+        is_today = (target_sat == cur_sat and i == t_idx)
+
+        d = day_map.get(i)
+        day_tasks_raw = d["tasks"] if d else []
+        total_day_min = sum(t["duration_minutes"] for t in day_tasks_raw)
         alert_info = alerts_map.get(day_date_str)
         is_over_cap = False
         cap_warning = None
@@ -197,17 +269,17 @@ def my_plan(user: User = Depends(get_current_user), db: Session = Depends(get_db
             cap_warning = f"زمان اختصاص داده شده ({round(total_day_min/60, 1)} ساعت) بیشتر از ظرفیت اعلامی شما ({alert_info['max_hours']} ساعت) است."
 
         tasks = []
-        for task in d["tasks"]:
-            st_info = done_map.get((i, task["index"]))
+        for task in day_tasks_raw:
+            st_info = done_map.get((day_date_str, i, task["index"]))
             tasks.append({
                 **task,
-                "status": st_info["status"] if (is_today and st_info) else None,
-                "completed_at": st_info["completed_at"] if (is_today and st_info) else None,
+                "status": st_info["status"] if st_info else None,
+                "completed_at": st_info["completed_at"] if st_info else None,
             })
 
         out_days.append({
             "index": i,
-            "label": d["label"],
+            "label": dname,
             "date_str": day_date_str,
             "is_today": is_today,
             "total_minutes": total_day_min,
@@ -219,7 +291,8 @@ def my_plan(user: User = Depends(get_current_user), db: Session = Depends(get_db
 
     base["days"] = out_days
     base["week"] = plan_completion(db, user.id)
-    base["supervision_week"] = supervision_week(db, user.id)
+    return base
+    base["supervision_week"] = supervision_week(db, user.id, target_sat)
     base["summary"] = content.get("summary", "")
     base["generated_at"] = content.get("generated_at", "")
     return base
@@ -229,6 +302,7 @@ class TaskIn(BaseModel):
     day_index: int = 0
     task_index: int = 0
     status: str = ""       # "done" | "missed" | "" (clear)
+    date_str: Optional[str] = None
 
 
 @router.post("/plan/task")
@@ -243,11 +317,11 @@ def set_task(data: TaskIn, user: User = Depends(get_current_user),
     if not plan:
         raise HTTPException(status_code=404, detail="Study plan not configured")
 
-    date_str = date.today().isoformat()
+    target_date_str = data.date_str or date.today().isoformat()
     row = (db.query(PlanProgress)
            .filter(PlanProgress.plan_id == plan.id,
                    PlanProgress.student_id == user.id,
-                   PlanProgress.date_str == date_str,
+                   PlanProgress.date_str == target_date_str,
                    PlanProgress.day_index == data.day_index,
                    PlanProgress.task_index == data.task_index)
            .first())
@@ -263,7 +337,7 @@ def set_task(data: TaskIn, user: User = Depends(get_current_user),
         row = PlanProgress(
             plan_id=plan.id,
             student_id=user.id,
-            date_str=date_str,
+            date_str=target_date_str,
             day_index=data.day_index,
             task_index=data.task_index,
             status=data.status,
@@ -349,18 +423,6 @@ SUPERVISION_PARTS = [
     {"part": 4, "from": "17:45", "to": "19:15"},
     {"part": 5, "from": "19:30", "to": "21:00"},
 ]
-
-
-def saturday_start(day: date) -> date:
-    return day - timedelta(days=iran_weekday(day))
-
-
-def week_dates(start: date) -> list[date]:
-    return [start + timedelta(days=i) for i in range(7)]
-
-
-def persian_day_label(d: date) -> str:
-    return PERSIAN_DAYS[iran_weekday(d)]
 
 
 def supervision_week(db: Session, student_id: int, start: date | None = None,

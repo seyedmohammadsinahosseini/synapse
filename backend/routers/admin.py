@@ -377,3 +377,76 @@ async def import_excel(file: UploadFile = File(...), user = Depends(_admin),
 
     db.commit()
     return {"imported": added, "errors": errors[:30], "error_count": len(errors)}
+
+
+# ── AI Bi-Weekly Nightly Maintenance ──────────────────────────────────────────
+@router.post("/ai/nightly-sync")
+def ai_nightly_sync(user = Depends(_admin), db: Session = Depends(get_db)):
+    """Runs automated bi-weekly diagnostic and confidential dossier refresh for active students."""
+    from datetime import datetime, timedelta
+    from ..ai_service import ai
+    from ..models import ExamAttempt, PlanProgress, ReportCard, StudentProfile
+
+    profiles = db.query(StudentProfile).all()
+    refreshed_count = 0
+    now = datetime.utcnow()
+    two_weeks_ago = now - timedelta(days=14)
+
+    for p in profiles:
+        last_refreshed_str = (p.ai_dossier or {}).get("last_refreshed")
+        needs_refresh = False
+        if not last_refreshed_str:
+            needs_refresh = True
+        else:
+            try:
+                dt = datetime.fromisoformat(last_refreshed_str.replace("Z", ""))
+                if dt < two_weeks_ago:
+                    needs_refresh = True
+            except ValueError:
+                needs_refresh = True
+
+        if needs_refresh:
+            rcs = db.query(ReportCard).filter(ReportCard.student_id == p.user_id).all()
+            attempts = db.query(ExamAttempt).filter(ExamAttempt.student_id == p.user_id).all()
+            tasks_progress = db.query(PlanProgress).filter(PlanProgress.student_id == p.user_id).all()
+
+            student_ctx = {
+                "full_name": p.user.full_name if p.user else "دانش‌آموز",
+                "grade_level": p.grade_level,
+                "field_of_study": p.field_of_study,
+                "last_year_avg": p.last_year_avg,
+                "goal_type": p.goal_type,
+                "subject_scores": p.subject_scores or [],
+            }
+            rc_list = [
+                {
+                    "title": rc.title,
+                    "provider": rc.provider,
+                    "exam_date": rc.exam_date,
+                    "overall_traz": rc.total_traz,
+                    "subjects": rc.parsed_data.get("subjects", []) if rc.parsed_data else [],
+                }
+                for rc in rcs
+            ]
+            attempts_list = [
+                {"kind": a.kind, "score": a.total_score, "date": a.started_at.isoformat() if a.started_at else None}
+                for a in attempts if a.total_score is not None
+            ]
+
+            # Generate new diagnostic and atomically swap
+            new_diag = ai.standardized_student_diagnostic(
+                student_profile=student_ctx,
+                report_cards=rc_list,
+                exam_attempts=attempts_list,
+                task_history=[{"date": t.date_str, "status": t.status} for t in tasks_progress],
+            )
+            p.analysis = new_diag
+            p.ai_dossier = {
+                "analytical_dossier": new_diag.get("confidential_dossier"),
+                "subject_breakdowns": new_diag.get("subject_breakdowns"),
+                "last_refreshed": new_diag.get("last_refreshed", now.isoformat()),
+            }
+            refreshed_count += 1
+
+    db.commit()
+    return {"ok": True, "refreshed_students": refreshed_count, "timestamp": now.isoformat()}

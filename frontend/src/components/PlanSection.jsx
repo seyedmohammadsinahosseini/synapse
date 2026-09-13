@@ -49,12 +49,14 @@ export default function PlanSection({ studentId, plan, capacityAlerts = {}, onCh
   const [tpl, setTpl] = useState([])
   const [loadingTpl, setLoadingTpl] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [generatingAi, setGeneratingAi] = useState(false)
   const [msg, setMsg] = useState('')
   const [err, setErr] = useState('')
   const [customSubject, setCustomSubject] = useState('')
   const [selectedSession, setSelectedSession] = useState(null) // { dayIdx, taskIdx }
   const [draggedItem, setDraggedItem] = useState(null) // { type: 'subject' | 'method', val: string }
   const [weekOffset, setWeekOffset] = useState(0) // 0 = current week, -1 = prev, +1 = next
+  const [aiDraftInfo, setAiDraftInfo] = useState(null)
 
   const subjectsList = isEn ? STANDARD_SUBJECTS_EN : STANDARD_SUBJECTS_FA
   const dayNames = isEn ? ENGLISH_7_DAYS : PERSIAN_7_DAYS
@@ -62,7 +64,6 @@ export default function PlanSection({ studentId, plan, capacityAlerts = {}, onCh
   // Helper to compute date strings for each day of the week with weekOffset
   const getWeekDates = (offset = 0) => {
     const today = new Date()
-    // Find Saturday of this week (Sat = 6 in JS standard if Sunday = 0, so (today.getDay() + 1) % 7)
     const dayOfWeek = today.getDay() // 0 = Sun, 1 = Mon, ... 6 = Sat
     const diffToSat = (dayOfWeek + 1) % 7 // Saturday diff
     const sat = new Date(today)
@@ -83,7 +84,6 @@ export default function PlanSection({ studentId, plan, capacityAlerts = {}, onCh
     const weekDates = getWeekDates(offset)
 
     return dayNames.map((dayName, idx) => {
-      // Find matching day in data by label or index
       const found = list.find((d) => (d.label || d.day || '').trim().toLowerCase() === dayName.toLowerCase() || (d.label || d.day || '').trim() === PERSIAN_7_DAYS[idx])
       const rawTasks = found ? (found.tasks || found.sessions || []) : (list[idx]?.tasks || list[idx]?.sessions || [])
 
@@ -103,27 +103,41 @@ export default function PlanSection({ studentId, plan, capacityAlerts = {}, onCh
     })
   }
 
-  const initCalendar = async () => {
+  const loadWeekPlan = async (offset = weekOffset) => {
     setMsg('')
     setErr('')
     setLoadingTpl(true)
+    const weekDates = getWeekDates(offset)
+    const targetSat = weekDates[0]
+
     try {
-      if (plan?.weekly && plan.weekly.length) {
-        setTpl(build7DaysFromData(plan.weekly, weekOffset))
+      const r = await api(`/api/mentor/students/${studentId}?week_start=${targetSat}`)
+      const weekPlan = r.plan || {}
+      if (weekPlan.is_ai_draft) {
+        setAiDraftInfo({
+          summary: weekPlan.ai_strategy || weekPlan.summary || 'پیش‌نویس تولید شده توسط هوش مصنوعی',
+          strategy: weekPlan.ai_strategy,
+        })
       } else {
-        const r = await api('/api/mentor/plans/template')
-        setTpl(build7DaysFromData(r?.days || [], weekOffset))
+        setAiDraftInfo(null)
+      }
+
+      if (weekPlan.weekly && weekPlan.weekly.length > 0) {
+        setTpl(build7DaysFromData(weekPlan.weekly, offset))
+      } else {
+        // Empty week
+        setTpl(build7DaysFromData([], offset))
       }
     } catch {
-      setTpl(build7DaysFromData([], weekOffset))
+      setTpl(build7DaysFromData([], offset))
     } finally {
       setLoadingTpl(false)
     }
   }
 
   useEffect(() => {
-    initCalendar()
-  }, [plan, weekOffset, isEn]) // eslint-disable-line react-hooks/exhaustive-deps
+    loadWeekPlan(weekOffset)
+  }, [studentId, weekOffset, isEn]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const updTask = (di, ti, field, value) => {
     setTpl((prev) => prev.map((d, i) =>
@@ -191,14 +205,46 @@ export default function PlanSection({ studentId, plan, capacityAlerts = {}, onCh
     setSaving(true)
     setMsg('')
     setErr('')
+    const weekDates = getWeekDates(weekOffset)
     try {
-      await api(`/api/mentor/students/${studentId}/plan`, { method: 'PUT', body: { days: tpl } })
+      await api(`/api/mentor/students/${studentId}/plan`, {
+        method: 'PUT',
+        body: {
+          days: tpl,
+          week_start: weekDates[0],
+        },
+      })
       setMsg(t('planSent'))
+      setAiDraftInfo(null)
       if (onChanged) onChanged()
     } catch (e) {
       setErr(e.message)
     } finally {
       setSaving(false)
+    }
+  }
+
+  const generateAiDraft = async () => {
+    setGeneratingAi(true)
+    setMsg('')
+    setErr('')
+    const weekDates = getWeekDates(weekOffset)
+    try {
+      const res = await api(`/api/mentor/students/${studentId}/generate-ai-plan?week_start=${weekDates[0]}`, {
+        method: 'POST',
+      })
+      if (res.days) {
+        setTpl(build7DaysFromData(res.days, weekOffset))
+        setAiDraftInfo({
+          summary: res.summary || 'پیش‌نویس برنامه هوشمند تولید شده بر اساس سوابق و سبک مشاور',
+          strategy: res.ai_strategy,
+        })
+        setMsg('🤖 پیش‌نویس برنامه هوشمند برای این هفته توسط هوش مصنوعی آماده شد. می‌توانید تغییرات دلخواه را اعمال و سپس تایید نمایید.')
+      }
+    } catch (e) {
+      setErr(e.message)
+    } finally {
+      setGeneratingAi(false)
     }
   }
 
@@ -218,16 +264,55 @@ export default function PlanSection({ studentId, plan, capacityAlerts = {}, onCh
       {msg && <div className="ok-box mb" style={{ borderRadius: 14 }}>{msg}</div>}
       {err && <div className="error-box mb" style={{ borderRadius: 14 }}>{err}</div>}
 
-      {/* ── DRAG & DROP TOOLKITS PALETTE (Fully themed, NO WHITE BACKGROUNDS IN DARK MODE) ── */}
+      {/* AI Draft Proposal Notice for Mentor */}
+      {aiDraftInfo && (
+        <div
+          style={{
+            background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(168, 85, 247, 0.15))',
+            border: '1.5px solid var(--primary)',
+            borderRadius: 16,
+            padding: '14px 18px',
+            marginBottom: 18,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+            flexWrap: 'wrap',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 24 }}>🤖</span>
+            <div>
+              <b style={{ color: 'var(--primary)', fontSize: 14.5 }}>پیش‌نویس پیشنهادی هوش مصنوعی (در انتظار تایید مشاور):</b>
+              <div className="small" style={{ color: 'var(--ink)', marginTop: 2 }}>
+                {aiDraftInfo.summary} {aiDraftInfo.strategy ? `· راهبرد: ${aiDraftInfo.strategy}` : ''}
+              </div>
+              <div className="small muted" style={{ fontSize: 11, marginTop: 2 }}>
+                🔒 دانش‌آموز تا قبل از تایید نهایی شما به این برنامه دسترسی ندارد.
+              </div>
+            </div>
+          </div>
+          <button
+            className="btn"
+            style={{ borderRadius: 10, padding: '8px 18px', fontSize: 13 }}
+            onClick={sendPlan}
+            disabled={saving}
+          >
+            {saving ? '…' : '✅ تایید و ارسال برنامه برای دانش‌آموز'}
+          </button>
+        </div>
+      )}
+
+      {/* ── DRAG & DROP TOOLKITS PALETTE ── */}
       <div
         className="planner-toolkit-box"
         style={{
           borderRadius: 20,
           boxShadow: 'var(--shadow)',
-          marginBottom: 20,
+          marginBottom: 16,
         }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ fontSize: 24 }}>🛠️</span>
             <div>
@@ -235,20 +320,31 @@ export default function PlanSection({ studentId, plan, capacityAlerts = {}, onCh
               <div className="small muted">{t('studyToolkitsHint')}</div>
             </div>
           </div>
-          <button
-            className="btn"
-            style={{ borderRadius: 12, padding: '10px 24px', fontSize: 14 }}
-            disabled={saving}
-            onClick={sendPlan}
-          >
-            {saving ? '…' : `💾 ${t('sendPlan')}`}
-          </button>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button
+              className="btn ghost"
+              style={{ borderRadius: 12, padding: '9px 16px', fontSize: 13, border: '1.5px solid var(--primary)', color: 'var(--primary)' }}
+              disabled={generatingAi || saving}
+              onClick={generateAiDraft}
+              title="تولید خودکار پیش‌نویس برنامه هفته توسط AI بر اساس کارنامه و سبک قبلی شما"
+            >
+              {generatingAi ? '🤖 در حال تدوین...' : '🤖 تولید پیش‌نویس هوشمند با AI'}
+            </button>
+            <button
+              className="btn"
+              style={{ borderRadius: 12, padding: '9px 20px', fontSize: 13.5 }}
+              disabled={saving}
+              onClick={sendPlan}
+            >
+              {saving ? '…' : `💾 ${t('sendPlan')}`}
+            </button>
+          </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 14 }}>
           {/* 1. Subjects Palette */}
-          <div style={{ background: 'var(--card)', borderRadius: 14, padding: 14, border: '1px solid var(--line)' }}>
-            <b className="small" style={{ color: 'var(--primary)', display: 'block', marginBottom: 10, fontWeight: 800 }}>
+          <div style={{ background: 'var(--card)', borderRadius: 14, padding: 12, border: '1px solid var(--line)' }}>
+            <b className="small" style={{ color: 'var(--primary)', display: 'block', marginBottom: 8, fontWeight: 800 }}>
               {t('subjectsPalette')}
             </b>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -269,7 +365,7 @@ export default function PlanSection({ studentId, plan, capacityAlerts = {}, onCh
                   value={customSubject}
                   onChange={(e) => setCustomSubject(e.target.value)}
                   style={{
-                    width: 120,
+                    width: 110,
                     fontSize: 12,
                     padding: '4px 8px',
                     borderRadius: 8,
@@ -297,11 +393,11 @@ export default function PlanSection({ studentId, plan, capacityAlerts = {}, onCh
           </div>
 
           {/* 2. Study Methods Palette */}
-          <div style={{ background: 'var(--card)', borderRadius: 14, padding: 14, border: '1px solid var(--line)' }}>
-            <b className="small" style={{ color: 'var(--primary)', display: 'block', marginBottom: 10, fontWeight: 800 }}>
+          <div style={{ background: 'var(--card)', borderRadius: 14, padding: 12, border: '1px solid var(--line)' }}>
+            <b className="small" style={{ color: 'var(--primary)', display: 'block', marginBottom: 8, fontWeight: 800 }}>
               {t('methodsPalette')}
             </b>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
               {STUDY_METHODS_CFG.map((m) => {
                 const label = isEn ? m.label_en : m.label_fa
                 return (
@@ -330,16 +426,16 @@ export default function PlanSection({ studentId, plan, capacityAlerts = {}, onCh
         className="card"
         style={{
           borderRadius: 16,
-          padding: '12px 18px',
+          padding: '10px 16px',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
           marginBottom: 16,
           flexWrap: 'wrap',
-          gap: 12,
+          gap: 10,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <button
             className="btn ghost sm"
             style={{ borderRadius: 10, padding: '6px 14px', fontWeight: 800 }}
@@ -378,8 +474,8 @@ export default function PlanSection({ studentId, plan, capacityAlerts = {}, onCh
           className="calendar-week-grid"
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(290px, 1fr))',
-            gap: 16,
+            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+            gap: 14,
             width: '100%',
           }}
         >
@@ -442,12 +538,12 @@ export default function PlanSection({ studentId, plan, capacityAlerts = {}, onCh
                 )}
 
                 {/* Day Tasks List — SINGLE LINE COMPACT ITEMS WITHOUT VERBOSE TEXTS */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1, minHeight: 120 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1, minHeight: 110 }}>
                   {d.tasks.length === 0 ? (
                     <div
                       className="empty small muted"
                       style={{
-                        padding: '24px 10px',
+                        padding: '22px 10px',
                         border: '1.5px dashed var(--line)',
                         borderRadius: 12,
                         background: 'var(--tint-hover)',
