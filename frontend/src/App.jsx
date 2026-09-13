@@ -8,6 +8,7 @@ import Register from './pages/Register.jsx'
 import HomePage from './pages/HomePage.jsx'
 import StudentDashboard from './pages/StudentDashboard.jsx'
 import PlanPage from './pages/PlanPage.jsx'
+import ReportCardPage from './pages/ReportCardPage.jsx'
 import ChatPage from './pages/ChatPage.jsx'
 import ConsultBooking from './pages/ConsultBooking.jsx'
 import HistoryPage from './pages/HistoryPage.jsx'
@@ -190,6 +191,13 @@ function Routes() {
       return (
         <Shell route={route} navigate={navigate}>
           <PlanPage {...params} />
+        </Shell>
+      )
+    }
+    if (route === '#/report-cards' || route === '#/report-card') {
+      return (
+        <Shell route={route} navigate={navigate}>
+          <ReportCardPage {...params} />
         </Shell>
       )
     }

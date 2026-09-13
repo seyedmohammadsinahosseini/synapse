@@ -377,6 +377,67 @@ class AIProvider:
         )
         return self._safe_json(raw, self._mock_essay_grade(payload))
 
+    def analyze_report_card(self, text_or_filename: str, source: str = "kheilisabz") -> dict:
+        """Parses report card details, generating subject metrics, percentiles, traz, and deep background dossier."""
+        schema = (
+            'JSON schema: {'
+            '"title": string, '
+            '"overall_score": number, '
+            '"overall_traz": number, '
+            '"subjects": [{"subject": string, "score": number, "percentage": number, "traz": number, "class_avg": number, "rank": number}], '
+            '"strengths": [string], '
+            '"weaknesses": [string], '
+            '"ai_dossier": string'
+            '}'
+        )
+        system = f"report_card_analysis: Analyze educational report card for provider '{source}'. " + schema
+        raw = self._call_llm(system, json.dumps({"source": source, "content": text_or_filename}, ensure_ascii=False), json_mode=True)
+        return self._safe_json(raw, self._mock_report_card(source, text_or_filename))
+
+    def _mock_report_card(self, source: str, content: str) -> dict:
+        subjects = [
+            {"subject": "زیست‌شناسی", "score": 17.5, "percentage": 72.5, "traz": 6450, "class_avg": 54.0, "rank": 14},
+            {"subject": "شیمی", "score": 15.0, "percentage": 61.0, "traz": 6120, "class_avg": 48.5, "rank": 28},
+            {"subject": "فیزیک", "score": 13.5, "percentage": 46.0, "traz": 5780, "class_avg": 42.0, "rank": 45},
+            {"subject": "ریاضی", "score": 12.0, "percentage": 38.5, "traz": 5430, "class_avg": 36.0, "rank": 58},
+            {"subject": "ادبیات فارسی", "score": 18.0, "percentage": 78.0, "traz": 6600, "class_avg": 58.0, "rank": 9},
+            {"subject": "عربی", "score": 16.5, "percentage": 68.0, "traz": 6310, "class_avg": 51.0, "rank": 22},
+            {"subject": "زبان انگلیسی", "score": 19.0, "percentage": 84.0, "traz": 6850, "class_avg": 60.0, "rank": 4},
+            {"subject": "دین و زندگی", "score": 18.5, "percentage": 80.0, "traz": 6700, "class_avg": 63.0, "rank": 7},
+        ]
+        overall_score = round(sum(s["score"] for s in subjects) / len(subjects), 2)
+        overall_traz = round(sum(s["traz"] for s in subjects) / len(subjects))
+
+        source_title = "خیلی سبز" if source == "kheilisabz" else ("قلم‌چی" if source == "ghalamchi" else "مدرسه و آزمون‌های جامع")
+        dossier = (
+            f"=== COMPREHENSIVE AI STUDENT DOSSIER (CONFIDENTIAL) ===\n"
+            f"Assessment Source: {source.upper()} ({source_title})\n"
+            f"Evaluation Date: {today_label()}\n"
+            f"Overall Academic Traz: {overall_traz} | Average Score: {overall_score}/20\n\n"
+            f"1. COGNITIVE & SUBJECT PERFORMANCE PROFILE:\n"
+            f"- Strongest Domains: English (84%, Traz 6850), Religion (80%), and Literature (78%). Student shows advanced linguistic fluency and high verbal comprehension speed.\n"
+            f"- Critical Improvement Areas: Mathematics (38.5%, Traz 5430) and Physics (46%, Traz 5780). Analysis indicates concept gaps in analytical geometry and kinematics, leading to high error rate in multi-step calculation items.\n"
+            f"- Moderate Consistency: Chemistry (61%) and Biology (72.5%) are well-positioned above cohort averages (+18.5% and +12.5% delta respectively), but require targeted formula consolidation.\n\n"
+            f"2. BEHAVIORAL & TIME BUDGETING DIAGNOSTIC:\n"
+            f"- Problem Solving Velocity: Moderate in numerical subjects, high in conceptual/reading subjects.\n"
+            f"- Recommended Pedagogical Interventions:\n"
+            f"  a) Dedicate first morning study blocks to high-cognitive load mathematics and physics.\n"
+            f"  b) Implement 40-minute test cycles with post-session error logs.\n"
+            f"  c) Maintain weekly spaced repetition on Biology flashcards to protect 70%+ mastery.\n\n"
+            f"3. LONG-TERM ADAPTIVE RECOVERY TRAJECTORY:\n"
+            f"Current percentile places the student in the top 12% bracket. By increasing daily mathematics problem-solving quota to 35 questions/day, expected traz uplift within 6 weeks is +450 to +600 points."
+        )
+
+        return {
+            "title": f"کارنامه تحلیلی آزمون {source_title}",
+            "overall_score": overall_score,
+            "overall_traz": overall_traz,
+            "subjects": subjects,
+            "strengths": ["زبان انگلیسی", "دین و زندگی", "ادبیات فارسی", "زیست‌شناسی"],
+            "weaknesses": ["ریاضی", "فیزیک"],
+            "ai_dossier": dossier,
+        }
+
     def suggest_videos(self, subjects: list, lang: str = "fa") -> list:
         payload = {"subjects": subjects}
         if USE_MOCK:

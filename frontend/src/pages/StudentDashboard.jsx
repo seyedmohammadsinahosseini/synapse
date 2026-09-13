@@ -86,6 +86,24 @@ export default function StudentDashboard({ navigate }) {
         <Stat label={t('latestExamAvg')} value={d.latest_exam_avg != null ? fa(d.latest_exam_avg) : '—'} icon="🧠" color="#fce7f3" />
       </div>
 
+      {/* Report Cards Quick Banner */}
+      <Card style={{ borderRadius: 18, padding: 18, marginTop: 18, background: 'linear-gradient(135deg, #f8fafc 0%, #ede9fe 100%)', border: '1.5px solid #c7d2fe' }}>
+        <div className="flex wrap between items-center">
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+              <span style={{ fontSize: 20 }}>📊</span>
+              <b style={{ fontSize: 16, color: '#3730a3' }}>کارنامه‌ها و تحلیل آزمون‌های آزمایشی (خیلی سبز / قلم‌چی)</b>
+            </div>
+            <p className="small muted" style={{ margin: 0, color: '#4338ca' }}>
+              کارنامه خود را بارگذاری کنید تا نمودارهای تراز، مقایسه با میانگین و پرونده عملکرد PDF استخراج شود.
+            </p>
+          </div>
+          <button className="btn" style={{ borderRadius: 12, background: '#4f46e5' }} onClick={() => navigate('#/report-cards')}>
+            📊 مشاهده و بارگذاری کارنامه
+          </button>
+        </div>
+      </Card>
+
       {/* study plan entry */}
       <div className="section-title">📋 {t('studyPlan')}</div>
       <Card className="plan-card">

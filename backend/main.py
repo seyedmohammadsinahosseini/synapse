@@ -13,7 +13,7 @@ load_dotenv(dotenv_path=env_path)
 
 from .database import Base, engine
 from .routers import (admin, ai, auth, chat, consult, dashboard,
-                       exams, mentor, plan, support)
+                       exams, mentor, plan, report_card, support)
 
 Base.metadata.create_all(bind=engine)
 
@@ -42,6 +42,7 @@ app.include_router(chat.router)
 app.include_router(chat.ws_router)
 app.include_router(admin.router)
 app.include_router(plan.router)
+app.include_router(report_card.router)
 app.include_router(consult.mentor_router)
 app.include_router(consult.student_router)
 app.include_router(support.router)

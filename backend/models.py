@@ -43,6 +43,7 @@ class StudentProfile(Base):
     subject_scores = Column(JSON, default=list)           # [{subject, score}]
     mentor_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     analysis = Column(JSON, nullable=True)                # AI diagnostic payload
+    ai_dossier = Column(JSON, default=dict)               # Long-term comprehensive AI student dossier
 
     user = relationship("User", back_populates="profile",
                         foreign_keys=[user_id])
@@ -56,8 +57,8 @@ class Grade(Base):
     student_id = Column(Integer, ForeignKey("users.id"), index=True)
     subject = Column(String(80), nullable=False)
     score = Column(Float, nullable=False)                 # scale 0..20
-    source = Column(String(20), default="self")           # self | exam | test
-    year_label = Column(String(40), default="")           # e.g. ۱۴۰۳-۱۴۰۴
+    source = Column(String(20), default="self")           # self | exam | test | report_card
+    year_label = Column(String(40), default="")           # e.g. 1403-1404
     created_at = Column(DateTime, default=now)
 
 
@@ -123,8 +124,7 @@ class Message(Base):
 
 
 class AiChatMessage(Base):
-    """Student <-> AI assistant chat history — persisted so the chat is
-    never lost when the student navigates away or reloads the page."""
+    """Student <-> AI assistant chat history."""
     __tablename__ = "ai_chat_messages"
     id = Column(Integer, primary_key=True)
     student_id = Column(Integer, ForeignKey("users.id"), index=True)
@@ -144,7 +144,7 @@ class Notification(Base):
 
 
 class SupportTicket(Base):
-    """Student feedback / bug-report / support request seen by admins."""
+    """Student feedback / bug-report / support request."""
     __tablename__ = "support_tickets"
     id = Column(Integer, primary_key=True)
     student_id = Column(Integer, ForeignKey("users.id"), index=True)
@@ -165,23 +165,60 @@ class StudyPlan(Base):
 
 
 class PlanProgress(Base):
-    """Daily task check-in: the student marks each planned session of a day
-    as done / missed. Keyed to the calendar date + plan day/task index so
-    every week restarts fresh."""
+    """Daily task check-in with exact completion timestamp."""
     __tablename__ = "plan_progress"
     id = Column(Integer, primary_key=True)
     plan_id = Column(Integer, ForeignKey("study_plans.id"), index=True)
     student_id = Column(Integer, ForeignKey("users.id"), index=True)
-    date_str = Column(String(10), index=True)             # YYYY-MM-DD (the day the task belongs to)
-    day_index = Column(Integer, default=0)                # row inside plan.weekly
-    task_index = Column(Integer, default=0)               # session inside the day
+    date_str = Column(String(10), index=True)             # YYYY-MM-DD
+    day_index = Column(Integer, default=0)                # day inside plan.weekly
+    task_index = Column(Integer, default=0)               # session index
     status = Column(String(10), default="done")           # done | missed
+    completed_at = Column(DateTime, nullable=True)        # Exact timestamp when marked done
     created_at = Column(DateTime, default=now)
 
     __table_args__ = (
         UniqueConstraint("plan_id", "student_id", "date_str",
                          "day_index", "task_index", name="uq_plan_progress"),
     )
+
+
+class DailyCapacityAlert(Base):
+    """Student daily study constraint or exception."""
+    __tablename__ = "daily_capacity_alerts"
+    id = Column(Integer, primary_key=True)
+    student_id = Column(Integer, ForeignKey("users.id"), index=True)
+    date_str = Column(String(10), index=True)             # YYYY-MM-DD
+    max_hours = Column(Float, nullable=False)             # Max hours student can study on this day
+    reduced_hours = Column(Float, default=0.0)            # Hours reduced compared to normal
+    reason = Column(String(255), default="")              # Reason for capacity constraint
+    created_at = Column(DateTime, default=now)
+
+    __table_args__ = (
+        UniqueConstraint("student_id", "date_str", name="uq_student_capacity_alert"),
+    )
+
+
+class ReportCard(Base):
+    """Uploaded and AI-parsed student report card (e.g. Kheilisabz, Ghalamchi, School)."""
+    __tablename__ = "report_cards"
+    id = Column(Integer, primary_key=True)
+    student_id = Column(Integer, ForeignKey("users.id"), index=True)
+    title = Column(String(120), nullable=False)
+    provider = Column(String(80), default="خیلی سبز")
+    source = Column(String(40), default="kheilisabz")     # kheilisabz | ghalamchi | school | custom
+    exam_date = Column(String(20), nullable=True)
+    total_traz = Column(Integer, nullable=True)
+    overall_rank = Column(Integer, nullable=True)
+    file_path = Column(String(255), nullable=True)
+    parsed_data = Column(JSON, default=dict)
+    ai_insights = Column(JSON, default=dict)
+    summary_metrics = Column(JSON, default=list)          # [{subject, score, percentage, traz, class_avg, rank}]
+    overall_score = Column(Float, nullable=True)
+    overall_traz = Column(Integer, nullable=True)
+    ai_dossier = Column(Text, default="")                 # Long-term comprehensive background analysis
+    status = Column(String(20), default="analyzed")       # pending | analyzed
+    created_at = Column(DateTime, default=now)
 
 
 class VideoSuggestion(Base):
@@ -199,11 +236,6 @@ class VideoSuggestion(Base):
 
 
 class ConsultSlot(Base):
-    """One 45-minute consultation slot. The mentor defines free windows on a
-    day (duration must be a multiple of 45 min, half-hour boundaries); each
-    window is split into consecutive 45-min slots. A slot is free until a
-    student books it — the first student to claim it (atomic UPDATE on the
-    NULL student_id) wins."""
     __tablename__ = "consult_slots"
     id = Column(Integer, primary_key=True)
     mentor_id = Column(Integer, ForeignKey("users.id"), index=True)
@@ -222,9 +254,6 @@ class ConsultSlot(Base):
 
 
 class SupervisionEntry(Base):
-    """Mentor supervision program: for a given student+day one short text per
-    time part (8-9:30 … 19:30-21). The student sees these inside the study-plan
-    page and marks each as done / couldn't (status) — feeding weekly stats."""
     __tablename__ = "supervision_entries"
     id = Column(Integer, primary_key=True)
     student_id = Column(Integer, ForeignKey("users.id"), index=True)

@@ -25,6 +25,7 @@ export default function SlideBar({ role, route, navigate }) {
       student: [
         { key: 'home', icon: '🏠', labelKey: 'navHome', route: '#/dashboard' },
         { key: 'plan', icon: '📋', labelKey: 'navPlan', route: '#/plan' },
+        { key: 'report_cards', icon: '📊', labelKey: 'navReportCards', route: '#/report-cards' },
         { key: 'chat', icon: '💬', labelKey: 'navChat', route: '#/chat' },
         { key: 'consult', icon: '🗓️', labelKey: 'navConsult', route: '#/consult' },
         { key: 'history', icon: '🎓', labelKey: 'navHistory', route: '#/history' },
@@ -54,6 +55,7 @@ export default function SlideBar({ role, route, navigate }) {
         return r === '#/admin/students' || r === '#/mentor/students' || r.startsWith('#/mentor/student/')
       case 'chat': return r === '#/chat'
       case 'plan': return r === '#/plan'
+      case 'report_cards': return r === '#/report-cards' || r === '#/report-card'
       case 'consult': return r === '#/consult'
       case 'history': return r === '#/history'
       case 'schedule': return r === '#/mentor/schedule'

@@ -8,6 +8,7 @@ backend/app.db
 backend/app.db-journal
 backend/uploads/
 frontend/uploads/
+uploads/
 
 # ── python ────────────────────────────────────────────────────────
 __pycache__/
