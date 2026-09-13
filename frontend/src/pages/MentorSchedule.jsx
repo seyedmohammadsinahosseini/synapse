@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { api, fa } from '../api.js'
+import { api, fa, getLang } from '../api.js'
 import { useLang } from '../i18n.jsx'
 import { Card, Empty } from '../ui.jsx'
 import { useToast } from '../components/Toast.jsx'
 
-const DAY_LABELS = ['ش', 'ی', 'د', 'س', 'چ', 'پ', 'ج']
+const DAY_LABELS_FA = ['ش', 'ی', 'د', 'س', 'چ', 'پ', 'ج']
+const DAY_LABELS_EN = ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri']
+
 const MINUTES_OPT = [] // 06:00 … 22:30 in 15-min steps
 for (let m = 6 * 60; m <= 22 * 60 + 30; m += 15) MINUTES_OPT.push(m)
 
@@ -15,6 +17,7 @@ const DURATION_PRESETS = [30, 45, 60, 90, 120]
 
 export default function MentorSchedule({ navigate }) {
   const { t } = useLang()
+  const isEn = getLang() === 'en'
   const today = new Date()
   const [ym, setYm] = useState({ y: today.getFullYear(), m: today.getMonth() + 1 })
   const [cal, setCal] = useState(null)
@@ -77,7 +80,7 @@ export default function MentorSchedule({ navigate }) {
 
   const addWindow = async () => {
     if (!lengthOk || !selDate) {
-      show('مدت بازه زمانی باید حداقل به اندازه یک جلسه باشد', 'err')
+      show(isEn ? 'Session duration must fit inside the window' : 'مدت بازه زمانی باید حداقل به اندازه یک جلسه باشد', 'err')
       return
     }
     setSaving(true)
@@ -91,7 +94,7 @@ export default function MentorSchedule({ navigate }) {
           duration_min: parseInt(slotDuration) || 45,
         },
       })
-      show('بازه جلسات مشاوره با موفقیت ثبت شد')
+      show(t('windowAddedToast'))
       load()
     } catch (e) {
       show(String(e.message || t('windowConflict')), 'err')
@@ -127,7 +130,19 @@ export default function MentorSchedule({ navigate }) {
     }
   }
 
-  const monthName = fa(new Date(ym.y, ym.m - 1, 1).toLocaleDateString('fa-IR', { year: 'numeric', month: 'long' }))
+  const monthName = isEn
+    ? new Date(ym.y, ym.m - 1, 1).toLocaleDateString('en-GB', { year: 'numeric', month: 'long' })
+    : fa(new Date(ym.y, ym.m - 1, 1).toLocaleDateString('fa-IR', { year: 'numeric', month: 'long' }))
+
+  const dayLabels = isEn ? DAY_LABELS_EN : DAY_LABELS_FA
+
+  const faDateOnly = (ds) => {
+    try {
+      return isEn
+        ? new Date(ds + 'T00:00:00').toLocaleDateString('en-GB')
+        : fa(new Date(ds + 'T00:00:00').toLocaleDateString('fa-IR'))
+    } catch { return ds }
+  }
 
   return (
     <div>
@@ -141,12 +156,16 @@ export default function MentorSchedule({ navigate }) {
         {/* calendar */}
         <Card>
           <div className="between mb">
-            <button className="btn ghost sm" onClick={() => mShift(-1)}>→ {t('prevWeek')}</button>
+            <button className="btn ghost sm" onClick={() => mShift(-1)}>
+              {isEn ? `← ${t('prevWeek')}` : `→ ${t('prevWeek')}`}
+            </button>
             <b>{monthName}</b>
-            <button className="btn ghost sm" onClick={() => mShift(1)}>{t('nextWeek')} ←</button>
+            <button className="btn ghost sm" onClick={() => mShift(1)}>
+              {isEn ? `${t('nextWeek')} →` : `${t('nextWeek')} ←`}
+            </button>
           </div>
           <div className="cal-grid">
-            {DAY_LABELS.map((d) => <div key={d} className="cal-dow">{d}</div>)}
+            {dayLabels.map((d) => <div key={d} className="cal-dow">{d}</div>)}
             {cells.map((c, i) => {
               const slots = slotsFor(c.ds)
               const free = slots.filter((s) => !s.student_id).length
@@ -180,13 +199,13 @@ export default function MentorSchedule({ navigate }) {
             {selDate && (
               <>
                 <div className="small muted mb" style={{ fontWeight: 700, color: 'var(--primary)' }}>
-                  ⚙️ تنظیم مدت زمان و بازه زمانی جلسات:
+                  ⚙️ {t('windowLength')} & {t('sessionTime')}:
                 </div>
 
                 {/* Custom Session Duration Input ABOVE start/end times */}
                 <div style={{ marginBottom: 14 }}>
                   <label className="field" style={{ marginBottom: 6 }}>
-                    <span style={{ fontWeight: 800 }}>⏱️ مدت زمان هر جلسه مشاوره (دقیقه):</span>
+                    <span style={{ fontWeight: 800 }}>⏱️ {t('windowLength')} ({t('durationMin')}):</span>
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
                       {DURATION_PRESETS.map((p) => (
                         <button
@@ -201,12 +220,12 @@ export default function MentorSchedule({ navigate }) {
                             }
                           }}
                         >
-                          {fa(p)} دقیقه
+                          {fa(p)} {t('durationMin')}
                         </button>
                       ))}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
-                      <span className="small muted">یا وارد کردن دستی:</span>
+                      <span className="small muted">{isEn ? 'Or manual min:' : 'یا وارد کردن دستی:'}</span>
                       <input
                         type="number"
                         min="15"
@@ -223,7 +242,7 @@ export default function MentorSchedule({ navigate }) {
                           }
                         }}
                       />
-                      <span className="small muted">دقیقه</span>
+                      <span className="small muted">{t('durationMin')}</span>
                     </div>
                   </label>
                 </div>
@@ -257,11 +276,14 @@ export default function MentorSchedule({ navigate }) {
                 </div>
 
                 <div className="small mb" style={{ color: lengthOk ? '#16a34a' : '#dc2626', fontWeight: 700, lineHeight: 1.6 }}>
-                  کل بازه: {lengthMin > 0 ? `${fa(lengthMin)} دقیقه` : '—'} · ایجاد {fa(numSlots)} اسلات {fa(slotDuration)} دقیقه‌ای
+                  {isEn
+                    ? `Total: ${fa(lengthMin)} min · Generate ${fa(numSlots)} slots (${fa(slotDuration)} min each)`
+                    : `کل بازه: ${lengthMin > 0 ? `${fa(lengthMin)} دقیقه` : '—'} · ایجاد ${fa(numSlots)} اسلات ${fa(slotDuration)} دقیقه‌ای`
+                  }
                 </div>
 
                 <button className="btn block" disabled={saving || !lengthOk} onClick={addWindow}>
-                  + ثبت و ایجاد اسلات‌های مشاوره
+                  + {t('addWindow')}
                 </button>
               </>
             )}
@@ -299,10 +321,4 @@ export default function MentorSchedule({ navigate }) {
       {view}
     </div>
   )
-}
-
-function faDateOnly(ds) {
-  try {
-    return fa(new Date(ds + 'T00:00:00').toLocaleDateString('fa-IR'))
-  } catch { return ds }
 }

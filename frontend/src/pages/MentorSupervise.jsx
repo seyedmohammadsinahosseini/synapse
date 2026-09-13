@@ -22,7 +22,7 @@ export default function MentorSupervise({ studentId, navigate }) {
       .catch((e) => setError(e.message))
   }
   const loadAnalysis = () => {
-    api(`/api/mentor/students/${studentId}/analysis`)
+    api(`/api/mentor/students/${studentId}/analysis?lang=${getLang()}`)
       .then(setAnalysis)
       .catch(() => {})
   }
@@ -184,17 +184,21 @@ export default function MentorSupervise({ studentId, navigate }) {
               <Empty>{t('noDataYet')}</Empty>
             ) : (
               <div className="trend-bars">
-                {analysis.days.map((d) => (
-                  <div key={d.date} className="trend-col" title={`${d.date}: ${d.done}✓ ${d.missed}✕`}>
-                    <div className="trend-track">
-                      <div
-                        className={`trend-fill ${d.pct != null && d.pct < 25 ? 'red' : d.pct != null && d.pct < 50 ? 'yellow' : 'green'}`}
-                        style={{ height: `${d.pct != null ? Math.max(4, d.pct) : 2}%` }}
-                      />
+                {analysis.days.map((d) => {
+                  const dayLabel = getLang() === 'en' ? (d.label_en || d.label) : (d.label_fa || d.label)
+                  const dayFullTitle = `${d.date} (${getLang() === 'en' ? d.label_en : (d.label_fa_full || d.label)}): ${fa(d.done)}✓ ${fa(d.missed)}✕`
+                  return (
+                    <div key={d.date} className="trend-col" title={dayFullTitle}>
+                      <div className="trend-track">
+                        <div
+                          className={`trend-fill ${d.pct != null && d.pct < 25 ? 'red' : d.pct != null && d.pct < 50 ? 'yellow' : 'green'}`}
+                          style={{ height: `${d.pct != null ? Math.max(4, d.pct) : 2}%` }}
+                        />
+                      </div>
+                      <div className="small muted trend-day">{dayLabel}</div>
                     </div>
-                    <div className="small muted trend-day">{d.label}</div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </>

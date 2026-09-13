@@ -4,14 +4,16 @@ import { useLang } from '../i18n.jsx'
 import { Card, Empty } from '../ui.jsx'
 
 const METHOD_LABELS = {
-  test: { label: 'تست‌زنی', icon: '🎯', color: '#6366f1', bg: 'rgba(99, 102, 241, 0.16)' },
-  essay: { label: 'تشریحی', icon: '✍️', color: '#0ea5e9', bg: 'rgba(14, 165, 233, 0.16)' },
-  study: { label: 'مطالعه مفهومی', icon: '📖', color: '#10b981', bg: 'rgba(16, 185, 129, 0.16)' },
-  review: { label: 'مرور و جمع‌بندی', icon: '🔄', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.16)' },
+  test: { label_fa: 'تست‌زنی', label_en: 'Testing / MCQ', icon: '🎯', color: '#6366f1', bg: 'rgba(99, 102, 241, 0.16)' },
+  essay: { label_fa: 'تشریحی', label_en: 'Essay', icon: '✍️', color: '#0ea5e9', bg: 'rgba(14, 165, 233, 0.16)' },
+  study: { label_fa: 'مطالعه مفهومی', label_en: 'Concept Study', icon: '📖', color: '#10b981', bg: 'rgba(16, 185, 129, 0.16)' },
+  review: { label_fa: 'مرور و جمع‌بندی', label_en: 'Review', icon: '🔄', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.16)' },
 }
 
 export default function PlanPage({ navigate }) {
   const { t } = useLang()
+  const isEn = getLang() === 'en'
+
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -21,6 +23,7 @@ export default function PlanPage({ navigate }) {
   const [alertHours, setAlertHours] = useState(4.0)
   const [alertReason, setAlertReason] = useState('')
   const [savingAlert, setSavingAlert] = useState(false)
+  const [weekOffset, setWeekOffset] = useState(0)
 
   const load = useCallback(() => {
     api('/api/plan').then(setData).catch((e) => setError(e.message))
@@ -90,9 +93,7 @@ export default function PlanPage({ navigate }) {
   const faDateOnly = (iso) => {
     try {
       const d = new Date(iso + 'T00:00:00')
-      return getLang() === 'fa'
-        ? d.toLocaleDateString('fa-IR')
-        : d.toLocaleDateString('en-GB')
+      return isEn ? d.toLocaleDateString('en-GB') : d.toLocaleDateString('fa-IR')
     } catch { return iso }
   }
 
@@ -100,7 +101,7 @@ export default function PlanPage({ navigate }) {
     if (!iso) return null
     try {
       const d = new Date(iso)
-      return d.toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })
+      return d.toLocaleTimeString(isEn ? 'en-GB' : 'fa-IR', { hour: '2-digit', minute: '2-digit' })
     } catch {
       return null
     }
@@ -115,20 +116,23 @@ export default function PlanPage({ navigate }) {
   const color = week.color === 'ok' ? '#22c55e' : week.color === 'mid' ? '#eab308' : week.color === 'low' ? '#ef4444' : '#94a3b8'
   const pct = week.pct
 
+  const daysList = data.days || []
+  const weekRangeStr = daysList.length >= 7 ? `${faDateOnly(daysList[0].date_str)} — ${faDateOnly(daysList[6].date_str)}` : ''
+
   return (
     <div className="plan-calendar-page">
       {/* Hero Card */}
-      <div className="hero plan-hero" style={{ borderRadius: 20, boxShadow: 'var(--shadow)', marginBottom: 24 }}>
+      <div className="hero plan-hero" style={{ borderRadius: 20, boxShadow: 'var(--shadow)', marginBottom: 20 }}>
         <div className="flex wrap between items-center">
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-              <h2 style={{ margin: 0, fontSize: 24 }}>برنامه هفتگی و تقویم مطالعاتی</h2>
+              <h2 style={{ margin: 0, fontSize: 24 }}>{t('planDays')}</h2>
               <span className="badge" style={{ fontSize: 13, padding: '4px 12px', borderRadius: 12 }}>
-                {sourceIsMentor ? `🧑‍🏫 برنامه مشاور (${data.mentor_name || 'مشاور ارشد'})` : `🤖 برنامه هوشمند AI`}
+                {sourceIsMentor ? `🧑‍🏫 ${t('planSourceMentor')} (${data.mentor_name || 'مشاور'})` : `🤖 ${t('planSourceAi')}`}
               </span>
             </div>
             <p style={{ margin: 0, opacity: 0.9 }}>
-              تقویم مطالعاتی ۷ روزه بر اساس ساعات، مباحث و روش‌های چهارگانه مطالعه.
+              {t('taskLegend')}
             </p>
           </div>
           <div className="week-ring-wrap" style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
@@ -157,15 +161,15 @@ export default function PlanPage({ navigate }) {
         <>
           {/* Today's Focus Action Section */}
           {today && (
-            <div style={{ marginBottom: 30 }}>
+            <div style={{ marginBottom: 24 }}>
               <div className="section-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span>🎯 تکالیف و برنامه‌های امروز ({today.label} · {faDateOnly(today.date_str)})</span>
+                <span>🎯 {t('todayTasks')} ({today.label} · {faDateOnly(today.date_str)})</span>
                 <button
                   className="btn ghost sm"
-                  style={{ borderRadius: 10, fontSize: 13 }}
+                  style={{ borderRadius: 10, fontSize: 12.5 }}
                   onClick={() => openCapacityModal(today)}
                 >
-                  ⏱️ اعلام سقف ظرفیت مطالعه
+                  {t('declareCapacity')}
                 </button>
               </div>
 
@@ -176,31 +180,32 @@ export default function PlanPage({ navigate }) {
                     background: 'rgba(245, 158, 11, 0.16)',
                     border: '1.5px solid #f59e0b',
                     borderRadius: 14,
-                    padding: '12px 18px',
+                    padding: '10px 16px',
                     color: '#b45309',
-                    marginBottom: 16,
+                    marginBottom: 14,
                     display: 'flex',
                     alignItems: 'center',
-                    gap: 12,
+                    gap: 10,
                   }}
                 >
-                  <span style={{ fontSize: 22 }}>⚠️</span>
+                  <span style={{ fontSize: 20 }}>⚠️</span>
                   <div>
-                    <b>هشدار ظرفیت مطالعه:</b> {today.capacity_warning}
+                    <b>{t('capacityWarning')}</b> {today.capacity_warning}
                     {today.capacity_limit?.reason && (
-                      <div className="small" style={{ marginTop: 2 }}>دلیل شما: {today.capacity_limit.reason}</div>
+                      <div className="small" style={{ marginTop: 2 }}>دلیل: {today.capacity_limit.reason}</div>
                     )}
                   </div>
                 </div>
               )}
 
-              <Card style={{ borderRadius: 18, padding: 20 }}>
+              <Card style={{ borderRadius: 18, padding: 16 }}>
                 {today.tasks.length === 0 ? (
                   <Empty>{t('noTaskToday')}</Empty>
                 ) : (
-                  <div className="task-list" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  <div className="task-list" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                     {today.tasks.map((task) => {
                       const methodCfg = METHOD_LABELS[task.study_method] || METHOD_LABELS.study
+                      const mLabel = isEn ? methodCfg.label_en : methodCfg.label_fa
                       const doneTime = formatCompletedAt(task.completed_at)
                       const isDone = task.status === 'done'
                       return (
@@ -209,59 +214,58 @@ export default function PlanPage({ navigate }) {
                           className={`task-row ${task.status ? 'has' : ''}`}
                           style={{
                             border: isDone ? '1.5px solid var(--ok)' : '1px solid var(--line)',
-                            borderRadius: 14,
-                            padding: '14px 18px',
+                            borderRadius: 12,
+                            padding: '10px 14px',
                             background: isDone ? 'rgba(34, 197, 94, 0.10)' : 'var(--card)',
                             color: 'var(--ink)',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'space-between',
-                            boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
+                            boxShadow: '0 1px 4px rgba(0,0,0,0.02)',
                             cursor: 'pointer',
+                            flexWrap: 'wrap',
+                            gap: 8,
                           }}
                           onClick={() => setSelectedTask(task)}
+                          title={t('topicNotesPlaceholder')}
                         >
-                          <div className="task-info" style={{ flex: 1 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' }}>
-                              <b style={{ fontSize: 16, color: 'var(--ink)' }}>{task.subject}</b>
-                              <span
-                                style={{
-                                  background: methodCfg.bg,
-                                  color: methodCfg.color,
-                                  fontSize: 12,
-                                  padding: '2px 8px',
-                                  borderRadius: 8,
-                                  fontWeight: 700,
-                                }}
-                              >
-                                {methodCfg.icon} {methodCfg.label}
+                          {/* Single Line Info */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 200, flexWrap: 'wrap' }}>
+                            <b style={{ fontSize: 15, color: 'var(--ink)' }}>{task.subject}</b>
+                            <span
+                              style={{
+                                background: methodCfg.bg,
+                                color: methodCfg.color,
+                                fontSize: 11.5,
+                                padding: '2px 8px',
+                                borderRadius: 6,
+                                fontWeight: 700,
+                              }}
+                            >
+                              {methodCfg.icon} {mLabel}
+                            </span>
+                            <span className="small muted" style={{ background: 'var(--tint-fill)', padding: '2px 8px', borderRadius: 6 }}>
+                              ⏱️ {fa(task.duration_minutes)} {t('durationMin')}
+                            </span>
+                            {task.question_count && (
+                              <span className="small" style={{ background: 'var(--tint-fill)', color: 'var(--primary)', padding: '2px 8px', borderRadius: 6, fontWeight: 700 }}>
+                                📝 {fa(task.question_count)} {t('questionsCount')}
                               </span>
-                              <span className="small muted" style={{ background: 'var(--tint-fill)', padding: '2px 8px', borderRadius: 8 }}>
-                                ⏱️ {fa(task.duration_minutes)} دقیقه
-                              </span>
-                              {task.question_count && (
-                                <span className="small" style={{ background: 'var(--tint-fill)', color: 'var(--primary)', padding: '2px 8px', borderRadius: 8, fontWeight: 700 }}>
-                                  📝 {fa(task.question_count)} تست / سوال
-                                </span>
-                              )}
-                            </div>
-                            <div className="small muted" style={{ fontSize: 13, lineHeight: 1.5 }}>
-                              {task.topic ? `مبحث: ${task.topic}` : 'بدون مبحث مشخص'}
-                              {task.notes && <span style={{ marginRight: 8, color: 'var(--muted)' }}>· نکته مشاور: {task.notes}</span>}
-                            </div>
+                            )}
                             {doneTime && (
-                              <div className="small" style={{ color: 'var(--ok)', marginTop: 4, fontWeight: 700 }}>
-                                ⏰ زمان ثبت انجام: {doneTime}
-                              </div>
+                              <span className="small" style={{ color: 'var(--ok)', fontWeight: 700 }}>
+                                ⏰ {doneTime}
+                              </span>
                             )}
                           </div>
 
-                          <div className="task-actions" style={{ display: 'flex', gap: 8 }} onClick={(e) => e.stopPropagation()}>
+                          {/* Quick Action Buttons */}
+                          <div className="task-actions" style={{ display: 'flex', gap: 6 }} onClick={(e) => e.stopPropagation()}>
                             <button
                               className={`task-btn ok ${task.status === 'done' ? 'on' : ''}`}
                               title={t('taskDone')}
                               disabled={busy}
-                              style={{ borderRadius: 10, padding: '6px 12px' }}
+                              style={{ borderRadius: 8, padding: '4px 10px', fontSize: 12 }}
                               onClick={() => tick(today.index, task, 'done')}
                             >
                               ✓ {t('taskDone')}
@@ -270,7 +274,7 @@ export default function PlanPage({ navigate }) {
                               className={`task-btn no ${task.status === 'missed' ? 'on' : ''}`}
                               title={t('taskMissed')}
                               disabled={busy}
-                              style={{ borderRadius: 10, padding: '6px 12px' }}
+                              style={{ borderRadius: 8, padding: '4px 10px', fontSize: 12 }}
                               onClick={() => tick(today.index, task, 'missed')}
                             >
                               ✕ {t('taskMissed')}
@@ -279,7 +283,7 @@ export default function PlanPage({ navigate }) {
                               <button
                                 className="task-btn clear"
                                 disabled={busy}
-                                style={{ borderRadius: 10 }}
+                                style={{ borderRadius: 8, padding: '4px 8px', fontSize: 11 }}
                                 onClick={() => tick(today.index, task, '')}
                               >
                                 {t('clearTask')}
@@ -295,12 +299,52 @@ export default function PlanPage({ navigate }) {
             </div>
           )}
 
-          {/* Full 7-Day Week Calendar View */}
-          <div className="section-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-            <span>🗓️ نمای کامل تقویم ۷ روزه هفته</span>
-            <span className="small muted">برای مشاهده جزئیات هر پارت روی آن کلیک کنید</span>
+          {/* ── WEEK NAVIGATION CONTROLS ── */}
+          <div
+            className="card"
+            style={{
+              borderRadius: 16,
+              padding: '12px 18px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: 16,
+              flexWrap: 'wrap',
+              gap: 12,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <button
+                className="btn ghost sm"
+                style={{ borderRadius: 10, padding: '6px 14px', fontWeight: 800 }}
+                onClick={() => setWeekOffset((w) => w - 1)}
+              >
+                {t('prevWeekBtn')}
+              </button>
+              <button
+                className="btn ghost sm"
+                style={{ borderRadius: 10, padding: '6px 14px', fontWeight: 800 }}
+                onClick={() => setWeekOffset(0)}
+              >
+                {t('currentWeek')}
+              </button>
+              <button
+                className="btn ghost sm"
+                style={{ borderRadius: 10, padding: '6px 14px', fontWeight: 800 }}
+                onClick={() => setWeekOffset((w) => w + 1)}
+              >
+                {t('nextWeekBtn')}
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span className="badge" style={{ background: 'var(--tint-fill)', color: 'var(--primary)', fontSize: 13, padding: '4px 12px' }}>
+                🗓️ {weekRangeStr} {weekOffset !== 0 ? `(${weekOffset > 0 ? `+${weekOffset}` : weekOffset})` : ''}
+              </span>
+            </div>
           </div>
 
+          {/* Full 7-Day Week Calendar View */}
           <div
             className="calendar-week-grid"
             style={{
@@ -320,27 +364,27 @@ export default function PlanPage({ navigate }) {
                     background: hasAlert ? 'rgba(234, 179, 8, 0.14)' : 'var(--card)',
                     border: hasAlert ? '2px solid #f59e0b' : d.is_today ? '2px solid var(--primary)' : '1.5px solid var(--line)',
                     borderRadius: 18,
-                    padding: 16,
+                    padding: 14,
                     boxShadow: 'var(--shadow)',
                     display: 'flex',
                     flexDirection: 'column',
                     transition: 'transform 0.2s, box-shadow 0.2s',
                   }}
                 >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, paddingBottom: 8, borderBottom: '1px solid var(--line)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, paddingBottom: 8, borderBottom: '1px solid var(--line)' }}>
                     <div>
-                      <b style={{ fontSize: 16, color: 'var(--ink)' }}>{d.label}</b>
+                      <b style={{ fontSize: 15, color: 'var(--ink)' }}>{d.label}</b>
                       <span className="small muted" style={{ display: 'block', fontSize: 11 }}>{faDateOnly(d.date_str)}</span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      {d.is_today && <span className="badge badge-today" style={{ borderRadius: 8 }}>{t('today')}</span>}
+                      {d.is_today && <span className="badge badge-today" style={{ borderRadius: 8, fontSize: 11 }}>{t('today')}</span>}
                       <button
                         className="btn ghost sm"
                         style={{ padding: '2px 6px', fontSize: 11, borderRadius: 6 }}
                         onClick={() => openCapacityModal(d)}
-                        title="تنظیم سقف ساعات مطالعه روز"
+                        title={t('declareCapacity')}
                       >
-                        ⏱️ سقف
+                        ⏱️
                       </button>
                     </div>
                   </div>
@@ -358,16 +402,20 @@ export default function PlanPage({ navigate }) {
                         border: '1px solid #f59e0b',
                       }}
                     >
-                      ⚠️ اضافه بار: {fa(Math.round(d.total_minutes / 60 * 10) / 10)} ساعت (سقف: {fa(d.capacity_limit?.max_hours)} ساعت)
+                      ⚠️ {t('capacityWarning')} {fa(Math.round(d.total_minutes / 60 * 10) / 10)} {t('hoursUnit')}
                     </div>
                   )}
 
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10, flex: 1 }}>
+                  {/* Tasks on SINGLE LINE */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
                     {d.tasks.length === 0 ? (
-                      <div className="small muted" style={{ textAlign: 'center', padding: '16px 0' }}>برنامه‌ای ثبت نشده</div>
+                      <div className="small muted" style={{ textAlign: 'center', padding: '16px 0', fontSize: 12 }}>
+                        {t('noTaskToday')}
+                      </div>
                     ) : (
                       d.tasks.map((task) => {
                         const mCfg = METHOD_LABELS[task.study_method] || METHOD_LABELS.study
+                        const mLabel = isEn ? mCfg.label_en : mCfg.label_fa
                         return (
                           <div
                             key={task.index}
@@ -375,36 +423,43 @@ export default function PlanPage({ navigate }) {
                             style={{
                               background: 'var(--card)',
                               border: '1px solid var(--line)',
-                              borderRadius: 12,
-                              padding: '10px 12px',
+                              borderRadius: 10,
+                              padding: '8px 10px',
                               cursor: 'pointer',
                               boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              gap: 6,
                             }}
                             onClick={() => setSelectedTask(task)}
+                            title={t('topicNotesPlaceholder')}
                           >
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                              <b style={{ fontSize: 14, color: 'var(--ink)' }}>{task.subject}</b>
-                              <span style={{ fontSize: 11, background: mCfg.bg, color: mCfg.color, padding: '2px 6px', borderRadius: 6, fontWeight: 700 }}>
-                                {mCfg.icon} {mCfg.label}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 0, overflow: 'hidden' }}>
+                              <b style={{ fontSize: 13.5, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {task.subject}
+                              </b>
+                              <span style={{ fontSize: 10.5, background: mCfg.bg, color: mCfg.color, padding: '2px 6px', borderRadius: 6, fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0 }}>
+                                {mCfg.icon} {mLabel}
                               </span>
+                              <span className="small muted" style={{ fontSize: 10.5, background: 'var(--tint-fill)', padding: '2px 6px', borderRadius: 6, whiteSpace: 'nowrap', flexShrink: 0 }}>
+                                ⏱️ {fa(task.duration_minutes)} {t('durationMin')}
+                              </span>
+                              {task.question_count && (
+                                <span className="small" style={{ fontSize: 10.5, background: 'var(--tint-fill)', color: 'var(--primary)', padding: '2px 6px', borderRadius: 6, fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0 }}>
+                                  📝 {fa(task.question_count)}
+                                </span>
+                              )}
                             </div>
-                            <div className="small muted" style={{ fontSize: 12, marginBottom: 4 }}>
-                              ⏱️ {fa(task.duration_minutes)} دقیقه {task.question_count ? `· 📝 ${fa(task.question_count)} تست` : ''}
-                            </div>
-                            {task.topic && (
-                              <div className="small" style={{ color: 'var(--muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                {task.topic}
-                              </div>
-                            )}
                           </div>
                         )
                       })
                     )}
                   </div>
 
-                  <div style={{ marginTop: 12, paddingTop: 8, borderTop: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', fontSize: 12 }} className="muted">
-                    <span>مجموع زمان:</span>
-                    <b>{fa(Math.round(d.total_minutes / 60 * 10) / 10)} ساعت ({fa(d.total_minutes)} دقیقه)</b>
+                  <div style={{ marginTop: 10, paddingTop: 8, borderTop: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', fontSize: 11.5 }} className="muted">
+                    <span>{t('totalTime')}</span>
+                    <b>{fa(Math.round(d.total_minutes / 60 * 10) / 10)} {t('hoursUnit')} ({fa(d.total_minutes)} {t('minutesUnit')})</b>
                   </div>
                 </div>
               )
@@ -443,7 +498,7 @@ export default function PlanPage({ navigate }) {
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <h3 style={{ margin: 0, fontSize: 18, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span>📖 جزئیات تکلیف:</span>
+                <span>📖 {t('planOf')}:</span>
                 <span style={{ color: 'var(--primary)' }}>{selectedTask.subject}</span>
               </h3>
               <button className="btn ghost sm" style={{ borderRadius: 8 }} onClick={() => setSelectedTask(null)}>✕</button>
@@ -451,30 +506,30 @@ export default function PlanPage({ navigate }) {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
-                <span className="small muted">روش مطالعه:</span>
+                <span className="small muted">{t('typeShort')}:</span>
                 <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span className="badge" style={{ fontSize: 13, background: (METHOD_LABELS[selectedTask.study_method] || METHOD_LABELS.study).bg, color: (METHOD_LABELS[selectedTask.study_method] || METHOD_LABELS.study).color }}>
-                    {(METHOD_LABELS[selectedTask.study_method] || METHOD_LABELS.study).icon} {(METHOD_LABELS[selectedTask.study_method] || METHOD_LABELS.study).label}
+                    {(METHOD_LABELS[selectedTask.study_method] || METHOD_LABELS.study).icon} {isEn ? (METHOD_LABELS[selectedTask.study_method] || METHOD_LABELS.study).label_en : (METHOD_LABELS[selectedTask.study_method] || METHOD_LABELS.study).label_fa}
                   </span>
-                  <span className="badge" style={{ fontSize: 13, background: 'var(--tint-fill)', color: 'var(--ink)' }}>⏱️ {fa(selectedTask.duration_minutes)} دقیقه</span>
+                  <span className="badge" style={{ fontSize: 13, background: 'var(--tint-fill)', color: 'var(--ink)' }}>⏱️ {fa(selectedTask.duration_minutes)} {t('durationMin')}</span>
                   {selectedTask.question_count && (
                     <span className="badge" style={{ fontSize: 13, background: 'var(--tint-fill)', color: 'var(--primary)' }}>
-                      📝 {fa(selectedTask.question_count)} تست / سوال
+                      📝 {fa(selectedTask.question_count)} {t('questionsCount')}
                     </span>
                   )}
                 </div>
               </div>
 
               <div>
-                <span className="small muted">سرفصل و مبحث اختصاصی:</span>
+                <span className="small muted">{t('sessionFocus')}:</span>
                 <div style={{ background: 'var(--tint-hover)', padding: 12, borderRadius: 10, marginTop: 4, border: '1px solid var(--line)', fontSize: 14, minHeight: 60, whiteSpace: 'pre-wrap', color: 'var(--ink)' }}>
-                  {selectedTask.topic || 'بدون توضیح سرفصل'}
+                  {selectedTask.topic || '—'}
                 </div>
               </div>
 
               {selectedTask.notes && (
                 <div>
-                  <span className="small muted">توصیه و نکات مشاور:</span>
+                  <span className="small muted">نکات و توصیه مشاور:</span>
                   <div style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#b45309', padding: 12, borderRadius: 10, marginTop: 4, fontSize: 13, border: '1px solid #f59e0b', whiteSpace: 'pre-wrap' }}>
                     💡 {selectedTask.notes}
                   </div>
@@ -484,7 +539,7 @@ export default function PlanPage({ navigate }) {
 
             <div style={{ marginTop: 20, textAlign: 'end' }}>
               <button className="btn" style={{ borderRadius: 10 }} onClick={() => setSelectedTask(null)}>
-                بستن پنجره
+                {t('closeWin')}
               </button>
             </div>
           </div>
@@ -519,14 +574,14 @@ export default function PlanPage({ navigate }) {
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 style={{ margin: '0 0 12px 0', fontSize: 18 }}>⏱️ اعلام سقف توان مطالعه روزانه</h3>
+            <h3 style={{ margin: '0 0 12px 0', fontSize: 18 }}>⏱️ {t('declareCapacity')}</h3>
             <p className="small muted" style={{ marginBottom: 16, lineHeight: 1.5 }}>
-              اگر در این روز با محدودیت زمانی (مدرسه، آزمون یا مهمانی) مواجهید، سقف توان مطالعه خود را وارد کنید تا مشاور مطلع شود.
+              اگر در این روز با محدودیت زمانی مواجهید، حداکثر ساعت مطالعه مجاز خود را وارد کنید:
             </p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div>
-                <label className="small muted">تاریخ مورد نظر:</label>
+                <label className="small muted">{t('dayDate')}:</label>
                 <input
                   type="date"
                   className="input"
@@ -537,7 +592,7 @@ export default function PlanPage({ navigate }) {
               </div>
 
               <div>
-                <label className="small muted">حداکثر ساعت مطالعه مجاز:</label>
+                <label className="small muted">حداکثر ساعت مطالعه:</label>
                 <input
                   type="number"
                   step="0.5"
@@ -555,7 +610,7 @@ export default function PlanPage({ navigate }) {
                 <input
                   type="text"
                   className="input"
-                  placeholder="مثال: کلاس فوق‌العاده یا آزمون مدرسه"
+                  placeholder="مثال: کلاس کنکور یا آزمون مدرسه"
                   value={alertReason}
                   onChange={(e) => setAlertReason(e.target.value)}
                   style={{ marginTop: 4 }}
@@ -572,14 +627,14 @@ export default function PlanPage({ navigate }) {
                   setAlertModalOpen(false)
                 }}
               >
-                حذف محدودیت
+                {t('removeSession')}
               </button>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button className="btn ghost" style={{ borderRadius: 10 }} onClick={() => setAlertModalOpen(false)}>
-                  انصراف
+                  {t('supportCancel')}
                 </button>
                 <button className="btn" style={{ borderRadius: 10 }} onClick={saveCapacityAlert} disabled={savingAlert}>
-                  {savingAlert ? 'در حال ثبت...' : 'ثبت سقف'}
+                  {savingAlert ? '…' : t('save')}
                 </button>
               </div>
             </div>
