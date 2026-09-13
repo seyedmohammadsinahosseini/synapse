@@ -112,8 +112,8 @@ export default function ChatPanel({ studentId, mentorId }) {
   }
 
   return (
-    <div className="chat-fill">
-      <div className="assistant-body" ref={bodyRef}>
+    <div className="chat-fill" style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden' }}>
+      <div className="assistant-body" ref={bodyRef} style={{ flex: '1 1 0', minHeight: 0, overflowY: 'auto' }}>
         {loading && <div className="empty">{t('loadingChat')}</div>}
         {!loading && msgs.length === 0 && <div className="empty">{t('noChat')}</div>}
         {msgs.map((m) => {
@@ -135,7 +135,7 @@ export default function ChatPanel({ studentId, mentorId }) {
         })}
       </div>
 
-      <div className="assistant-input">
+      <div className="assistant-input" style={{ flexShrink: 0 }}>
         <button
           className={`voice-btn ${recording ? 'rec' : ''}`}
           title={t('voiceTitle')}

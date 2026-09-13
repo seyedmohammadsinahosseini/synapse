@@ -238,8 +238,8 @@ export default function ChatPage({ navigate, preselectStudent = null }) {
       <section className="chat-thread-pane" style={{ borderRadius: 20, boxShadow: 'var(--shadow)', border: '1.5px solid var(--line)' }}>
         {sel?.type === 'ai' ? (
           /* Dedicated AI Chat Thread View */
-          <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-            <div className="chat-thread-head" style={{ padding: '14px 18px', background: 'var(--card)', borderBottom: '1px solid var(--line)' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden' }}>
+            <div className="chat-thread-head" style={{ padding: '14px 18px', background: 'var(--card)', borderBottom: '1px solid var(--line)', flexShrink: 0 }}>
               <div className="flex" style={{ gap: 12 }}>
                 <div className="avatar" style={{ background: 'var(--grad)', fontSize: 20 }}>🤖</div>
                 <div>
@@ -256,7 +256,7 @@ export default function ChatPage({ navigate, preselectStudent = null }) {
               </div>
             </div>
 
-            <div className="assistant-body" ref={aiBodyRef} style={{ flex: 1, padding: 20, overflowY: 'auto' }}>
+            <div className="assistant-body" ref={aiBodyRef} style={{ flex: '1 1 0', minHeight: 0, padding: 20, overflowY: 'auto' }}>
               {aiMessages.map((m, i) => (
                 <div
                   key={i}
@@ -279,7 +279,7 @@ export default function ChatPage({ navigate, preselectStudent = null }) {
             </div>
 
             {/* AI Command Chips */}
-            <div className="chip-row" style={{ padding: '10px 18px', display: 'flex', gap: 8, flexWrap: 'wrap', background: 'var(--card)' }}>
+            <div className="chip-row" style={{ padding: '10px 18px', display: 'flex', gap: 8, flexWrap: 'wrap', background: 'var(--card)', flexShrink: 0 }}>
               {activeChips.map(([code, label]) => (
                 <button
                   key={code}
@@ -294,7 +294,7 @@ export default function ChatPage({ navigate, preselectStudent = null }) {
             </div>
 
             {/* AI Input Box */}
-            <div className="assistant-input" style={{ padding: '14px 18px', background: 'var(--card)', borderTop: '1px solid var(--line)' }}>
+            <div className="assistant-input" style={{ padding: '14px 18px', background: 'var(--card)', borderTop: '1px solid var(--line)', flexShrink: 0 }}>
               <input
                 className="input"
                 style={{ borderRadius: 14, padding: '12px 16px' }}
@@ -315,8 +315,8 @@ export default function ChatPage({ navigate, preselectStudent = null }) {
           </div>
         ) : sel ? (
           /* Standard Mentor / Peer Chat Panel */
-          <>
-            <div className="chat-thread-head">
+          <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden' }}>
+            <div className="chat-thread-head" style={{ flexShrink: 0 }}>
               <div className="flex">
                 <div className="avatar">{sel.peer_name.slice(0, 1)}</div>
                 <div>
@@ -329,7 +329,7 @@ export default function ChatPage({ navigate, preselectStudent = null }) {
               )}
             </div>
             <ChatPanel key={sel.student_id} studentId={sel.student_id} mentorId={null} />
-          </>
+          </div>
         ) : (
           <div className="chat-thread-empty">
             {noMentorStudent ? (
