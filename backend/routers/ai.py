@@ -243,25 +243,108 @@ def chat_history(user: User = Depends(get_current_user),
 
 
 def _render_plan(content: dict, is_en: bool = False) -> str:
+    """Formats student study schedule into a readable conversational message."""
+    if not isinstance(content, dict):
+        return "No study plan available." if is_en else "برنامه‌ای یافت نشد."
+
+    # Extract weekly days from top-level or from weeks dictionary
+    weekly = content.get("weekly")
+    if not weekly and content.get("weeks"):
+        weeks_dict = content.get("weeks", {})
+        if weeks_dict:
+            latest_week_key = sorted(weeks_dict.keys())[-1]
+            week_obj = weeks_dict.get(latest_week_key, {})
+            weekly = week_obj.get("weekly", [])
+
+    if not weekly:
+        return "Your study plan has not been assigned yet." if is_en else "برنامه مطالعاتی شما هنوز ثبت نشده است."
+
+    method_fa = {
+        "test": "تستی",
+        "essay": "تشریحی",
+        "study": "مطالعه",
+        "review": "مرور",
+    }
+    method_en = {
+        "test": "Test",
+        "essay": "Essay",
+        "study": "Study",
+        "review": "Review",
+    }
+
+    gen_at = content.get("generated_at", "")
+    summary = content.get("summary", "")
+
     if is_en:
-        lines = [f"📋 Study Schedule (Generated: {content.get('generated_at', '')}):"]
-        lines.append(content.get("summary", ""))
-        for day in content.get("weekly", []):
-            sessions = " — ".join(
-                f"{s['subject']} ({s['hours']}h: {s['focus']})"
-                for s in day.get("sessions", [])
-            )
-            lines.append(f"• {day.get('day')}: {sessions}")
+        lines = [f"📋 Study Schedule {f'({gen_at})' if gen_at else ''}:"]
+        if summary:
+            lines.append(f"📌 {summary}")
+        for day in weekly:
+            day_name = day.get("day") or day.get("label") or "Day"
+            sessions = day.get("sessions") or day.get("tasks") or []
+            if not sessions:
+                continue
+            sess_strs = []
+            for s in sessions:
+                subj = s.get("subject") or "Subject"
+                topic = s.get("topic") or s.get("focus") or ""
+                dur_min = s.get("duration_minutes")
+                if dur_min is None:
+                    try:
+                        dur_min = round(float(s.get("hours", 1.5)) * 60)
+                    except (TypeError, ValueError):
+                        dur_min = 90
+                hours = round(dur_min / 60, 1)
+                method = method_en.get(str(s.get("study_method", "")).lower(), s.get("study_method", ""))
+                q_cnt = s.get("question_count")
+
+                parts = [f"{hours}h"]
+                if method:
+                    parts.append(method)
+                if q_cnt:
+                    parts.append(f"{q_cnt} Qs")
+                if topic:
+                    parts.append(topic)
+
+                meta = " | ".join(parts)
+                sess_strs.append(f"{subj} ({meta})")
+            lines.append(f"• {day_name}: " + (" — ".join(sess_strs) if sess_strs else "Free / Rest"))
         return "\n".join(lines)
 
-    lines = [f"📋 برنامهٔ مطالعهٔ شما (تولید {content.get('generated_at', '')}):"]
-    lines.append(content.get("summary", ""))
-    for day in content.get("weekly", []):
-        sessions = " — ".join(
-            f"{s['subject']} ({fa_number(s['hours'])} ساعت: {s['focus']})"
-            for s in day.get("sessions", [])
-        )
-        lines.append(f"• {day.get('day')}: {sessions}")
+    lines = [f"📋 برنامهٔ مطالعهٔ شما {f'(تاریخ تنظیم: {fa_number(gen_at)})' if gen_at else ''}:"]
+    if summary:
+        lines.append(f"📌 {summary}")
+    for day in weekly:
+        day_name = day.get("day") or day.get("label") or "روز"
+        sessions = day.get("sessions") or day.get("tasks") or []
+        if not sessions:
+            continue
+        sess_strs = []
+        for s in sessions:
+            subj = s.get("subject") or "درس"
+            topic = s.get("topic") or s.get("focus") or ""
+            dur_min = s.get("duration_minutes")
+            if dur_min is None:
+                try:
+                    dur_min = round(float(s.get("hours", 1.5)) * 60)
+                except (TypeError, ValueError):
+                    dur_min = 90
+            hours = round(dur_min / 60, 1)
+            raw_method = str(s.get("study_method") or s.get("method") or "").lower()
+            method = method_fa.get(raw_method, raw_method)
+            q_cnt = s.get("question_count") or s.get("q_count")
+
+            parts = [f"{fa_number(hours)} ساعت"]
+            if method:
+                parts.append(method)
+            if q_cnt:
+                parts.append(f"{fa_number(q_cnt)} تست")
+            if topic:
+                parts.append(topic)
+
+            meta = " | ".join(parts)
+            sess_strs.append(f"{subj} ({meta})")
+        lines.append(f"• {day_name}: " + (" — ".join(sess_strs) if sess_strs else "استراحت / مرور آزاد"))
     return "\n".join(lines)
 
 

@@ -170,7 +170,26 @@ def test_multi_week_and_ai_endpoints():
     assert "overall_index" in diag or "total_capacity_score" in diag
     print("✓ AI Live Diagnostic analysis executed successfully with subject breakdowns")
 
-    # Test 8: Admin bi-weekly nightly sync
+    # Test 8: AI Chatbot interactions (/plan command and free conversation)
+    r_plan = client.post(
+        "/api/ai/chat",
+        json={"message": "/plan", "lang": "fa"},
+        headers={"Authorization": f"Bearer {student_token}"}
+    )
+    assert r_plan.status_code == 200, r_plan.text
+    assert "برنامهٔ مطالعهٔ شما" in r_plan.json()["reply"]
+    print("✓ AI Chatbot /plan handled correctly without KeyError")
+
+    r_chat = client.post(
+        "/api/ai/chat",
+        json={"message": "سلام! وضعیت برنامه من چطوره؟", "lang": "fa"},
+        headers={"Authorization": f"Bearer {student_token}"}
+    )
+    assert r_chat.status_code == 200, r_chat.text
+    assert "reply" in r_chat.json()
+    print("✓ AI Chatbot free message conversation handled successfully")
+
+    # Test 9: Admin bi-weekly nightly sync
     admin = db.query(User).filter(User.email == "admin@example.com").first()
     if not admin:
         admin = User(
