@@ -254,26 +254,28 @@ def delete_question(qid: int, user = Depends(_admin), db: Session = Depends(get_
 
 
 # ── Bulk Imports (JSON / Excel) ────────────────────────────────────────────
-def _clean_question(item: dict, row_label: str):
+def _clean_question(item: dict, row_label: str, default_subject: str = "زیست‌شناسی"):
     """Normalize input question dictionary into a valid Question instance."""
-    subject = str(item.get("subject") or "").strip()
-    text = str(item.get("text") or "").strip()
-    qtype = str(item.get("type") or "").strip().lower()
-    answer = str(item.get("answer") or "").strip()
-    if not subject or not text or not answer:
-        return None, f"{row_label}: subject, text, and answer are required fields"
-    if qtype not in ("mcq", "essay", "fill"):
-        return None, f"{row_label}: Invalid question type '{qtype}' (mcq, essay, or fill expected)"
-    try:
-        diff = int(item.get("difficulty") or 2)
-        diff = max(1, min(5, diff))
-    except (TypeError, ValueError):
-        diff = 2
+    subject = str(item.get("subject") or default_subject or "زیست‌شناسی").strip()
+    text = str(item.get("text") or item.get("question_text") or "").strip()
+    qtype = str(item.get("type") or item.get("question_type") or "mcq").strip().lower()
+    
+    raw_ans = item.get("answer")
+    if raw_ans is None:
+        raw_ans = item.get("correct_answer")
+    if raw_ans is None:
+        raw_ans = item.get("correct_option")
+    if raw_ans is None:
+        raw_ans = item.get("correct")
+    answer = str(raw_ans if raw_ans is not None else "0").strip()
+
+    if not text:
+        return None, f"{row_label}: متن سؤال الزامی است"
 
     options: List[str] = []
-    raw_opt = item.get("options")
+    raw_opt = item.get("options") or item.get("choices")
     if isinstance(raw_opt, list):
-        options = [str(o) for o in raw_opt if str(o).strip()]
+        options = [str(o).strip() for o in raw_opt if str(o).strip()]
     elif isinstance(raw_opt, str) and raw_opt.strip():
         options = [o.strip() for o in str(raw_opt).replace("،", "|").replace(",", "|").split("|") if o.strip()]
 
@@ -289,15 +291,42 @@ def _clean_question(item: dict, row_label: str):
                         options.append(str(vv).strip())
                 break
 
-    if qtype == "mcq":
-        if len(options) < 2:
-            return None, f"{row_label}: Multiple choice questions require at least 2 options"
-        if answer not in [str(i) for i in range(len(options))]:
-            return None, f"{row_label}: Answer must be a zero-based option index (0 to {len(options)-1})"
-    else:
+    if options and qtype != "essay":
+        qtype = "mcq"
+
+    if qtype not in ("mcq", "essay", "fill"):
+        qtype = "mcq" if options else "essay"
+
+    # Difficulty parser
+    raw_diff = item.get("difficulty")
+    diff = 3
+    if isinstance(raw_diff, (int, float)):
+        diff = max(1, min(5, int(raw_diff)))
+    elif isinstance(raw_diff, str):
+        d_lower = raw_diff.lower()
+        if "easy" in d_lower or "آسان" in d_lower:
+            diff = 1
+        elif "hard" in d_lower or "سخت" in d_lower:
+            diff = 4
+        elif "very" in d_lower or "خیلی" in d_lower:
+            diff = 5
+        else:
+            diff = 3
+
+    # Normalize answer for MCQ (handles 1-based e.g. "1".."4" -> "0".."3")
+    if qtype == "mcq" and options:
+        valid_indices = [str(i) for i in range(len(options))]
+        one_based = [str(i + 1) for i in range(len(options))]
+        if answer in one_based and answer not in valid_indices:
+            answer = str(int(answer) - 1)
+        elif answer in one_based and len(options) <= 4:
+            answer = str(int(answer) - 1)
+        elif answer not in valid_indices:
+            answer = "0"
+    elif qtype != "mcq":
         options = []
 
-    explanation = str(item.get("explanation") or "").strip()
+    explanation = str(item.get("explanation") or item.get("solution") or "").strip()
     q = Question(
         subject=subject,
         type=qtype,
@@ -313,34 +342,97 @@ def _clean_question(item: dict, row_label: str):
 @router.post("/questions/import/json")
 async def import_json(file: UploadFile = File(...), user = Depends(_admin),
                       db: Session = Depends(get_db)):
+    """Universal JSON question and curriculum batch importer supporting all structured schemas."""
     raw = await file.read()
     try:
         data = json.loads(raw.decode("utf-8-sig"))
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid JSON format")
-
-    items = data.get("questions") if isinstance(data, dict) else data
-    if not isinstance(items, list) or not items:
-        raise HTTPException(status_code=400, detail="JSON array of question items expected")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"فرمت JSON نامعتبر است: {str(e)}")
 
     added = 0
     errors: List[str] = []
+
+    # Case 1: curriculum_units
+    if isinstance(data, dict) and ("curriculum_units" in data or "units" in data):
+        units = data.get("curriculum_units") or data.get("units") or []
+        for u in units:
+            unit_title = u.get("title") or u.get("book_title") or "سرفصل تحلیلی کتاب درسی"
+            unit_grade = u.get("grade_level") or "دوازدهم"
+            unit_field = u.get("field_of_study") or "علوم تجربی"
+            unit_sub = u.get("subject") or "زیست‌شناسی"
+            unit_chap = u.get("chapter_name") or u.get("chapter") or ""
+            unit_sum = u.get("summary_text") or u.get("core_concepts") or ""
+
+            src = CurriculumSource(
+                title=unit_title,
+                grade_level=unit_grade,
+                field_of_study=unit_field,
+                subject=unit_sub,
+                chapter_name=unit_chap,
+                summary_text=unit_sum if isinstance(unit_sum, str) else json.dumps(unit_sum, ensure_ascii=False),
+                content_json=u,
+                created_by=user.id,
+            )
+            db.add(src)
+
+            # Ingest questions
+            q_list = u.get("questions") or u.get("generated_questions") or []
+            for j, item in enumerate(q_list):
+                q, err = _clean_question(item, f"{unit_sub} Q{j+1}", default_subject=unit_sub)
+                if err:
+                    errors.append(err)
+                    continue
+                existing = db.query(Question).filter(Question.text == q.text).first()
+                if not existing:
+                    q.created_by = user.id
+                    db.add(q)
+                    added += 1
+
+        db.commit()
+        return {
+            "imported": added,
+            "errors": errors[:30],
+            "error_count": len(errors),
+            "message": f"تعداد {added} سؤال جدید همراه با سرفصل‌های درسی با موفقیت ثبت شدند."
+        }
+
+    # Case 2: Direct questions list or wrapped
+    items = []
+    default_sub = "زیست‌شناسی"
+    if isinstance(data, list):
+        items = data
+    elif isinstance(data, dict):
+        default_sub = data.get("subject") or "زیست‌شناسی"
+        items = data.get("questions") or data.get("generated_questions") or data.get("items") or []
+        if not items and ("text" in data or "question_text" in data):
+            items = [data]
+
+    if not isinstance(items, list) or not items:
+        raise HTTPException(status_code=400, detail="هیچ سوال یا سرفصلی در فایل JSON یافت نشد.")
+
     for i, item in enumerate(items):
         try:
             d = dict(item)
         except Exception:
             errors.append(f"Row {i+1}: Invalid item structure")
             continue
-        q, err = _clean_question(d, f"Row {i+1}")
+        q, err = _clean_question(d, f"Row {i+1}", default_subject=default_sub)
         if err:
             errors.append(err)
             continue
-        q.created_by = user.id
-        db.add(q)
-        added += 1
+        existing = db.query(Question).filter(Question.text == q.text).first()
+        if not existing:
+            q.created_by = user.id
+            db.add(q)
+            added += 1
 
     db.commit()
-    return {"imported": added, "errors": errors[:30], "error_count": len(errors)}
+    return {
+        "imported": added,
+        "errors": errors[:30],
+        "error_count": len(errors),
+        "message": f"تعداد {added} سوال با موفقیت به بانک سوالات اضافه شد."
+    }
 
 
 @router.post("/questions/import/excel")

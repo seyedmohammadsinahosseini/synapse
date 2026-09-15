@@ -67,7 +67,7 @@ export default function AdminDashboard({ section = 'stats', navigate }) {
       const r = await api(`/api/admin/questions/import/${kind}`, { method: 'POST', form: fd })
       const errTxt = r.error_count ? ` · ${r.error_count} خطا (اولین: ${(r.errors || [])[0]})` : ''
       setImportMsg(`✅ ${fa(r.imported)} ${t('importedOk')}${errTxt}`)
-      load('questions'); load('stats')
+      load('questions'); load('stats'); load('curriculum')
     } catch (e) {
       setImportMsg('⚠️ ' + e.message)
     }
@@ -465,7 +465,12 @@ export default function AdminDashboard({ section = 'stats', navigate }) {
                     + {lang === 'fa' ? 'افزودن سرفصل دستی' : 'Add Source Manually'}
                   </button>
                   <button className="btn sm" style={{ background: '#0891b2', color: '#fff' }} onClick={() => setJsonBatchModal(true)}>
-                    📋 {lang === 'fa' ? 'ورود متن JSON تحلیل کتاب' : 'Paste Curriculum JSON'}
+                    📋 {lang === 'fa' ? 'چسباندن متن JSON' : 'Paste JSON'}
+                  </button>
+                  <input ref={jsonRef} type="file" accept=".json,application/json" hidden
+                    onChange={() => doImport('json')} />
+                  <button className="btn ghost sm" onClick={() => jsonRef.current?.click()}>
+                    📁 {lang === 'fa' ? 'آپلود فایل JSON' : 'Upload JSON'}
                   </button>
                 </>
               ) : (
@@ -475,6 +480,9 @@ export default function AdminDashboard({ section = 'stats', navigate }) {
                   <input ref={xlsxRef} type="file" accept=".xlsx,.xlsm" hidden
                     onChange={() => doImport('excel')} />
                   <button className="btn ghost sm" onClick={() => jsonRef.current?.click()}>📥 {t('importJson')}</button>
+                  <button className="btn sm" style={{ background: '#0891b2', color: '#fff' }} onClick={() => setJsonBatchModal(true)}>
+                    📋 {lang === 'fa' ? 'چسباندن متن JSON' : 'Paste JSON'}
+                  </button>
                   <button className="btn ghost sm" onClick={() => xlsxRef.current?.click()}>📊 {t('importExcel')}</button>
                   <button className="btn sm" style={{ background: '#059669', color: '#fff' }} onClick={syncCurriculumQuestions}>
                     🔄 {lang === 'fa' ? 'بروزرسانی از سرفصل‌ها' : 'Sync from Curriculum'}
