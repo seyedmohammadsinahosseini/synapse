@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api, fa, getLang } from '../api.js'
-import { useLang } from '../i18n.jsx'
+import { useLang, tDay, tSubject } from '../i18n.jsx'
 import { Card, Empty } from '../ui.jsx'
 
 const METHOD_LABELS = {
@@ -11,7 +11,7 @@ const METHOD_LABELS = {
 }
 
 export default function PlanPage({ navigate }) {
-  const { t } = useLang()
+  const { t, lang } = useLang()
   const isEn = getLang() === 'en'
 
   const [data, setData] = useState(null)
@@ -244,7 +244,7 @@ export default function PlanPage({ navigate }) {
           {today && (
             <div style={{ marginBottom: 24 }}>
               <div className="section-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span>🎯 {t('todayTasks')} ({today.label} · {faDateOnly(today.date_str)})</span>
+                <span>🎯 {t('todayTasks')} ({tDay(today.label, lang)} · {faDateOnly(today.date_str)})</span>
                 <button
                   className="btn ghost sm"
                   style={{ borderRadius: 10, fontSize: 12.5 }}
@@ -312,7 +312,7 @@ export default function PlanPage({ navigate }) {
                         >
                           {/* Single Line Info */}
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 200, flexWrap: 'wrap' }}>
-                            <b style={{ fontSize: 15, color: 'var(--ink)' }}>{task.subject}</b>
+                            <b style={{ fontSize: 15, color: 'var(--ink)' }}>{tSubject(task.subject, lang)}</b>
                             <span
                               style={{
                                 background: methodCfg.bg,
@@ -409,7 +409,7 @@ export default function PlanPage({ navigate }) {
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, paddingBottom: 8, borderBottom: '1px solid var(--line)' }}>
                     <div>
-                      <b style={{ fontSize: 15, color: 'var(--ink)' }}>{d.label}</b>
+                      <b style={{ fontSize: 15, color: 'var(--ink)' }}>{tDay(d.label, lang)}</b>
                       <span className="small muted" style={{ display: 'block', fontSize: 11 }}>{faDateOnly(d.date_str)}</span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -474,7 +474,7 @@ export default function PlanPage({ navigate }) {
                           >
                             <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 0, overflow: 'hidden' }}>
                               <b style={{ fontSize: 13.5, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                {task.subject}
+                                {tSubject(task.subject, lang)}
                               </b>
                               <span style={{ fontSize: 10.5, background: mCfg.bg, color: mCfg.color, padding: '2px 6px', borderRadius: 6, fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0 }}>
                                 {mCfg.icon} {mLabel}
@@ -546,7 +546,7 @@ export default function PlanPage({ navigate }) {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <h3 style={{ margin: 0, fontSize: 18, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span>📖 {t('planOf')}:</span>
-                <span style={{ color: 'var(--primary)' }}>{selectedTask.subject}</span>
+                <span style={{ color: 'var(--primary)' }}>{tSubject(selectedTask.subject, lang)}</span>
               </h3>
               <button className="btn ghost sm" style={{ borderRadius: 8 }} onClick={() => setSelectedTask(null)}>✕</button>
             </div>
