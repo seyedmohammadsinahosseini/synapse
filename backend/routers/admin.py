@@ -1,15 +1,17 @@
 """Admin endpoints: accounts management, question bank CRUD, and system analytics."""
 import io
 import json
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from openpyxl import load_workbook
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from ..ai_service import ai
 from ..database import get_db
-from ..models import (ExamAttempt, Message, Question, StudentProfile, User,
-                      VideoSuggestion)
+from ..models import (CurriculumSource, ExamAttempt, Message, Question,
+                      StudentProfile, User, VideoSuggestion)
 from ..schemas import (MentorCreateRequest, MentorEditRequest,
                        QuestionIn, QuestionOut, StudentEditRequest)
 from ..security import get_current_user, hash_password
@@ -450,3 +452,168 @@ def ai_nightly_sync(user = Depends(_admin), db: Session = Depends(get_db)):
 
     db.commit()
     return {"ok": True, "refreshed_students": refreshed_count, "timestamp": now.isoformat()}
+
+
+# ── Admin Curriculum Knowledge Sources & AI Question Bank Generator ────────
+class CurriculumSourceIn(BaseModel):
+    title: str
+    grade_level: str                          # دهم | یازدهم | دوازدهم
+    field_of_study: str                       # علوم تجربی | ریاضی و فیزیک | علوم انسانی
+    subject: str
+    chapter_name: Optional[str] = ""
+    summary_text: Optional[str] = ""
+    content_json: Optional[dict] = None
+
+
+class GenerateQuestionsFromSourceIn(BaseModel):
+    count: int = 5
+    difficulty: str = "medium"                # easy | medium | hard
+
+
+@router.get("/curriculum")
+def list_curriculum_sources(grade_level: Optional[str] = None,
+                            field_of_study: Optional[str] = None,
+                            subject: Optional[str] = None,
+                            user = Depends(_admin),
+                            db: Session = Depends(get_db)):
+    """Lists all registered textbook/curriculum sources with optional grade and field filtering."""
+    q = db.query(CurriculumSource)
+    if grade_level:
+        q = q.filter(CurriculumSource.grade_level == grade_level)
+    if field_of_study:
+        q = q.filter(CurriculumSource.field_of_study == field_of_study)
+    if subject:
+        q = q.filter(CurriculumSource.subject.contains(subject))
+    sources = q.order_by(CurriculumSource.created_at.desc()).all()
+    return {
+        "ok": True,
+        "sources": [
+            {
+                "id": s.id,
+                "title": s.title,
+                "grade_level": s.grade_level,
+                "field_of_study": s.field_of_study,
+                "subject": s.subject,
+                "chapter_name": s.chapter_name,
+                "summary_text": s.summary_text,
+                "content_json": s.content_json,
+                "status": s.status,
+                "created_at": s.created_at.isoformat() if s.created_at else None,
+            }
+            for s in sources
+        ]
+    }
+
+
+@router.post("/curriculum")
+def create_curriculum_source(data: CurriculumSourceIn,
+                             user = Depends(_admin),
+                             db: Session = Depends(get_db)):
+    """Registers a new curriculum source / chapter concepts for AI question generation."""
+    src = CurriculumSource(
+        title=data.title.strip(),
+        grade_level=data.grade_level.strip(),
+        field_of_study=data.field_of_study.strip(),
+        subject=data.subject.strip(),
+        chapter_name=(data.chapter_name or "").strip(),
+        summary_text=(data.summary_text or "").strip(),
+        content_json=data.content_json or {},
+        created_by=user.id,
+    )
+    db.add(src)
+    db.commit()
+    db.refresh(src)
+    return {
+        "ok": True,
+        "source": {
+            "id": src.id,
+            "title": src.title,
+            "grade_level": src.grade_level,
+            "field_of_study": src.field_of_study,
+            "subject": src.subject,
+            "chapter_name": src.chapter_name,
+            "summary_text": src.summary_text,
+            "created_at": src.created_at.isoformat() if src.created_at else None,
+        }
+    }
+
+
+@router.delete("/curriculum/{source_id}")
+def delete_curriculum_source(source_id: int,
+                             user = Depends(_admin),
+                             db: Session = Depends(get_db)):
+    """Deletes a curriculum source."""
+    src = db.query(CurriculumSource).filter(CurriculumSource.id == source_id).first()
+    if not src:
+        raise HTTPException(status_code=404, detail="Curriculum source not found")
+    db.delete(src)
+    db.commit()
+    return {"ok": True}
+
+
+@router.post("/curriculum/{source_id}/generate-questions")
+def generate_questions_from_source(source_id: int,
+                                   data: GenerateQuestionsFromSourceIn,
+                                   user = Depends(_admin),
+                                   db: Session = Depends(get_db)):
+    """Uses AI to generate MCQ questions directly from curriculum source and saves them to Question Bank."""
+    src = db.query(CurriculumSource).filter(CurriculumSource.id == source_id).first()
+    if not src:
+        raise HTTPException(status_code=404, detail="Curriculum source not found")
+
+    content_summary = src.summary_text or (json.dumps(src.content_json, ensure_ascii=False) if src.content_json else f"سرفصل {src.chapter_name} از درس {src.subject}")
+    generated_raw = ai.generate_curriculum_questions(
+        grade_level=src.grade_level,
+        field_of_study=src.field_of_study,
+        subject=src.subject,
+        chapter_name=src.chapter_name or src.title,
+        content_summary=content_summary,
+        count=max(1, min(data.count, 20)),
+        difficulty=data.difficulty or "medium",
+    )
+
+    diff_map = {"easy": 1, "medium": 3, "hard": 5}
+    diff_val = diff_map.get(data.difficulty, 3)
+
+    saved_questions = []
+    for item in generated_raw:
+        q_text = item.get("question_text") or ""
+        options = item.get("options") or []
+        correct_ans = str(item.get("correct_answer") or "1")
+        explanation = item.get("explanation") or ""
+
+        if not q_text or len(options) < 4:
+            continue
+
+        q = Question(
+            subject=src.subject,
+            type="mcq",
+            difficulty=diff_val,
+            text=q_text,
+            options=options,
+            answer=correct_ans,
+            explanation=explanation,
+            created_by=user.id,
+        )
+        db.add(q)
+        saved_questions.append(q)
+
+    db.commit()
+    return {
+        "ok": True,
+        "count_generated": len(saved_questions),
+        "source_title": src.title,
+        "questions": [
+            {
+                "id": q.id,
+                "text": q.text,
+                "subject": q.subject,
+                "options": q.options,
+                "answer": q.answer,
+                "explanation": q.explanation,
+                "difficulty": q.difficulty,
+            }
+            for q in saved_questions
+        ]
+    }
+
