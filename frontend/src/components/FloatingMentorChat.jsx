@@ -10,11 +10,6 @@ import ChatPanel from './ChatPanel.jsx'
  *
  * Only one floating panel is open at a time: opening this one closes the AI
  * assistant, and vice versa ("float-open" window event).
- *
- * Modes:
- *  - student  : <FloatingMentorChat studentId={studentUserId} />  (student chats with their mentor)
- *  - mentor   : <FloatingMentorChat mode="mentor" students={list} />  (mentor picks a student, then chats)
- *               <FloatingMentorChat mode="mentor" defaultStudentId={id} studentName="..." />  (goes straight to that student)
  */
 export default function FloatingMentorChat({
   studentId,
@@ -24,7 +19,8 @@ export default function FloatingMentorChat({
   studentName,
   raised = false, // true when the page ALSO shows the AI assistant (stack above it)
 }) {
-  const { t } = useLang()
+  const { t, lang } = useLang()
+  const isEn = lang === 'en'
   const [open, setOpen] = useState(false)
   const [list, setList] = useState(preloaded || null)
   const [active, setActive] = useState(defaultStudentId || null)
@@ -75,8 +71,8 @@ export default function FloatingMentorChat({
       <button
         className={`fab mentor ${open ? '' : 'pulse'} ${raised ? 'raised' : ''}`}
         onClick={toggleOpen}
-        title="Mentor"
-        aria-label="Mentor"
+        title={isMentor ? (isEn ? 'Student Chats' : 'گفتگو با دانش‌آموزان') : (isEn ? 'Mentor Chat' : 'گفتگو با مشاور')}
+        aria-label="Mentor Chat"
       >
         <svg viewBox="0 0 48 48" width="34" height="34" fill="none">
           <path d="M14 12h20c3 0 5 2 5 5v12c0 3-2 5-5 5h-7l-7 6v-6h-6c-3 0-5-2-5-5V17c0-3 2-5 5-5Z" stroke="#fff" strokeWidth="2.6" strokeLinejoin="round" />
@@ -102,7 +98,12 @@ export default function FloatingMentorChat({
                 <div className="sub">{t('mentorChatSub')}</div>
               </div>
             </div>
-            <button className="btn ghost sm" style={{ color: '#fff', borderColor: 'rgba(255,255,255,.4)' }} onClick={() => setOpen(false)}>
+            <button
+              className="btn ghost sm"
+              style={{ color: '#fff', borderColor: 'rgba(255,255,255,.4)' }}
+              onClick={() => setOpen(false)}
+              title={isEn ? 'Close' : 'بستن'}
+            >
               ✕
             </button>
           </div>

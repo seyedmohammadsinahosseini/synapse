@@ -5,7 +5,8 @@ import { useLang } from '../i18n.jsx'
 
 export default function FloatingAssistant({ navigate }) {
   const { user } = useAuth()
-  const { t } = useLang()
+  const { t, lang } = useLang()
+  const isEn = lang === 'en'
   const isMentor = user?.role === 'mentor'
 
   const [open, setOpen] = useState(false)
@@ -26,7 +27,9 @@ export default function FloatingAssistant({ navigate }) {
           setMessages([{
             role: 'ai',
             content: isMentor
-              ? 'سلام استاد گرامی! من دستیار هوشمند مشاوره‌ای شما هستم. چطور می‌توانم در تحلیل روند دانش‌آموزان، استراتژی‌های بودجه‌بندی درسی یا ارائه راهکارها به شما کمک کنم؟'
+              ? (isEn
+                  ? 'Hello mentor! I am your AI mentorship assistant. How can I help you with student analysis, pacing strategies, or advisory recommendations?'
+                  : 'سلام استاد گرامی! من دستیار هوشمند مشاوره‌ای شما هستم. چطور می‌توانم در تحلیل روند دانش‌آموزان، استراتژی‌های بودجه‌بندی درسی یا ارائه راهکارها به شما کمک کنم؟')
               : t('aiWelcome'),
           }])
         }
@@ -34,10 +37,12 @@ export default function FloatingAssistant({ navigate }) {
       .catch(() => setMessages([{
         role: 'ai',
         content: isMentor
-          ? 'سلام استاد گرامی! من دستیار هوشمند مشاوره‌ای شما هستم. چطور می‌توانم به شما کمک کنم؟'
+          ? (isEn
+              ? 'Hello mentor! I am your AI mentorship assistant. How can I assist you?'
+              : 'سلام استاد گرامی! من دستیار هوشمند مشاوره‌ای شما هستم. چطور می‌توانم به شما کمک کنم؟')
           : t('aiWelcome'),
       }]))
-  }, [t, isMentor])
+  }, [t, isMentor, isEn])
 
   useEffect(() => {
     if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight
@@ -103,15 +108,15 @@ export default function FloatingAssistant({ navigate }) {
   }
 
   const chips = isMentor ? [
-    ['/students_overview', '📊 تحلیل وضعیت دانش‌آموزان'],
-    ['/plan_strategy', '💡 راهبرد بودجه‌بندی برنامه'],
-    ['/motivation', '🎯 راهکارهای انگیزش'],
+    ['/students_overview', isEn ? '📊 Student Analytics' : '📊 تحلیل وضعیت دانش‌آموزان'],
+    ['/plan_strategy', isEn ? '💡 Pacing Strategy' : '💡 راهبرد بودجه‌بندی برنامه'],
+    ['/motivation', isEn ? '🎯 Motivation Guides' : '🎯 راهکارهای انگیزش'],
     ['', '🛠️ ' + t('supportChip')],
   ] : [
     ['/test', '🎯 ' + t('chipTest')],
     ['/exam', '📝 ' + t('chipExam')],
     ['/plan', '📋 ' + t('chipPlan')],
-    ['/report', '📊 کارنامه'],
+    ['/report', isEn ? '📊 Report Card' : '📊 کارنامه'],
     ['', '🛠️ ' + t('supportChip')],
   ]
 
@@ -120,7 +125,7 @@ export default function FloatingAssistant({ navigate }) {
       <button
         className={`fab ${open ? '' : 'pulse'}`}
         onClick={toggleOpen}
-        title={isMentor ? 'دستیار هوشمند مشاوره‌ای' : 'دستیار هوشمند تحصیلی'}
+        title={isMentor ? (isEn ? 'AI Mentorship Assistant' : 'دستیار هوشمند مشاوره‌ای') : (isEn ? 'AI Academic Assistant' : 'دستیار هوشمند تحصیلی')}
         aria-label="AI Assistant"
       >
         <svg viewBox="0 0 48 48" width="34" height="34" fill="none">
@@ -141,10 +146,14 @@ export default function FloatingAssistant({ navigate }) {
               </span>
               <div>
                 <div className="title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  {isMentor ? 'دستیار هوشمند مشاور' : t('assistantTitle')}
+                  {isMentor ? (isEn ? 'AI Mentor Assistant' : 'دستیار هوشمند مشاور') : t('assistantTitle')}
                   <span style={{ fontSize: 10, background: 'rgba(255,255,255,0.25)', padding: '2px 6px', borderRadius: 10 }}>AI 4o</span>
                 </div>
-                <div className="sub">{isMentor ? 'مشاوره، بودجه‌بندی و راهبرد تحصیلی' : t('assistantSub')}</div>
+                <div className="sub">
+                  {isMentor
+                    ? (isEn ? 'Consultation, pacing & strategy' : 'مشاوره، بودجه‌بندی و راهبرد تحصیلی')
+                    : t('assistantSub')}
+                </div>
               </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -152,7 +161,7 @@ export default function FloatingAssistant({ navigate }) {
                 className="btn ghost sm"
                 style={{ color: '#fff', borderColor: 'rgba(255,255,255,.4)', padding: '4px 8px', fontSize: 13 }}
                 onClick={close}
-                title="بستن"
+                title={isEn ? 'Close' : 'بستن'}
               >
                 ✕
               </button>
@@ -214,7 +223,11 @@ export default function FloatingAssistant({ navigate }) {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && send()}
-              placeholder={isMentor ? 'از هوش مصنوعی بپرسید (مثلا راهکار جبران افت تراز)...' : t('askPlaceholder')}
+              placeholder={
+                isMentor
+                  ? (isEn ? 'Ask AI assistant (e.g. strategy to recover score drop)...' : 'از هوش مصنوعی بپرسید (مثلا راهکار جبران افت تراز)...')
+                  : t('askPlaceholder')
+              }
             />
             <button className="btn sm" onClick={() => send()} disabled={typing}>
               {t('send')}
