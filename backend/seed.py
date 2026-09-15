@@ -43,6 +43,13 @@ def _migrate(db):
         if "status" not in ccols:
             conn.exec_driver_sql("ALTER TABLE consult_slots ADD COLUMN status VARCHAR(10) DEFAULT 'booked'")
 
+        # Support tickets columns
+        stcols = [r[1] for r in conn.exec_driver_sql("PRAGMA table_info(support_tickets)")]
+        if "subject" not in stcols:
+            conn.exec_driver_sql("ALTER TABLE support_tickets ADD COLUMN subject VARCHAR(200) DEFAULT ''")
+        if "status" not in stcols:
+            conn.exec_driver_sql("ALTER TABLE support_tickets ADD COLUMN status VARCHAR(20) DEFAULT 'open'")
+
         # Study plan source tracking
         spcols = [r[1] for r in conn.exec_driver_sql("PRAGMA table_info(study_plans)")]
         if "source" not in spcols:

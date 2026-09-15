@@ -86,8 +86,48 @@ export default function StudentDashboard({ navigate }) {
         <Stat label={t('latestExamAvg')} value={d.latest_exam_avg != null ? fa(d.latest_exam_avg) : '—'} icon="🧠" color="#fce7f3" />
       </div>
 
+      {/* Quick Access Action Hub */}
+      <div className="section-title" style={{ marginTop: 22 }}>⚡ دسترسی سریع به بخش‌های اصلی سامانه</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 20 }}>
+        <Card
+          style={{ padding: 14, borderRadius: 16, cursor: 'pointer', border: '1px solid var(--line)', transition: 'transform .15s' }}
+          onClick={() => navigate('#/plan')}
+        >
+          <div style={{ fontSize: 24, marginBottom: 6 }}>📋</div>
+          <b style={{ fontSize: 13.5, color: 'var(--ink)' }}>برنامه درسی هفتگی</b>
+          <div className="small muted" style={{ fontSize: 11, marginTop: 2 }}>مشاهده پارت‌ها و ثبت تیک پیشرفت</div>
+        </Card>
+
+        <Card
+          style={{ padding: 14, borderRadius: 16, cursor: 'pointer', border: '1px solid var(--line)', transition: 'transform .15s' }}
+          onClick={() => navigate('#/report-cards')}
+        >
+          <div style={{ fontSize: 24, marginBottom: 6 }}>📊</div>
+          <b style={{ fontSize: 13.5, color: 'var(--ink)' }}>کارنامه‌ها و تراز آزمون</b>
+          <div className="small muted" style={{ fontSize: 11, marginTop: 2 }}>آپلود کارنامه و دریافت پرونده PDF</div>
+        </Card>
+
+        <Card
+          style={{ padding: 14, borderRadius: 16, cursor: 'pointer', border: '1px solid var(--line)', transition: 'transform .15s' }}
+          onClick={() => navigate('#/chat')}
+        >
+          <div style={{ fontSize: 24, marginBottom: 6 }}>💬</div>
+          <b style={{ fontSize: 13.5, color: 'var(--ink)' }}>گفت‌وگو با مشاور و AI</b>
+          <div className="small muted" style={{ fontSize: 11, marginTop: 2 }}>پرسش‌های درسی، انگیزه و تحلیل</div>
+        </Card>
+
+        <Card
+          style={{ padding: 14, borderRadius: 16, cursor: 'pointer', border: '1px solid var(--line)', transition: 'transform .15s' }}
+          onClick={() => navigate('#/consult')}
+        >
+          <div style={{ fontSize: 24, marginBottom: 6 }}>🗓️</div>
+          <b style={{ fontSize: 13.5, color: 'var(--ink)' }}>رزرو و توصیه‌های مشاوره</b>
+          <div className="small muted" style={{ fontSize: 11, marginTop: 2 }}>جلسات تلفنی/آنلاین و تکالیف مشاور</div>
+        </Card>
+      </div>
+
       {/* Report Cards Quick Banner */}
-      <Card style={{ borderRadius: 18, padding: 18, marginTop: 18, background: 'linear-gradient(135deg, #f8fafc 0%, #ede9fe 100%)', border: '1.5px solid #c7d2fe' }}>
+      <Card style={{ borderRadius: 18, padding: 18, marginTop: 8, background: 'linear-gradient(135deg, #f8fafc 0%, #ede9fe 100%)', border: '1.5px solid #c7d2fe' }}>
         <div className="flex wrap between items-center">
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
