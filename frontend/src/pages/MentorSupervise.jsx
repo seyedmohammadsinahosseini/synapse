@@ -256,15 +256,82 @@ export default function MentorSupervise({ studentId, navigate }) {
         </div>
       )}
 
-      {/* ── Confidential AI Diagnostic Dossier ── */}
-      {dossier?.analytical_dossier && (
+      {/* ── Confidential AI Diagnostic Dossier & Priority Matrix ── */}
+      {(dossier?.analytical_dossier || diagnostic?.weighted_priority_matrix || diagnostic?.confidential_dossier) && (
         <div style={{ marginBottom: 30 }}>
-          <div className="section-title">🤖 پرونده تحلیلی هوش مصنوعی (AI Dossier) برای مشاور</div>
-          <Card style={{ borderRadius: 16, background: 'var(--tint-hover)', border: '1.5px solid var(--line)' }}>
-            <div className="small" style={{ color: 'var(--ink)', lineHeight: 1.8, whiteSpace: 'pre-line' }}>
-              {dossier.analytical_dossier}
+          <div className="section-title">🤖 {getLang() === 'en' ? 'AI Diagnostic Dossier & Weighted Priority Matrix' : 'پرونده تحلیلی هوش مصنوعی و ماتریس اولویت‌بندی ضریب‌محور'}</div>
+          
+          {/* Priority Matrix Table */}
+          {(diagnostic?.weighted_priority_matrix || dossier?.weighted_priority_matrix) && (
+            <Card style={{ borderRadius: 16, padding: 18, marginBottom: 14, border: '1px solid var(--line)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <b style={{ fontSize: 15, color: 'var(--ink)' }}>
+                  🎯 {getLang() === 'en' ? 'Konkur Weighted Subject Priority Matrix' : 'ماتریس اولویت‌بندی دروس بر اساس ضرایب کنکور'}
+                </b>
+                <span className="badge" style={{ fontSize: 11 }}>
+                  {getLang() === 'en' ? 'Ranked by Deficit & Weight' : 'اولویت‌بندی بر اساس ضریب و ضعف درصد'}
+                </span>
+              </div>
+              <div style={{ overflowX: 'auto' }}>
+                <table className="table" style={{ width: '100%', fontSize: 13 }}>
+                  <thead>
+                    <tr>
+                      <th>{getLang() === 'en' ? 'Subject' : 'درس'}</th>
+                      <th>{getLang() === 'en' ? 'Coeff' : 'ضریب'}</th>
+                      <th>{getLang() === 'en' ? 'Current' : 'سطح فعلی'}</th>
+                      <th>{getLang() === 'en' ? 'Target' : 'هدف'}</th>
+                      <th>{getLang() === 'en' ? 'Priority' : 'اولویت اقدام'}</th>
+                      <th>{getLang() === 'en' ? 'Rationale' : 'علت و تحلیل'}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(diagnostic.weighted_priority_matrix || dossier.weighted_priority_matrix || []).map((item, idx) => {
+                      const pColor = item.priority_level === 'بسیار بالا' ? '#ef4444' : item.priority_level === 'بالا' ? '#f59e0b' : item.priority_level === 'متوسط' ? '#6366f1' : '#22c55e'
+                      return (
+                        <tr key={idx}>
+                          <td><b>{item.subject}</b></td>
+                          <td><span className="badge">{fa(item.coefficient || 1)}</span></td>
+                          <td>{fa(item.current_level)}٪</td>
+                          <td><b style={{ color: 'var(--primary)' }}>{fa(item.target_level)}٪</b></td>
+                          <td>
+                            <span className="badge" style={{ background: `${pColor}1a`, color: pColor, fontWeight: 700 }}>
+                              {item.priority_level}
+                            </span>
+                          </td>
+                          <td className="small muted">{item.rationale}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          )}
+
+          {/* Critical Weakness Coordinates */}
+          {(diagnostic?.critical_weaknesses?.length > 0 || dossier?.critical_weaknesses?.length > 0) && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12, marginBottom: 14 }}>
+              {(diagnostic.critical_weaknesses || dossier.critical_weaknesses || []).map((w, idx) => (
+                <Card key={idx} style={{ borderRadius: 14, padding: 14, borderLeft: '4px solid #ef4444' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                    <b style={{ color: '#ef4444' }}>⚠️ {w.subject} (ضریب {fa(w.coefficient || 7)})</b>
+                    <span className="small muted">نمره: {fa(w.score)}</span>
+                  </div>
+                  <div className="small" style={{ marginBottom: 4 }}><b>سرفصل و مرجع کتاب:</b> {w.chapter_page_ref}</div>
+                  <div className="small muted"><b>طرح مداخله:</b> {w.intervention_plan}</div>
+                </Card>
+              ))}
             </div>
-          </Card>
+          )}
+
+          {/* Raw Text Dossier */}
+          {(dossier?.analytical_dossier || diagnostic?.confidential_dossier) && (
+            <Card style={{ borderRadius: 16, background: 'var(--tint-hover)', border: '1.5px solid var(--line)' }}>
+              <div className="small" style={{ color: 'var(--ink)', lineHeight: 1.8, whiteSpace: 'pre-line' }}>
+                {dossier.analytical_dossier || diagnostic.confidential_dossier}
+              </div>
+            </Card>
+          )}
         </div>
       )}
 

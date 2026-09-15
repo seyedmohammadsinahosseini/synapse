@@ -97,6 +97,7 @@ export default function PlanSection({ studentId, plan, capacityAlerts = {}, onCh
           duration_minutes: x.duration_minutes || (x.hours ? Math.round(x.hours * 60) : 90),
           study_method: x.study_method || 'study',
           question_count: x.question_count || (x.study_method === 'test' ? 30 : x.study_method === 'essay' ? 15 : null),
+          reason: x.reason || '',
           notes: x.notes || '',
         })),
       }
@@ -756,6 +757,17 @@ export default function PlanSection({ studentId, plan, capacityAlerts = {}, onCh
                 onChange={(e) => updTask(selectedSession.dayIdx, selectedSession.taskIdx, 'notes', e.target.value)}
               />
             </div>
+
+            {tpl[selectedSession.dayIdx].tasks[selectedSession.taskIdx].reason && (
+              <div style={{ background: 'var(--tint-fill)', borderRadius: 10, padding: '10px 14px', border: '1px solid var(--line)' }}>
+                <label className="small muted" style={{ display: 'block', marginBottom: 4, fontWeight: 700, color: 'var(--primary)' }}>
+                  🧠 {isEn ? 'AI Strategic Rationale:' : 'علت و تحلیل هوش مصنوعی برای این جلسه:'}
+                </label>
+                <div className="small" style={{ color: 'var(--ink)', lineHeight: 1.6 }}>
+                  {tpl[selectedSession.dayIdx].tasks[selectedSession.taskIdx].reason}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="flex mt" style={{ justifyContent: 'space-between', marginTop: 18 }}>

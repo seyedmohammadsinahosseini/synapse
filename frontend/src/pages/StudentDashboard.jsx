@@ -166,6 +166,19 @@ export default function StudentDashboard({ navigate }) {
         )}
       </Card>
 
+      {/* AI Diagnostic Summary Card */}
+      {(analysis.executive_summary || analysis.summary) && (
+        <Card className="mb" style={{ padding: 16, borderLeft: '4px solid var(--primary)', background: 'var(--card)' }}>
+          <div className="flex between mb" style={{ alignItems: 'center' }}>
+            <b style={{ color: 'var(--primary)', fontSize: 14 }}>🤖 {t('aiDiagnosticTitle') || 'تحلیل تشخیصی هوش مصنوعی سیناپس'}</b>
+            {analysis.analyzed_at && <span className="small muted">{faDate(analysis.analyzed_at)}</span>}
+          </div>
+          <p className="small" style={{ color: 'var(--ink)', lineHeight: 1.7, margin: 0 }}>
+            {analysis.executive_summary || analysis.summary}
+          </p>
+        </Card>
+      )}
+
       {/* compact strengths / weaknesses */}
       {(analysis.strengths?.length || analysis.weaknesses?.length) && (
         <>
