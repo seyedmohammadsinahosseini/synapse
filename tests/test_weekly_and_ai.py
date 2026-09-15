@@ -8,11 +8,13 @@ from backend.database import get_db, SessionLocal, Base, engine
 from backend.models import User, StudentProfile, StudyPlan, PlanProgress, ReportCard
 from backend.security import hash_password, create_token
 from backend.routers.plan import saturday_start
+import backend.ai_service as ai_module
 
 client = TestClient(app)
 
 def setup_module():
     Base.metadata.create_all(bind=engine)
+    ai_module.USE_MOCK = True
 
 def test_multi_week_and_ai_endpoints():
     db = SessionLocal()

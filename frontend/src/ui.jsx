@@ -5,11 +5,11 @@ import { useTheme } from './theme.jsx'
 
 export function Logo({ size = 40, className = '' }) {
   const { theme } = useTheme()
-  // black logo for light mode, white logo for dark mode — exactly ONE shown
-  const src = theme === 'dark' ? '/logo-white.png?v=4' : '/logo-black.png?v=4'
+  // black logo for light mode, white logo for dark mode
+  const src = theme === 'dark' ? '/logo-dark.png?v=5' : '/logo-light.png?v=5'
   return (
-    <span className={`logo ${className}`} style={{ height: size }}>
-      <img key={theme} src={src} alt="logo" className="logo-img" />
+    <span className={`logo ${className}`} style={{ height: size, display: 'inline-flex', alignItems: 'center' }}>
+      <img key={theme} src={src} alt="Synapse" className="logo-img" style={{ height: size, width: 'auto', display: 'block', objectFit: 'contain' }} />
     </span>
   )
 }
