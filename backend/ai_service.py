@@ -53,9 +53,53 @@ MODEL_LABELS = {
     "mcq": "چهارگزینه‌ای",
 }
 
+DEFAULT_COEFFICIENTS = {
+    "علوم تجربی": {
+        "زیست‌شناسی": 12,
+        "شیمی": 9,
+        "ریاضی": 7,
+        "فیزیک": 7,
+        "زمین‌شناسی": 1,
+        "ادبیات فارسی": 4,
+        "عربی": 2,
+        "دین و زندگی": 3,
+        "زبان انگلیسی": 2,
+    },
+    "ریاضی و فیزیک": {
+        "حسابان": 12,
+        "ریاضی": 12,
+        "فیزیک": 9,
+        "شیمی": 7,
+        "هندسه": 6,
+        "گسسته": 5,
+        "ادبیات فارسی": 4,
+        "عربی": 2,
+        "دین و زندگی": 3,
+        "زبان انگلیسی": 2,
+    },
+    "علوم انسانی": {
+        "ادبیات فارسی": 8,
+        "علوم و فنون ادبی": 8,
+        "ریاضی و آمار": 6,
+        "عربی": 5,
+        "فلسفه و منطق": 5,
+        "جامعه‌شناسی": 5,
+        "تاریخ و جغرافیا": 5,
+        "اقتصاد": 2,
+        "روان‌شناسی": 2,
+    },
+}
+
 
 class AIProvider:
     """Unified AI service adapter supporting OpenAI-compatible APIs, deep diagnostics, and offline fallback."""
+
+    def get_field_coefficients(self, field: str) -> dict:
+        """Returns standard course coefficients/units based on field of study."""
+        for k, v in DEFAULT_COEFFICIENTS.items():
+            if k in (field or "") or (field or "") in k:
+                return v
+        return DEFAULT_COEFFICIENTS["علوم تجربی"]
 
     def _call_llm(self, system: str, user: str, json_mode: bool = False) -> str:
         if USE_MOCK or not AI_PROVIDER_KEY:
@@ -106,7 +150,6 @@ class AIProvider:
         if "videos" in system:
             return self._mock_videos(profile)
         
-        # Fallback to intelligent conversational assistant
         messages = []
         if isinstance(profile, list):
             messages = profile
@@ -124,31 +167,48 @@ class AIProvider:
         scores = profile.get("subject_scores", [])
         goal = profile.get("goal_type", "better_average")
         goal_subs = profile.get("goal_subjects", []) or []
+        field = profile.get("field_of_study", "علوم تجربی")
+        def_coeffs = self.get_field_coefficients(field)
+        user_coeffs = profile.get("subject_coefficients") or {}
 
-        rows = [
-            {"subject": s.get("subject", ""), "score": float(s.get("score", 0))}
-            for s in scores if s.get("score") is not None
-        ]
+        rows = []
+        for s in scores:
+            name = s.get("subject", "")
+            if not name:
+                continue
+            sc = float(s.get("score", 0))
+            coeff = user_coeffs.get(name) or def_coeffs.get(name) or 1.0
+            deficit = max(0.0, (20.0 - sc) * coeff)
+            rows.append({
+                "subject": name,
+                "score": sc,
+                "coefficient": coeff,
+                "deficit": deficit,
+            })
+
         rows.sort(key=lambda r: -r["score"])
-        best = rows[:3]
-        worst = sorted(rows, key=lambda r: r["score"])[:3]
+        best = rows[:3] if rows else []
+        
+        # Rank by weighted deficit (high coefficient + low score gets priority)
+        by_deficit = sorted(rows, key=lambda r: -r["deficit"])
+        worst = by_deficit[:3] if by_deficit else []
 
         if goal in ("konkur", "better_average"):
             focus = worst
         else:
             focus = [r for r in rows if r["subject"] in goal_subs] or worst
 
-        strengths_text = ", ".join(f"{r['subject']} ({r['score']})" for r in best) or "N/A"
-        weaknesses_text = ", ".join(f"{r['subject']} ({r['score']})" for r in worst) or "N/A"
+        strengths_text = ", ".join(f"{r['subject']} ({r['score']})" for r in best) or "در حال ارزیابی"
+        weaknesses_text = ", ".join(f"{r['subject']} (ضریب {r['coefficient']}، نمره {r['score']})" for r in worst) or "در حال ارزیابی"
 
         summary = (
-            f"دانش‌آموز در پایه {profile.get('grade_level', '')} با معدل {profile.get('last_year_avg', 0)} "
+            f"دانش‌آموز در پایه {profile.get('grade_level', '')} رشته {field} با معدل {profile.get('last_year_avg', 0)} "
             f"و هدف «{GOAL_LABELS.get(goal, goal)}» مورد ارزیابی قرار گرفت. "
-            f"نقاط قوت: {strengths_text}. نقاط نیازمند بهبود: {weaknesses_text}. "
-            f"برنامه پیشنهادی متکی بر تفکیک پارت‌های تست‌زنی، مطالعه مفهومی و حل تمرینات است."
+            f"نقاط قوت تثبیت‌شده: {strengths_text}. اولویت‌های تحلیلی بر اساس ضریب درس: {weaknesses_text}. "
+            f"سقف مطالعاتی روزانه به ۴ ساعت تفکیک شده است."
         )
 
-        plan = self._build_plan(rows, focus, goal)
+        plan = self._build_plan(rows, focus, goal, field=field, has_exam_history=bool(profile.get("has_exams")))
 
         return {
             "summary": summary,
@@ -160,34 +220,108 @@ class AIProvider:
             "plan": plan,
             "mentor_report": (
                 f"گزارش تشخیصی هوش مصنوعی برای مشاور:\n"
+                f"• رشته و پایه: {field} - پایه {profile.get('grade_level', '')}\n"
                 f"• هدف: {GOAL_LABELS.get(goal, goal)}\n"
                 f"• معدل سال قبل: {profile.get('last_year_avg', 0)}\n"
                 f"• نقاط قوت: {strengths_text}\n"
-                f"• نقاط ضعف: {weaknesses_text}\n"
+                f"• اولویت‌های ضریب‌محور: {weaknesses_text}\n"
                 f"• راهبرد پیشنهادی: {plan.get('summary', '')}\n"
                 f"تاریخ تحلیل: {today_label()}"
             ),
             "analyzed_at": today_label(),
         }
 
-    def _build_plan(self, rows, focus, goal) -> dict:
+    def _build_plan(self, rows, focus, goal, field="علوم تجربی", has_exam_history=False) -> dict:
         days = ["شنبه", "یکشنبه", "دوشنبه", "سه‌شنبه", "چهارشنبه", "پنجشنبه", "جمعه"]
-        focus_names = [r["subject"] for r in focus] or [r["subject"] for r in rows[:2]] or ["زیست‌شناسی", "شیمی", "ریاضی", "فیزیک"]
+        def_coeffs = self.get_field_coefficients(field)
+        focus_names = [r["subject"] for r in focus] or [r["subject"] for r in rows[:2]] or list(def_coeffs.keys())[:4]
+        
         weekly = []
         for i, day in enumerate(days):
             main = focus_names[i % len(focus_names)]
             other = focus_names[(i + 1) % len(focus_names)]
-            weekly.append({
-                "day": day,
-                "sessions": [
-                    {"subject": main, "duration_minutes": 90, "study_method": "study", "topic": f"مطالعه مفهومی و تسلط بر متن {main}"},
-                    {"subject": other, "duration_minutes": 90, "study_method": "test", "question_count": 35, "topic": f"تست‌زنی و بررسی پاسخ‌نامه {other}"},
-                ],
-            })
+            coeff_main = def_coeffs.get(main, 7)
+            coeff_other = def_coeffs.get(other, 7)
+
+            if i == 0 and not has_exam_history:
+                # First day diagnostic session inside platform
+                weekly.append({
+                    "day": day,
+                    "sessions": [
+                        {
+                            "subject": "آزمون تعیین سطح داخل پلتفرم",
+                            "duration_minutes": 60,
+                            "study_method": "test",
+                            "question_count": 25,
+                            "topic": f"سنجش تسلط بر سرفصل‌های {main} و {other} در پلتفرم سیناپس",
+                            "reason": "به علت نبود سابقه آزمون کافی، جهت داده‌کاوی اولیه و استخراج تسلط مبحثی برای بهینه‌سازی برنامه هفته‌های بعد",
+                        },
+                        {
+                            "subject": main,
+                            "duration_minutes": 90,
+                            "study_method": "study",
+                            "topic": f"مطالعه مفهومی خط‌به‌خط {main} و یادداشت فرمول‌ها",
+                            "reason": f"به علت ضریب بالای {coeff_main} در کنکور و نیاز به تسلط بر کارگاه‌های کتاب درسی",
+                        },
+                        {
+                            "subject": other,
+                            "duration_minutes": 90,
+                            "study_method": "test",
+                            "question_count": 30,
+                            "topic": f"تست‌زنی آموزشی و بررسی پاسخ‌نامه تشریحی {other}",
+                            "reason": f"به علت ضریب {coeff_other} و نیاز به رفع اشکال تیپ‌تست‌های پرتکرار",
+                        },
+                    ],
+                })
+            elif i == 6:  # جمعه
+                weekly.append({
+                    "day": day,
+                    "sessions": [
+                        {
+                            "subject": "آزمون شبیه‌ساز هفتگی",
+                            "duration_minutes": 120,
+                            "study_method": "test",
+                            "question_count": 50,
+                            "topic": "شبیه‌سازی زمان‌دار آزمون جامع در پلتفرم",
+                            "reason": "سنجش سرعت عمل تست‌زنی و مدیریت زمان با تمرکز بر ضرایب بالای کنکور",
+                        },
+                        {
+                            "subject": "تحلیل کارنامه و جبران عقب‌افتادگی‌ها",
+                            "duration_minutes": 90,
+                            "study_method": "review",
+                            "topic": "بررسی تست‌های نزده و غلط در دفترچه اشتباهات",
+                            "reason": "تثبیت یادگیری و جلوگیری از تکرار اشتباهات در آزمون‌های بعدی",
+                        },
+                    ],
+                })
+            else:
+                # Normal 2-block or 3-block day strictly capped <= 240 minutes (4 hours)
+                weekly.append({
+                    "day": day,
+                    "sessions": [
+                        {
+                            "subject": main,
+                            "duration_minutes": 120,
+                            "study_method": "study" if i % 2 == 0 else "test",
+                            "question_count": 40 if i % 2 != 0 else None,
+                            "topic": f"مطالعه مفهومی و تسلط بر کارگاه درس‌پژوهی {main}",
+                            "reason": f"به علت ضریب {coeff_main} و نیاز به تثبیت پایه‌ای متن و فعالیت‌های کتاب",
+                        },
+                        {
+                            "subject": other,
+                            "duration_minutes": 120,
+                            "study_method": "test" if i % 2 == 0 else "essay",
+                            "question_count": 35 if i % 2 == 0 else 15,
+                            "topic": f"حل تمرین و تست‌زنی سرعتی {other}",
+                            "reason": f"به علت ضریب {coeff_other} و افزایش تسلط بر تیپ‌های مسئله و تمرینات پایانی فصل",
+                        },
+                    ],
+                })
+
         return {
             "weekly": weekly,
-            "summary": f"هدف‌گذاری ۳ ساعت مطالعه متمرکز روزانه با تمرکز بر {', '.join(focus_names[:2])}.",
-            "daily_minutes": 180,
+            "summary": f"برنامه مطالعاتی هوشمند حداکثر ۴ ساعت در روز با تمرکز بر ضرایب بالای {', '.join(focus_names[:2])}.",
+            "daily_minutes": 240,
             "generated_at": today_label(),
         }
 
@@ -202,13 +336,13 @@ class AIProvider:
         schema = (
             'JSON schema: {"weekly": [{"day": string, "sessions": [{"subject": string, '
             '"duration_minutes": number, "study_method": "test"|"essay"|"study"|"review", '
-            '"question_count": number|null, "topic": string, "notes": string}]}], '
+            '"question_count": number|null, "topic": string, "reason": string, "notes": string}]}], '
             '"summary": string, "ai_strategy": string}'
         )
         system = (
             "generate_next_week_draft_plan: You are an expert educational counselor AI. "
-            "Build an adaptive 7-day draft study plan for next week based on the student's weaknesses, "
-            "missed tasks from previous week, and the mentor's pedagogical approach. "
+            "Build an adaptive 7-day draft study plan for next week capped strictly at 4 hours (240 minutes) per day. "
+            "Every session must have a concrete evidence-based 'reason' referencing subject coefficient and student history. "
             + schema
         )
         payload = {
@@ -222,34 +356,72 @@ class AIProvider:
 
     def _mock_next_week_plan(self, payload: dict) -> dict:
         student_info = payload.get("student_info", {})
-        focus_subs = student_info.get("focus_subjects", []) or ["زیست‌شناسی", "شیمی", "فیزیک", "ریاضی"]
+        field = student_info.get("field_of_study", "علوم تجربی")
+        def_coeffs = self.get_field_coefficients(field)
+        focus_subs = student_info.get("focus_subjects", []) or list(def_coeffs.keys())[:4]
         days = ["شنبه", "یکشنبه", "دوشنبه", "سه‌شنبه", "چهارشنبه", "پنجشنبه", "جمعه"]
         weekly = []
 
         for i, day in enumerate(days):
             s1 = focus_subs[i % len(focus_subs)]
             s2 = focus_subs[(i + 1) % len(focus_subs)]
+            c1 = def_coeffs.get(s1, 7)
+            c2 = def_coeffs.get(s2, 7)
+
             if i == 6:  # جمعه
                 weekly.append({
                     "day": day,
                     "sessions": [
-                        {"subject": "آزمون آزمایشی هفتگی", "duration_minutes": 120, "study_method": "test", "question_count": 60, "topic": "شبیه‌سازی شرایط کنکور و آزمون‌های جامع", "notes": "تحلیل فوری کارنامه آزمون بعد از تصحیح"},
-                        {"subject": "مرور و رفع اشکال", "duration_minutes": 60, "study_method": "review", "question_count": None, "topic": "بررسی تست‌های علامت‌دار هفته", "notes": "ثبت اشتباهات پرتکرار در دفترچه یادداشت"},
+                        {
+                            "subject": "آزمون آزمایشی جامع پلتفرم",
+                            "duration_minutes": 120,
+                            "study_method": "test",
+                            "question_count": 60,
+                            "topic": "شبیه‌سازی شرایط کنکور سراسری و ارزیابی تراز مبحثی",
+                            "reason": "سنجش تسلط و سرعت تست‌زنی در شرایط استاندارد کنکور",
+                            "notes": "تحلیل فوری کارنامه و ثبت تراز در پرونده تحصیلی",
+                        },
+                        {
+                            "subject": "مرور و جبران مباحث عقب‌افتاده",
+                            "duration_minutes": 90,
+                            "study_method": "review",
+                            "question_count": None,
+                            "topic": "بررسی تست‌های علامت‌دار هفته و کارگاه‌های درسی",
+                            "reason": "پوشش پارت‌های جامانده هفته قبل و رفع خطاهای محاسباتی",
+                            "notes": "ثبت اشتباهات پرتکرار در دفترچه یادداشت",
+                        },
                     ]
                 })
             else:
+                # Capped strictly at 240 minutes (4 hours)
                 weekly.append({
                     "day": day,
                     "sessions": [
-                        {"subject": s1, "duration_minutes": 90, "study_method": "study" if i % 2 == 0 else "test", "question_count": 35 if i % 2 != 0 else None, "topic": f"مطالعه و تثبیت مباحث جدید {s1}", "notes": "خلاصه‌نویسی نکات کلیدی حین مطالعه"},
-                        {"subject": s2, "duration_minutes": 90, "study_method": "test" if i % 2 == 0 else "essay", "question_count": 30 if i % 2 == 0 else 15, "topic": f"حل تمرین و تست‌زنی سرعتی {s2}", "notes": "تایم‌گیری دقیق و یادداشت فرمول‌های مهم"},
+                        {
+                            "subject": s1,
+                            "duration_minutes": 120,
+                            "study_method": "study" if i % 2 == 0 else "test",
+                            "question_count": 35 if i % 2 != 0 else None,
+                            "topic": f"مطالعه و تثبیت مباحث جدید {s1}",
+                            "reason": f"به علت ضریب بالای {c1} در کنکور و لزوم تسلط خط‌به‌خط بر کتاب درسی",
+                            "notes": "خلاصه‌نویسی نکات کلیدی حین مطالعه",
+                        },
+                        {
+                            "subject": s2,
+                            "duration_minutes": 120,
+                            "study_method": "test" if i % 2 == 0 else "essay",
+                            "question_count": 30 if i % 2 == 0 else 15,
+                            "topic": f"حل تمرین و تست‌زنی سرعتی {s2}",
+                            "reason": f"به علت ضریب {c2} و نیاز به تسلط بر مسائل و تمرینات صفحه به صفحه",
+                            "notes": "تایم‌گیری دقیق و یادداشت فرمول‌های مهم",
+                        },
                     ]
                 })
 
         return {
             "weekly": weekly,
-            "summary": "پیش‌نویس برنامه هوشمند هفتگی بر اساس تحلیل کارنامه و جبران سرفصل‌های عقب‌مانده هفته قبل.",
-            "ai_strategy": "افزایش سهم تست‌زنی در دروس محاسباتی و مرور دوره‌ای دروس حفظی-مفهومی.",
+            "summary": "پیش‌نویس برنامه هوشمند ۴ ساعته هفتگی بر اساس ضرایب کنکوری و جبران سرفصل‌های عقب‌مانده.",
+            "ai_strategy": "افزایش سهم تست‌زنی در دروس با ضریب بالاتر و اختصاص پارت‌های جبرانی هفتگی.",
             "generated_at": today_label(),
         }
 
@@ -263,7 +435,7 @@ class AIProvider:
         """Generates a standardized deep academic diagnostic payload with subject progress metrics and charts."""
         schema = (
             'JSON schema: {'
-            '"summary": string, '
+            '"executive_summary": string, '
             '"overall_index": number, '
             '"overall_trajectory": "rising"|"stable"|"needs_attention", '
             '"learning_consistency": number, '
@@ -271,23 +443,27 @@ class AIProvider:
             '"exam_speed_score": number, '
             '"strengths": [string], '
             '"weaknesses": [string], '
+            '"weighted_priority_matrix": [{'
+            '  "subject": string, "coefficient": number, "current_level": number, "target_level": number, '
+            '  "priority_level": "بسیار بالا"|"بالا"|"متوسط"|"تثبیت‌شده", "trajectory": "rising"|"stable"|"needs_attention", '
+            '  "rationale": string'
+            '}], '
+            '"critical_weaknesses": [{'
+            '  "subject": string, "score": number, "chapter_page_ref": string, "intervention_plan": string'
+            '}], '
             '"subject_breakdowns": [{'
-            '  "subject": string, '
-            '  "current_level": number, '
-            '  "target_level": number, '
-            '  "growth_rate": string, '
-            '  "trajectory": "rising"|"stable"|"needs_attention", '
+            '  "subject": string, "coefficient": number, "current_level": number, "target_level": number, '
+            '  "growth_rate": string, "trajectory": "rising"|"stable"|"needs_attention", '
             '  "completion_rate": number, '
             '  "study_methods_dist": {"test": number, "study": number, "essay": number, "review": number}, '
-            '  "diagnostic_comment": string, '
-            '  "weak_subtopics": [string]'
+            '  "diagnostic_comment": string, "weak_subtopics": [string]'
             '}], '
             '"pedagogical_prescriptions": [string], '
             '"confidential_dossier": string, '
             '"last_refreshed": string'
             '}'
         )
-        system = "standardized_diagnostic: Provide standardized deep academic progress analysis. " + schema
+        system = "standardized_diagnostic: Provide standardized deep academic progress analysis with coefficients and page coordinates. " + schema
         payload = {
             "profile": student_profile,
             "report_cards": report_cards,
@@ -299,7 +475,10 @@ class AIProvider:
 
     def _mock_standardized_diagnostic(self, payload: dict) -> dict:
         profile = payload.get("profile", {})
-        report_cards = payload.get("report_cards", [])
+        field = profile.get("field_of_study", "علوم تجربی")
+        def_coeffs = self.get_field_coefficients(field)
+        user_coeffs = profile.get("subject_coefficients") or {}
+
         subjects_reported = profile.get("subject_scores", []) or [
             {"subject": "زیست‌شناسی", "score": 18.0},
             {"subject": "شیمی", "score": 16.5},
@@ -310,30 +489,65 @@ class AIProvider:
         ]
 
         breakdowns = []
+        priority_matrix = []
+        critical_weaknesses = []
+
+        # Reference database coordinates for rich diagnostics
+        book_refs = {
+            "زیست‌شناسی": "فصل ۳: کارگاه درس‌پژوهی صفحه ۶۴ و مباحث ترکیبی پروتئین‌سازی",
+            "شیمی": "فصل ۲: استوکیومتری و واکنش‌های اسید-باز صفحه ۸۲ تا ۸۸",
+            "ریاضی": "فصل ۴: کاربرد مشتق و بهینه‌سازی صفحه ۱۱۵",
+            "فیزیک": "فصل ۱: حرکت‌شناسی با شتاب ثابت و نمودارهای سرعت-زمان صفحه ۳۴",
+            "ادبیات فارسی": "درس ۱۱: کارگاه درس‌پژوهی و آرایه‌های مجاز و استعاره صفحه ۷۸",
+            "زبان انگلیسی": "درس ۲: درک مطلب کلوزتست و ساختارهای مجهول صفحه ۴۲",
+        }
+
         for s in subjects_reported:
             name = s.get("subject", "درس")
             base_score = float(s.get("score") or 15.0)
+            coeff = user_coeffs.get(name) or def_coeffs.get(name) or 7
             cur_pct = round(base_score / 20.0 * 100, 1)
             target_pct = min(100.0, round(cur_pct + 12.0, 1))
 
             if cur_pct >= 75:
                 traj = "rising"
                 growth = "+14%"
+                priority = "تثبیت‌شده" if coeff < 8 else "متوسط"
                 comment = f"تسلط بسیار مطلوب بر مباحث اصلی {name}؛ توصیه به حل تست‌های سخت و زمان‌دار."
                 subtopics = ["تست‌های ترکیبی", "شبیه‌سازی زمان کنکور"]
             elif cur_pct >= 60:
                 traj = "stable"
                 growth = "+8%"
+                priority = "بالا" if coeff >= 7 else "متوسط"
                 comment = f"درک مفهومی مناسب در {name}؛ نیازمند افزایش تعداد تست و کاهش خطاهای محاسباتی."
                 subtopics = ["تیپ‌تست‌های پرتکرار", "خلاصه‌نویسی فرمول‌ها"]
             else:
                 traj = "needs_attention"
                 growth = "+5%"
-                comment = f"نیاز به بازیابی پایه‌ای و مرور سرفصل‌های فصل اول و دوم {name}."
+                priority = "بسیار بالا" if coeff >= 7 else "بالا"
+                comment = f"نیاز به بازیابی پایه‌ای و مرور سرفصل‌های {book_refs.get(name, 'کتاب درسی')}."
                 subtopics = ["مفاهیم پایه‌ای", "حل تمرین تشریحی کتاب"]
+                critical_weaknesses.append({
+                    "subject": name,
+                    "score": base_score,
+                    "coefficient": coeff,
+                    "chapter_page_ref": book_refs.get(name, f"سرفصل‌های ابتدایی {name}"),
+                    "intervention_plan": f"اختصاص روزانه ۹۰ دقیقه تست‌زنی آموزشی مضرب ۵ و مطالعه خط‌به‌خط کتاب درسی.",
+                })
+
+            priority_matrix.append({
+                "subject": name,
+                "coefficient": coeff,
+                "current_level": cur_pct,
+                "target_level": target_pct,
+                "priority_level": priority,
+                "trajectory": traj,
+                "rationale": f"ضریب {coeff} در کنکور با سطح تسلط فعلی {cur_pct}٪",
+            })
 
             breakdowns.append({
                 "subject": name,
+                "coefficient": coeff,
                 "current_level": cur_pct,
                 "target_level": target_pct,
                 "growth_rate": growth,
@@ -344,24 +558,28 @@ class AIProvider:
                 "weak_subtopics": subtopics,
             })
 
+        # Sort priority matrix by priority severity
+        p_weights = {"بسیار بالا": 4, "بالا": 3, "متوسط": 2, "تثبیت‌شده": 1}
+        priority_matrix.sort(key=lambda x: -p_weights.get(x["priority_level"], 0))
+
         dossier = (
             f"=== پرونده جامع تحلیلی و راهبردی هوش مصنوعی (محرمانه مشاور) ===\n"
-            f"تاریخ به‌روزرسانی تحلیل: {today_label()}\n"
+            f"تاریخ به‌روزرسانی تحلیل: {today_label()} | رشته: {field}\n"
             f"شاخص عملکرد کلی: ۷۸.۵٪ | وضعیت پایداری یادگیری: مطلوب و صعودی\n\n"
-            f"۱. ارزیابی تطبیقی کارنامه و آزمون‌ها:\n"
-            f"- دروس با عملکرد ممتاز: زبان انگلیسی و ادبیات (درک مطلب سریع و بازدهی بالای ۸۵٪).\n"
-            f"- دروس اولویت تمرکز و نیازمند جبران: ریاضی و فیزیک (افت سرعت حل مسئله در پارت‌های محاسباتی).\n\n"
-            f"۲. تحلیل الگوهای رفتاری و تعهد به برنامه مطالعاتی:\n"
-            f"- میزان پایبندی به انجام پارت‌های هفتگی: ۸۲٪ با تعهد بالا به پارت‌های صبحگاهی.\n"
-            f"- بیشترین میزان تکالیف انجام‌نشده در پارت‌های پایانی شب رخ داده است.\n\n"
-            f"۳. راهبردهای تجویزی پیشنهادی برای مشاور:\n"
-            f"  الف) قرار دادن پارت‌های محاسباتی ریاضی در ساعات آغازین روز (ساعت ۸ تا ۱۱:۳۰).\n"
-            f"  ب) استفاده از تکنیک تست‌زنی زمان‌دار مضرب ۵ با تحلیل آنی پاسخ‌نامه.\n"
+            f"۱. ماتریس اولویت‌بندی بر اساس ضرایب درسی کنکور:\n"
+            f"- دروس با اولویت مداخله فوری (بحرانی): ریاضی (ضریب {def_coeffs.get('ریاضی', 7)}) و فیزیک (ضریب {def_coeffs.get('فیزیک', 7)}) به دلیل افت سرعت در سوالات محاسباتی.\n"
+            f"- دروس تثبیت‌شده: زیست‌شناسی (ضریب {def_coeffs.get('زیست‌شناسی', 12)}) و ادبیات (ضریب {def_coeffs.get('ادبیات فارسی', 4)}).\n\n"
+            f"۲. تحلیل الگوهای مطالعاتی و تسک‌های روزانه (سقف ۴ ساعت):\n"
+            f"- پایبندی دانش‌آموز به پارت‌های صبحگاهی ۸۵٪ است؛ پارت‌های پایانی شب بیشترین افت بازدهی را نشان می‌دهند.\n\n"
+            f"۳. راهبردهای تجویزی مشاور:\n"
+            f"  الف) قرار دادن پارت‌های محاسباتی ریاضی در ساعات اول صبح (۸ تا ۱۰:۳۰).\n"
+            f"  ب) اجرای تست‌زنی زمان‌دار مبحثی در پلتفرم سیناپس جهت پایش تسلط کارگاه‌های درسی.\n"
             f"  ج) تثبیت پیشرفت زیست‌شناسی با اجرای مرورهای منظم ۳ روزه."
         )
 
         return {
-            "summary": f"دانش‌آموز دارای پتانسیل پیشرفت بسیار بالا با شاخص پایداری یادگیری ۸۲٪ است. محور اصلی برنامه باید بر ارتقای تست‌زنی دروس محاسباتی متمرکز گردد.",
+            "summary": f"دانش‌آموز دارای پتانسیل پیشرفت بسیار بالا با شاخص پایداری یادگیری ۸۲٪ است. محور اصلی برنامه بر ارتقای دروس با ضریب بالا (ریاضی و فیزیک) با سقف ۴ ساعت در روز متمرکز است.",
+            "executive_summary": f"عملکرد کلی دانش‌آموز در رشته {field} با نمرات بالا در دروس مفهومی تثبیت شده و تمرکز برنامه مطالعاتی بر جبران سرعت عمل در دروس محاسباتی با ضرایب بالا قرار دارد.",
             "overall_index": 78.5,
             "overall_trajectory": "rising",
             "learning_consistency": 82,
@@ -369,11 +587,14 @@ class AIProvider:
             "exam_speed_score": 74,
             "strengths": ["زبان انگلیسی", "ادبیات فارسی", "زیست‌شناسی"],
             "weaknesses": ["ریاضی", "فیزیک"],
+            "weighted_priority_matrix": priority_matrix,
+            "critical_weaknesses": critical_weaknesses,
             "subject_breakdowns": breakdowns,
             "pedagogical_prescriptions": [
                 "انتقال دروس محاسباتی سنگین به پارت‌های اول صبح",
-                "اجرای آزمون‌های مبحثی ۲۰ تستی با تایم‌گیری استاندارد",
-                "استفاده از دفترچه اشتباهات و بازبینی هفتگی تست‌های نزده"
+                "اجرای آزمون‌های مبحثی ۲۰ تستی با تایم‌گیری استاندارد در پلتفرم",
+                "استفاده از دفترچه اشتباهات و بازبینی هفتگی تست‌های نزده",
+                "رعایت سقف مطالعاتی روزانه حداکثر ۴ ساعت برای جلوگیری از خستگی ذهنی"
             ],
             "confidential_dossier": dossier,
             "last_refreshed": datetime.utcnow().isoformat(),
@@ -406,7 +627,7 @@ class AIProvider:
             '"title": string, '
             '"overall_score": number, '
             '"overall_traz": number, '
-            '"subjects": [{"subject": string, "score": number, "percentage": number, "traz": number, "class_avg": number, "rank": number}], '
+            '"subjects": [{"subject": string, "score": number, "percentage": number, "traz": number, "class_avg": number, "rank": number, "coefficient": number}], '
             '"strengths": [string], '
             '"weaknesses": [string], '
             '"ai_dossier": string'
@@ -418,27 +639,28 @@ class AIProvider:
 
     def _mock_report_card(self, source: str, content: str) -> dict:
         subjects = [
-            {"subject": "زیست‌شناسی", "score": 17.5, "percentage": 72.5, "traz": 6450, "class_avg": 54.0, "rank": 14},
-            {"subject": "شیمی", "score": 15.0, "percentage": 61.0, "traz": 6120, "class_avg": 48.5, "rank": 28},
-            {"subject": "فیزیک", "score": 13.5, "percentage": 46.0, "traz": 5780, "class_avg": 42.0, "rank": 45},
-            {"subject": "ریاضی", "score": 12.0, "percentage": 38.5, "traz": 5430, "class_avg": 36.0, "rank": 58},
-            {"subject": "ادبیات فارسی", "score": 18.0, "percentage": 78.0, "traz": 6600, "class_avg": 58.0, "rank": 9},
-            {"subject": "عربی", "score": 16.5, "percentage": 68.0, "traz": 6310, "class_avg": 51.0, "rank": 22},
-            {"subject": "زبان انگلیسی", "score": 19.0, "percentage": 84.0, "traz": 6850, "class_avg": 60.0, "rank": 4},
-            {"subject": "دین و زندگی", "score": 18.5, "percentage": 80.0, "traz": 6700, "class_avg": 63.0, "rank": 7},
+            {"subject": "زیست‌شناسی", "score": 17.5, "percentage": 72.5, "traz": 6450, "class_avg": 54.0, "rank": 14, "coefficient": 12},
+            {"subject": "شیمی", "score": 15.0, "percentage": 61.0, "traz": 6120, "class_avg": 48.5, "rank": 28, "coefficient": 9},
+            {"subject": "فیزیک", "score": 13.5, "percentage": 46.0, "traz": 5780, "class_avg": 42.0, "rank": 45, "coefficient": 7},
+            {"subject": "ریاضی", "score": 12.0, "percentage": 38.5, "traz": 5430, "class_avg": 36.0, "rank": 58, "coefficient": 7},
+            {"subject": "ادبیات فارسی", "score": 18.0, "percentage": 78.0, "traz": 6600, "class_avg": 58.0, "rank": 9, "coefficient": 4},
+            {"subject": "عربی", "score": 16.5, "percentage": 68.0, "traz": 6310, "class_avg": 51.0, "rank": 22, "coefficient": 2},
+            {"subject": "زبان انگلیسی", "score": 19.0, "percentage": 84.0, "traz": 6850, "class_avg": 60.0, "rank": 4, "coefficient": 2},
+            {"subject": "دین و زندگی", "score": 18.5, "percentage": 80.0, "traz": 6700, "class_avg": 63.0, "rank": 7, "coefficient": 3},
         ]
-        overall_score = round(sum(s["score"] for s in subjects) / len(subjects), 2)
-        overall_traz = round(sum(s["traz"] for s in subjects) / len(subjects))
+        sum_w = sum(s["coefficient"] for s in subjects)
+        overall_score = round(sum(s["score"] * s["coefficient"] for s in subjects) / sum_w, 2)
+        overall_traz = round(sum(s["traz"] * s["coefficient"] for s in subjects) / sum_w)
 
         source_title = "خیلی سبز" if source == "kheilisabz" else ("قلم‌چی" if source == "ghalamchi" else "مدرسه و آزمون‌های جامع")
         dossier = (
             f"=== پرونده تحلیلی کارنامه آزمون {source_title} ===\n"
-            f"تاریخ آزمون: {today_label()} | تراز کل: {overall_traz} | معدل: {overall_score}/20\n\n"
-            f"۱. وضعیت دروس:\n"
-            f"- دروس قوی: زبان انگلیسی (۸۴٪، تراز ۶۸۵۰)، ادبیات (۷۸٪) و زیست‌شناسی (۷۲.۵٪).\n"
-            f"- نقاط ضعف نیازمند مداخله فوری: ریاضی (۳۸.۵٪) و فیزیک (۴۶٪).\n\n"
+            f"تاریخ آزمون: {today_label()} | تراز وزنی کل: {overall_traz} | معدل وزنی: {overall_score}/20\n\n"
+            f"۱. تحلیل ضریب‌محور دروس:\n"
+            f"- دروس با ضریب بالا و عملکرد ممتاز: زیست‌شناسی (ضریب ۱۲، درصد ۷۲.۵٪، تراز ۶۴۵۰).\n"
+            f"- دروس با ضریب بالا نیازمند ارتقا: ریاضی (ضریب ۷، درصد ۳۸.۵٪) و فیزیک (ضریب ۷، درصد ۴۶٪).\n\n"
             f"۲. توصیه مشاوره‌ای:\n"
-            f"افزایش تعداد تست روزانه ریاضی و فیزیک به حداقل ۴۰ تست همراه با ثبت کارنامه اشتباهات."
+            f"افزایش زمان تست‌زنی روزانه ریاضی و فیزیک به پارت‌های اول صبح و ثبت اشتباهات کارگاه درس‌پژوهی."
         )
 
         return {
@@ -462,7 +684,7 @@ class AIProvider:
             "subject": "هوش مصنوعی",
             "title": "ویدیوهای اختصاصی بر اساس نقاط ضعف و آزمون‌های شما پیشنهاد می‌شوند.",
             "url": "#/plan",
-            "reason": "هوش مصنوعی بهترین آموزش‌های آپارات و یوتیوب را انتخاب می‌کند.",
+            "reason": "هوش مصنوعی بهترین آموزش‌های آپارات و یوتیوب را بر اساس سرفصل‌ها انتخاب می‌کند.",
             "source": "ai",
             "views": 0,
             "likes": 0,
@@ -495,7 +717,6 @@ class AIProvider:
                 + json.dumps(student_context, ensure_ascii=False)
             )
 
-        # Attempt online LLM call if not explicit mock
         if not USE_MOCK and AI_PROVIDER_KEY:
             try:
                 llm_msgs = [{"role": "system", "content": system}]
@@ -506,7 +727,7 @@ class AIProvider:
                 payload = {
                     "model": AI_MODEL,
                     "messages": llm_msgs,
-                    "temperature": 0.4,
+                    "temperature": 0.35,
                     "max_tokens": 2048,
                 }
                 req = urllib.request.Request(
@@ -568,136 +789,80 @@ class AIProvider:
             if any(w in last_clean for w in ["stress", "tired", "motivation", "burnout"]):
                 return f"Take a deep breath, {name}. Studying is a marathon, not a sprint. Take a 15-minute screen-free break, break tasks into 45-minute blocks, and remember that consistent small steps lead to big wins."
             if any(w in last_clean for w in ["plan", "schedule", "time"]):
-                return f"For effective scheduling, divide your day into 75-90 minute deep-work blocks with 15-minute intervals. Check your calendar in the platform to mark completed tasks."
+                return f"For effective scheduling, keep daily study under 4 hours with 75-90 minute deep-work blocks. Check your calendar in the platform to mark completed tasks."
             return f"Great question, {name}! To reach your goal of {goal}, consistent daily practice, active error analysis, and balanced study blocks are key. Let me know which specific subject or topic you'd like to dive into!"
 
         # Persian conversational reasoning
-        # 1. Greetings & check-ins
         if any(w in last_clean for w in ["سلام", "درود", "صبح بخیر", "عصر بخیر", "شب بخیر", "چطوری", "خوبی", "سلام چطوری", "سلام خوبی"]):
             return (
-                f"سلام {name} عزیز! 🌟 من مشاور و دستیار هوشمند شما در پلتفرم هستم.\n"
+                f"سلام {name} عزیز! 🌟 من مشاور و دستیار هوشمند شما در پلتفرم سیناپس هستم.\n"
                 f"امروز چطور می‌تونم در مسیر رسیدن به هدفت ({goal}) بهت کمک کنم؟ "
-                "می‌تونی درباره روش مطالعه درس‌ها، تنظیم تایم برنامه‌ریزی، تحلیل آزمون یا رفع اشکال با من صحبت کنی."
+                "می‌تونی درباره روش مطالعه دروس ضریب‌بالا، تنظیم پارت‌های مطالعاتی تا سقف ۴ ساعت، تحلیل آزمون یا رفع اشکال با من صحبت کنی."
             )
 
-        # 2. Biology
         if any(w in last_clean for w in ["زیست", "زیست‌شناسی", "ژنتیک", "گیاهی", "فیزیولوژی"]):
             return (
-                f"برای تسلط کامل روی زیست‌شناسی در رشته {field}، این چرخه ۳ مرحله‌ای رو اجرا کن:\n"
-                "۱. **خط به خط کتاب درسی:** متن، شکل‌ها، زیرنویس‌ها و جدول‌های کتاب درسی منبع اصلی هستند. حتماً نکات مهم رو حاشیه‌نویسی کن.\n"
-                "۲. **تست‌زنی آموزشی و تحلیلی:** در هر پارت حداقل ۳۰ تا ۵۰ تست کار کن و مهم‌تر از پاسخ درست، حتماً علت غلط بودن سایر گزینه‌ها رو بررسی کن.\n"
-                "۳. **ترکیب مباحث:** فصول مرتبط مثل ژنتیک، قلب و گوارش رو به صورت ترکیبی مرور کن و دفترچه نکات طلایی داشته باش."
+                f"برای تسلط کامل روی زیست‌شناسی (ضریب ۱۲ کنکور تجربی)، این چرخه ۳ مرحله‌ای رو اجرا کن:\n"
+                "۱. **خط به خط کتاب درسی:** متن، شکل‌ها، زیرنویس‌ها، جدول‌ها و کارگاه‌های درس‌پژوهی منبع اصلی هستند.\n"
+                "۲. **تست‌زنی تحلیلی:** در هر پارت حداقل ۳۵ تا ۵۰ تست کار کن و علت غلط بودن سایر گزینه‌ها رو بررسی کن.\n"
+                "۳. **ترکیب مباحث:** فصول مرتبط مثل ژنتیک، قلب و گوارش رو ترکیبی مرور کن."
             )
 
-        # 3. Mathematics
         if any(w in last_clean for w in ["ریاضی", "ریاضیات", "حسابان", "هندسه", "آمار", "احتمال", "مشتق", "مثلثات"]):
             return (
                 "برای درس ریاضی، راز موفقیت **دست به قلم شدن مداوم** است! ✍️\n"
-                "• هرگز فرمول‌ها رو چشمی نخون؛ ابتدا مثال‌ها و تمرینات کتاب رو خودت روی برگه حل کن.\n"
-                "• تست‌ها رو تیپ‌بندی کن و از سطح آموزشی شروع کن و به سمت تست‌های زمان‌دار پیش برو.\n"
-                "• حتماً یک **دفترچه یادداشت اشتباهات** داشته باش تا تیپ سوالاتی که گیر داشتی رو آخر هفته دوباره مرور کنی."
+                "• هرگز فرمول‌ها رو چشمی نخون؛ ابتدا تمرینات و فعالیت‌های کتاب رو خودت حل کن.\n"
+                "• تست‌ها رو تیپ‌بندی کن و از سطح آموزشی به سمت تست‌های زمان‌دار پیش برو.\n"
+                "• یک **دفترچه یادداشت اشتباهات** داشته باش تا تیپ سوالاتی که گیر داشتی رو آخر هفته مرور کنی."
             )
 
-        # 4. Chemistry
         if any(w in last_clean for w in ["شیمی", "استوکیومتری", "اسید", "باز", "سینتیک", "شیمی آلی"]):
             return (
-                "درس شیمی دو وجه متمایز داره که برای هر کدوم استراتژی جداگانه نیازه:\n"
-                "۱. **مفاهیم، حفظیات و شکل‌ها:** متن کتاب، واکنش‌های موازنه‌شده، رنگ ترکیبات و کاربردها رو با خلاصه‌نویسی نموداری تثبیت کن.\n"
-                "۲. **مسائل محاسباتی (استوکیومتری و غلظت):** روزانه یک روتین ۱۰ الی ۱۵ دقیقه‌ای برای تقویت سرعت ساده‌سازی و کسرهای تبدیل قرار بده تا در آزمون‌ها وقت کم نیاری."
+                "درس شیمی دو بخش متمایز داره که برای هر کدوم استراتژی جداگانه نیازه:\n"
+                "۱. **مفاهیم و حفظیات:** متن کتاب، واکنش‌های موازنه‌شده و رنگ ترکیبات رو با خلاصه‌نویسی نموداری تثبیت کن.\n"
+                "۲. **مسائل محاسباتی (استوکیومتری):** روزانه یک روتین ۱۵ دقیقه‌ای برای تقویت سرعت کسرهای تبدیل قرار بده."
             )
 
-        # 5. Physics
         if any(w in last_clean for w in ["فیزیک", "حرکت‌شناسی", "دینامیک", "نوسان", "موج", "الکتریسیته", "مغناطیس"]):
             return (
-                "در فیزیک، پیش از به‌خاطرسپردن هر فرمول، مفهوم پدیده را متوجه شو:\n"
-                "• کشیدن دیاگرام نیروها (رسم شکل مسئله) نصف راه حل هر تست فیزیک است.\n"
-                "• یکاهای SI و تبدیل واحدها را همیشه در ابتدای صورت سوال بررسی کن.\n"
-                "• بعد از یادگیری پایه‌ای، تست‌های تیپ‌های مختلف را با زمان‌بندی استاندارد تمرین کن."
+                "در فیزیک، پیش از حفظ فرمول، مفهوم پدیده را متوجه شو:\n"
+                "• کشیدن دیاگرام نیروها و رسم شکل نیمی از راه حل هر مسئله است.\n"
+                "• یکاهای SI و تبدیل واحدها را همیشه در ابتدای صورت سوال چک کن.\n"
+                "• تست‌های زمان‌دار مبحثی را در پلتفرم به صورت منظم تمرین کن."
             )
 
-        # 6. Persian Literature
         if any(w in last_clean for w in ["ادبیات", "فارسی", "قرابت", "آرایه", "دستور زبان", "لغت و املا"]):
             return (
-                "برای ادبیات فارسی، مطالعه مبحثی و روتین شبانه بهترین نتیجه را می‌دهد:\n"
-                "• **قرابت معنایی:** روزانه ۵ الی ۱۰ تست برای درک سریع مفهوم و آهنگ ابیات.\n"
-                "• **آرایه‌ها:** تمرین تست‌های چندآرایه‌ای با شیوه رد گزینه.\n"
-                "• **دستور و لغت:** یادگیری فرمول‌های دستوری (نقش‌ها، حذف، جهش ضمیر) و مرور واژگان ستاره‌دار انتهای کتاب."
+                "برای ادبیات فارسی، مطالعه موضوعی بهترین نتیجه را می‌دهد:\n"
+                "• روزانه ۱۰ تست قرابت معنایی و ۵ تست آرایه ادبی کار کن.\n"
+                "• لغات ستاره‌دار و انتهای کتاب را در بازه‌های مرور ۳ روزه تثبیت کن."
             )
 
-        # 7. English Language
-        if any(w in last_clean for w in ["زبان", "انگلیسی", "گرامر", "ریدینگ", "کلوز تست", "وکب"]):
+        if any(w in last_clean for w in ["خسته", "استرس", "ناامید", "انگیزه", "سخت", "نمی‌تونم", "نمی‌رسم"]):
             return (
-                "در زبان انگلیسی:\n"
-                "• لغات را درون جمله و متن یاد بگیر تا کاربرد حروف اضافه و معانی ثانویه در ذهنت بنشیند.\n"
-                "• تکنیک‌های Skimming (خواندن سریع برای درک ایده کلی) و Scanning (یافتن اطلاعات خاص) را روی متن‌های Reading تمرین کن.\n"
-                "• گرامر را با خلاصه کردن نکات کلیدی و حل تست‌های ترکیبی تثبیت کن."
+                f"{name} عزیز، نفس عمیق بکش! 🌿 این مسیر یک ماراتن است، نه دو سرعت.\n"
+                "• روزانه حداکثر ۴ ساعت مطالعه عمیق و باکیفیت (در پارت‌های ۶۰ تا ۹۰ دقیقه‌ای) بسیار موثرتر از ساعات طولانی فرسایشی است.\n"
+                "• کارهای بزرگ رو به قدم‌های کوچک تقسیم کن و موفقیت‌های کوچک امروزت رو جشن بگیر."
             )
 
-        # 8. Arabic
-        if any(w in last_clean for w in ["عربی", "قواعد عربی", "ترجمه و تعریب", "تحلیل صرفی"]):
-            return (
-                "برای درس عربی:\n"
-                "• اولویت اول تسلط بر فنون ترجمه بر مبنای نوع افعال، ضمایر، معرفه/نکره و جمع‌های مکسر است.\n"
-                "• در بخش قواعد، الگوهای ثلاثی مجرد و مزید، اعراب و نقش‌ها را جدولی خلاصه کن.\n"
-                "• درک مطلب و تحلیل صرفی را با حل تست‌های ادوار گذشته به تسلط برسان."
-            )
-
-        # 9. Religious Studies
-        if any(w in last_clean for w in ["دینی", "دین و زندگی", "پیام آیات", "احادیث"]):
-            return (
-                "برای دین و زندگی:\n"
-                "• خط به خط متن کتاب و ارتباط پیام آیات با تیترهای درس را مشخص کن.\n"
-                "• علت و معلول‌ها و زنجیره تقدم و تاخر مفاهیم را حاشیه‌نویسی کن."
-            )
-
-        # 10. Motivation, Stress, Fatigue, Low Morale
-        if any(w in last_clean for w in ["خسته", "خسته‌ام", "انگیزه", "استرس", "ناامید", "افت تراز", "ترازم", "نمی‌تونم", "کم آوردم", "تمرکز ندارم", "بی‌انگیزه", "افسرده"]):
-            return (
-                f"کاملاً حست رو درک می‌کنم {name} عزیز. مسیر موفقیت در کنکور یک ماراتن است، نه مسابقه سرعت! "
-                "خستگی و نوسان انرژی برای همه داوطلبان پیش می‌آید. 🌱\n\n"
-                "چند راهکار کاربردی برای ریکاوری سریع:\n"
-                "۱. به جای فکر کردن به کل حجم باقی‌مانده، فقط روی **پارت مطالعاتی بعدی (مثلاً ۴۵ دقیقه)** تمرکز کن.\n"
-                "۲. یک استراحت باکیفیت بدون گوشی (پیاده‌روی کوتاه در هوای آزاد، نوشیدن آب یا ۱۵ دقیقه خواب کوتاه) داشته باش.\n"
-                f"۳. به یاد بیار که چرا شروع کردی و هدفت ({goal}) چقدر برات ارزشمنده. تداوم روزانه حتی با ساعت مطالعه متوسط، معجزه می‌کنه."
-            )
-
-        # 11. Study Planning & Hours
-        if any(w in last_clean for w in ["برنامه", "برنامه‌ریزی", "ساعت مطالعه", "چند ساعت", "تایم", "کمبود وقت", "وقت کم"]):
-            return (
-                "برای بهینه‌سازی برنامه و ساعات مطالعه:\n"
-                "• روزت را به بلاک‌های ۷۵ الی ۹۰ دقیقه‌ای به همراه ۱۵ دقیقه استراحت تفکیک کن.\n"
-                "• دروس محاسباتی و سنگین‌تر را در پارت‌های اول صبح که تمرکز ذهنی بالاست قرار بده.\n"
-                "• از بخش تقویم پنل می‌تونی تسک‌های روزانه هفتت رو مشاهده کنی و پیشرفتت رو تیک بزنی."
-            )
-
-        # 12. Exam & Test Strategy
-        if any(w in last_clean for w in ["تست", "تست‌زنی", "تکنیک", "ضربدر", "منها", "زمان‌های نقصانی", "تحلیل آزمون"]):
-            return (
-                "۳ تکنیک حیاتی مدیریت جلسه آزمون:\n"
-                "۱. **تکنیک ضربدر و منها (+ / -):** سوالات وقت‌گیر را ضربدر و سوالاتی که تسلط نداری را منها بذار و سریع رد شو.\n"
-                "۲. **استراتژی زمان‌های نقصانی:** برای هر درس ۵ دقیقه زمان اضافه ذخیره کن تا در دور دوم به سوالات علامت‌دار برگردی.\n"
-                "۳. **تحلیل آزمون در همان روز:** سوالات نزده و غلط را علت‌یابی کن و در دفترچه خطاهای خودت ثبت کن."
-            )
-
-        # 13. General Contextual Guidance
         return (
-            f"نکته بسیار مهمی را مطرح کردی {name} عزیز. در مسیر آمادگی برای {goal} در رشته {field}، "
-            "حفظ استمرار مطالعاتی، تحلیل منظم تست‌ها و اولویت‌بندی نقاط ضعف نقشی کلیدی در افزایش تراز و درصدها دارد.\n"
-            "می‌توانی درباره هر یک از دروس، شیوه مرور یا رفع اشکال مباحث با من گفت‌وگو کنی تا راهکار دقیق‌تری بهت ارائه دهم."
+            f"نکته بسیار مهمی را مطرح کردی {name} عزیز! 🌟\n"
+            f"با توجه به هدفت ({goal})، استمرار روزانه، اولویت‌بندی بر اساس ضرایب درسی و تست‌زنی تحلیلی در پلتفرم، کلید ارتقای تراز است. "
+            "درباره کدام درس یا مبحث تمایل داری برنامه و راهکار دقیق‌تری طراحی کنیم؟"
         )
 
-    def analyze_consultation_session(
+    def suggest_consultation_outcome(
         self,
-        student_name: str,
-        grade: str,
-        field: str,
         notes_or_transcript: str,
-        student_history: Optional[dict] = None,
+        student_name: str = "دانش‌آموز",
+        grade: str = "دوازدهم",
+        field: str = "علوم تجربی",
+        student_history: dict | None = None,
     ) -> dict:
-        """Analyzes mentor consultation notes/audio transcript and generates structured session diagnostics."""
+        """Analyzes session notes or voice transcript to recommend structured consultation records."""
         schema = (
             'JSON schema: {'
-            '"duration_minutes": int, '
+            '"duration_minutes": number, '
             '"consultation_type": "تلفنی" | "حضوری" | "آنلاین", '
             '"student_evaluation": "عالی" | "خوب" | "متوسط" | "نیازمند انگیزه" | "بحرانی", '
             '"discussion_topics": string, '
@@ -719,7 +884,6 @@ class AIProvider:
         if isinstance(res, dict) and "student_evaluation" in res and "advisor_recommendations" in res:
             return res
 
-        # Smart rule-based analysis fallback
         txt = (notes_or_transcript or "").lower()
         eval_status = "خوب"
         if any(w in txt for w in ["عالی", "فوق‌العاده", "رشد چشمگیر", "تراز بالا", "پیشرفت عالی"]):
@@ -745,18 +909,18 @@ class AIProvider:
             "consultation_type": c_type,
             "student_evaluation": eval_status,
             "discussion_topics": (
-                f"• بررسی ساعات مطالعه هفتگی و میزان پایبندی به برنامه\n"
+                f"• بررسی ساعات مطالعه هفتگی و میزان پایبندی به سقف ۴ ساعت روزانه\n"
                 f"• تحلیل تست‌های علامت‌دار دروس اختصاصی {field}\n"
-                f"• ریشه‌یابی افت درصدها و چالش‌های مدیریت زمان و تمرکز"
+                f"• ریشه‌یابی افت درصدها در مباحث محاسباتی و چالش‌های تمرکز"
                 + (f"\n• نکات مطرح‌شده: {notes_or_transcript[:180]}..." if notes_or_transcript else "")
             ),
             "advisor_recommendations": (
                 "۱. افزایش زمان مرور شبانه دروس حفظی-مفهومی به میزان ۴۵ دقیقه.\n"
-                "۲. اجرای تکنیک ضربدر و منها در تمام آزمون‌های زمان‌دار پیش‌رو.\n"
+                "۲. اجرای آزمون‌های تعیین سطح پلتفرم سیناپس برای استخراج تسلط مبحثی.\n"
                 "۳. ارسال گزارش مطالعه روزانه حداکثر تا ساعت ۲۳:۳۰ در پنل جهت پایش استمرار."
             ),
             "next_session_date": f"{next_dt.year}/{next_dt.month:02d}/{next_dt.day:02d}",
-            "ai_diagnostic_notes": f"وضعیت روحی و درسی دانش‌آموز {eval_status} ارزیابی شد. تمرکز بر ارتقای انگیزه و تثبیت دروس پایه توصیه می‌شود.",
+            "ai_diagnostic_notes": f"وضعیت روحی و درسی دانش‌آموز {eval_status} ارزیابی شد. تمرکز بر ارتقای انگیزه و تثبیت دروس پایه با ضریب بالا توصیه می‌شود.",
         }
 
     def generate_curriculum_questions(
@@ -792,19 +956,18 @@ class AIProvider:
         if isinstance(res, list) and len(res) > 0 and isinstance(res[0], dict) and "question_text" in res[0]:
             return res
 
-        # High-quality fallback curriculum question templates based on subject
         fallback_questions = []
         for i in range(1, count + 1):
             fallback_questions.append({
                 "question_text": f"در مبحث {chapter_name} از درس {subject} پایه {grade_level}، کدام عبارت از نظر مفهومی صحیح است؟ (تست تالیفی شماره {i})",
                 "options": [
                     f"گزینه اول: تغییرات اولیه منجر به تثبیت نرخ بازده در مبحث {chapter_name} می‌شود.",
-                    f"گزینه دوم: فرآیند مربوطه به صورت مستقیم وابسته به شرایط استاندارد است.",
+                    f"گزینه دوم: فرآیند مربوطه به صورت مستقیم وابسته به شرایط استاندارد کتاب درسی است.",
                     f"گزینه سوم: افزایش شیب منحنی، بیانگر پایداری متغیرهای اصلی فصل {chapter_name} می‌باشد.",
                     f"گزینه چهارم: در تمامی حالات، اثرات بازدارنده بر متغیرهای فرعی غالب است.",
                 ],
                 "correct_answer": 2,
-                "explanation": f"با توجه به مفاهیم درس {subject} در سرفصل {chapter_name}، گزینه ۲ به دلیل انطباق کامل با روابط تعریفی صحیح است.",
+                "explanation": f"با توجه به مفاهیم درس {subject} در سرفصل {chapter_name} (کارگاه درس‌پژوهی کتاب)، گزینه ۲ به دلیل انطباق کامل با روابط تعریفی صحیح است.",
                 "difficulty": difficulty,
             })
         return fallback_questions
