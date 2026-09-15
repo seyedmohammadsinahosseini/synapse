@@ -1,17 +1,20 @@
 """Mentor router: student roster management, diagnostic inspections, study plan assignments, and daily supervision."""
 from datetime import date, datetime, timedelta
+from io import BytesIO
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
 from ..ai_service import ai
 from ..database import get_db
-from ..models import (ConsultSlot, DailyCapacityAlert, ExamAttempt, Grade,
-                      PlanProgress, ReportCard, StudentProfile, StudyPlan,
-                      SupervisionEntry, User, VideoSuggestion)
+from ..models import (ConsultationSession, ConsultSlot, DailyCapacityAlert,
+                      ExamAttempt, Grade, PlanProgress, ReportCard,
+                      StudentProfile, StudyPlan, SupervisionEntry,
+                      User, VideoSuggestion)
 from ..routers.plan import (SUPERVISION_PARTS, iran_weekday,
                             normalize_weekly_days, plan_completion,
                             saturday_start, supervision_week,
@@ -671,11 +674,427 @@ def edit_student_profile(student_id: int, data: StudentEditRequest,
             setattr(profile, field, str(val).strip())
     if data.goal_subjects is not None:
         profile.goal_subjects = list(data.goal_subjects)
-    if data.last_year_avg is not None:
-        try:
-            profile.last_year_avg = round(float(data.last_year_avg), 2)
-        except (TypeError, ValueError):
-            pass
-
     db.commit()
     return {"ok": True}
+
+
+# ── Student Data Vault & Comprehensive Multi-Format Export ─────────────────
+@router.get("/students/{student_id}/vault")
+def get_student_vault(student_id: int, user: User = Depends(get_current_user),
+                      db: Session = Depends(get_db)):
+    """Retrieves all unified historical records, grades, report cards, consultations, and tasks for a student."""
+    _mentor_guard(user)
+    stu = db.query(User).filter(User.id == student_id).first()
+    if not stu:
+        raise HTTPException(status_code=404, detail="Student not found")
+    profile = db.query(StudentProfile).filter(StudentProfile.user_id == student_id).first()
+    if not profile or profile.mentor_id != user.id:
+        raise HTTPException(status_code=403, detail="Student not assigned to your mentor account")
+
+    report_cards = db.query(ReportCard).filter(ReportCard.student_id == student_id).order_by(ReportCard.created_at.desc()).all()
+    grades = db.query(Grade).filter(Grade.student_id == student_id).all()
+    exams = db.query(ExamAttempt).filter(ExamAttempt.student_id == student_id).order_by(ExamAttempt.started_at.desc()).all()
+    sessions = db.query(ConsultationSession).filter(ConsultationSession.student_id == student_id).order_by(ConsultationSession.created_at.desc()).all()
+    supervision_tasks = db.query(SupervisionEntry).filter(SupervisionEntry.student_id == student_id).order_by(SupervisionEntry.date_str.desc(), SupervisionEntry.part.asc()).all()
+    capacity_alerts = db.query(DailyCapacityAlert).filter(DailyCapacityAlert.student_id == student_id).all()
+
+    return {
+        "student": {
+            "id": stu.id,
+            "full_name": stu.full_name,
+            "email": stu.email,
+            "phone": stu.phone,
+            "grade_level": profile.grade_level,
+            "field_of_study": profile.field_of_study,
+            "goal_type": profile.goal_type,
+            "last_year_avg": profile.last_year_avg,
+            "goal_subjects": profile.goal_subjects or [],
+        },
+        "report_cards_count": len(report_cards),
+        "consultation_sessions_count": len(sessions),
+        "exam_attempts_count": len(exams),
+        "tasks_count": len(supervision_tasks),
+        "capacity_alerts_count": len(capacity_alerts),
+    }
+
+
+@router.get("/students/{student_id}/export/excel")
+def export_student_excel(student_id: int, user: User = Depends(get_current_user),
+                         db: Session = Depends(get_db)):
+    """Exports a comprehensive multi-sheet Excel dossier for the student."""
+    _mentor_guard(user)
+    stu = db.query(User).filter(User.id == student_id).first()
+    if not stu:
+        raise HTTPException(status_code=404, detail="Student not found")
+    profile = db.query(StudentProfile).filter(StudentProfile.user_id == student_id).first()
+    if not profile or profile.mentor_id != user.id:
+        raise HTTPException(status_code=403, detail="Student not assigned to your mentor account")
+
+    import openpyxl
+    from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+
+    wb = openpyxl.Workbook()
+
+    # Styling definitions
+    header_fill = PatternFill(start_color="4338CA", end_color="4338CA", fill_type="solid")
+    header_font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
+    sub_fill = PatternFill(start_color="EEF2FF", end_color="EEF2FF", fill_type="solid")
+    sub_font = Font(name="Calibri", size=10, bold=True, color="312E81")
+    regular_font = Font(name="Calibri", size=10)
+    center_align = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    left_align = Alignment(horizontal="left", vertical="center", wrap_text=True)
+    thin_border = Border(
+        left=Side(style="thin", color="E2E8F0"),
+        right=Side(style="thin", color="E2E8F0"),
+        top=Side(style="thin", color="E2E8F0"),
+        bottom=Side(style="thin", color="E2E8F0"),
+    )
+
+    # Sheet 1: Student Profile & Targets
+    ws1 = wb.active
+    ws1.title = "مشخصات دانش‌آموز"
+    ws1.views.sheetView[0].rightToLeft = True
+
+    ws1.merge_cells("A1:D1")
+    title_cell = ws1["A1"]
+    title_cell.value = f"پرونده جامع تحصیلی و شناسنامه دانش‌آموز: {stu.full_name}"
+    title_cell.font = Font(name="Calibri", size=14, bold=True, color="FFFFFF")
+    title_cell.fill = header_fill
+    title_cell.alignment = center_align
+    ws1.row_dimensions[1].height = 30
+
+    bio_data = [
+        ("نام و نام خانوادگی", stu.full_name or "---", "ایمیل کاربر", stu.email or "---"),
+        ("پایه تحصیلی", profile.grade_level or "---", "رشته تحصیلی", profile.field_of_study or "---"),
+        ("هدف تحصیلی", profile.goal_type or "---", "معدل سال گذشته", str(profile.last_year_avg or "---")),
+        ("شماره تماس", stu.phone or "---", "دروس هدف", "، ".join(profile.goal_subjects or []) or "عمومی و اختصاصی"),
+        ("نام مشاور", user.full_name or "---", "تاریخ صدور گزارش", datetime.now().strftime("%Y-%m-%d %H:%M")),
+    ]
+
+    for row_idx, (k1, v1, k2, v2) in enumerate(bio_data, start=3):
+        ws1.row_dimensions[row_idx].height = 22
+        c1 = ws1.cell(row=row_idx, column=1, value=k1)
+        c2 = ws1.cell(row=row_idx, column=2, value=v1)
+        c3 = ws1.cell(row=row_idx, column=3, value=k2)
+        c4 = ws1.cell(row=row_idx, column=4, value=v2)
+
+        c1.fill = sub_fill
+        c1.font = sub_font
+        c1.border = thin_border
+        c1.alignment = center_align
+
+        c2.font = regular_font
+        c2.border = thin_border
+        c2.alignment = center_align
+
+        c3.fill = sub_fill
+        c3.font = sub_font
+        c3.border = thin_border
+        c3.alignment = center_align
+
+        c4.font = regular_font
+        c4.border = thin_border
+        c4.alignment = center_align
+
+    ws1.column_dimensions["A"].width = 25
+    ws1.column_dimensions["B"].width = 30
+    ws1.column_dimensions["C"].width = 25
+    ws1.column_dimensions["D"].width = 30
+
+    # Sheet 2: Report Cards & Exam Breakdown
+    ws2 = wb.create_sheet(title="کارنامه‌ها و سوابق آزمون")
+    ws2.views.sheetView[0].rightToLeft = True
+
+    rc_headers = ["ردیف", "عنوان کارنامه", "موسسه / منبع", "تاریخ آزمون", "تراز کل", "رتبه کل", "نمره / معدل کل", "تحلیل و بینش هوش مصنوعی"]
+    ws2.row_dimensions[1].height = 25
+    for col_idx, h in enumerate(rc_headers, start=1):
+        cell = ws2.cell(row=1, column=col_idx, value=h)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = center_align
+        cell.border = thin_border
+
+    report_cards = db.query(ReportCard).filter(ReportCard.student_id == student_id).order_by(ReportCard.created_at.desc()).all()
+    for row_idx, rc in enumerate(report_cards, start=2):
+        ws2.row_dimensions[row_idx].height = 24
+        insights_str = ""
+        if isinstance(rc.ai_insights, dict):
+            insights_str = rc.ai_insights.get("summary", "") or rc.ai_dossier or ""
+        elif isinstance(rc.ai_insights, str):
+            insights_str = rc.ai_insights
+
+        row_vals = [
+            row_idx - 1,
+            rc.title or "کارنامه",
+            rc.provider or rc.source or "خیلی سبز",
+            rc.exam_date or str(rc.created_at.date() if rc.created_at else ""),
+            rc.total_traz or rc.overall_traz or "---",
+            rc.overall_rank or "---",
+            rc.overall_score or "---",
+            insights_str[:200] if insights_str else "تحلیل شده",
+        ]
+        for col_idx, v in enumerate(row_vals, start=1):
+            c = ws2.cell(row=row_idx, column=col_idx, value=v)
+            c.font = regular_font
+            c.border = thin_border
+            c.alignment = center_align if col_idx < 8 else left_align
+
+    ws2.column_dimensions["A"].width = 8
+    ws2.column_dimensions["B"].width = 28
+    ws2.column_dimensions["C"].width = 18
+    ws2.column_dimensions["D"].width = 15
+    ws2.column_dimensions["E"].width = 12
+    ws2.column_dimensions["F"].width = 12
+    ws2.column_dimensions["G"].width = 14
+    ws2.column_dimensions["H"].width = 45
+
+    # Sheet 3: Consultation Sessions
+    ws3 = wb.create_sheet(title="جلسات مشاوره")
+    ws3.views.sheetView[0].rightToLeft = True
+
+    cs_headers = ["ردیف", "تاریخ جلسه", "مدت (دقیقه)", "نوع مشاوره", "ارزیابی دانش‌آموز", "مباحث مطرح‌شده", "توصیه‌ها و برنامه‌های مشاور", "تاریخ جلسه بعد"]
+    ws3.row_dimensions[1].height = 25
+    for col_idx, h in enumerate(cs_headers, start=1):
+        cell = ws3.cell(row=1, column=col_idx, value=h)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = center_align
+        cell.border = thin_border
+
+    sessions = db.query(ConsultationSession).filter(ConsultationSession.student_id == student_id).order_by(ConsultationSession.created_at.desc()).all()
+    for row_idx, cs in enumerate(sessions, start=2):
+        ws3.row_dimensions[row_idx].height = 28
+        row_vals = [
+            row_idx - 1,
+            cs.session_date,
+            cs.duration_minutes,
+            cs.consultation_type or "تلفنی",
+            cs.student_evaluation or "خوب",
+            cs.discussion_topics or "---",
+            cs.advisor_recommendations or "---",
+            cs.next_session_date or "---",
+        ]
+        for col_idx, v in enumerate(row_vals, start=1):
+            c = ws3.cell(row=row_idx, column=col_idx, value=v)
+            c.font = regular_font
+            c.border = thin_border
+            c.alignment = center_align if col_idx <= 5 or col_idx == 8 else left_align
+
+    ws3.column_dimensions["A"].width = 8
+    ws3.column_dimensions["B"].width = 16
+    ws3.column_dimensions["C"].width = 14
+    ws3.column_dimensions["D"].width = 14
+    ws3.column_dimensions["E"].width = 18
+    ws3.column_dimensions["F"].width = 35
+    ws3.column_dimensions["G"].width = 40
+    ws3.column_dimensions["H"].width = 16
+
+    # Sheet 4: Study Tasks & Weekly Schedule
+    ws4 = wb.create_sheet(title="تسک‌ها و برنامه هفتگی")
+    ws4.views.sheetView[0].rightToLeft = True
+
+    task_headers = ["ردیف", "تاریخ", "پارت مطالعاتی", "شرح تسک / موضوع", "وضعیت", "آخرین بروزرسانی"]
+    ws4.row_dimensions[1].height = 25
+    for col_idx, h in enumerate(task_headers, start=1):
+        cell = ws4.cell(row=1, column=col_idx, value=h)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = center_align
+        cell.border = thin_border
+
+    tasks = db.query(SupervisionEntry).filter(SupervisionEntry.student_id == student_id).order_by(SupervisionEntry.date_str.desc(), SupervisionEntry.part.asc()).all()
+    for row_idx, t in enumerate(tasks, start=2):
+        ws4.row_dimensions[row_idx].height = 22
+        status_label = "انجام شده" if t.status == "done" else ("انجام نشده" if t.status == "missed" else "در انتظار")
+        row_vals = [
+            row_idx - 1,
+            t.date_str,
+            SUPERVISION_PARTS.get(t.part, f"پارت {t.part + 1}"),
+            t.text or "---",
+            status_label,
+            t.updated_at.strftime("%Y-%m-%d %H:%M") if t.updated_at else "---",
+        ]
+        for col_idx, v in enumerate(row_vals, start=1):
+            c = ws4.cell(row=row_idx, column=col_idx, value=v)
+            c.font = regular_font
+            c.border = thin_border
+            c.alignment = center_align
+
+    ws4.column_dimensions["A"].width = 8
+    ws4.column_dimensions["B"].width = 16
+    ws4.column_dimensions["C"].width = 20
+    ws4.column_dimensions["D"].width = 35
+    ws4.column_dimensions["E"].width = 16
+    ws4.column_dimensions["F"].width = 22
+
+    # Save to buffer
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+
+    filename = f"student_dossier_{stu.id}_{datetime.now().strftime('%Y%m%d')}.xlsx"
+    headers = {"Content-Disposition": f'attachment; filename="{filename}"'}
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers=headers,
+    )
+
+
+@router.get("/students/{student_id}/export/pdf")
+def export_student_pdf(student_id: int, user: User = Depends(get_current_user),
+                       db: Session = Depends(get_db)):
+    """Exports a printable official PDF report dossier for the student."""
+    _mentor_guard(user)
+    stu = db.query(User).filter(User.id == student_id).first()
+    if not stu:
+        raise HTTPException(status_code=404, detail="Student not found")
+    profile = db.query(StudentProfile).filter(StudentProfile.user_id == student_id).first()
+    if not profile or profile.mentor_id != user.id:
+        raise HTTPException(status_code=403, detail="Student not assigned to your mentor account")
+
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+    from reportlab.platypus import (Paragraph, SimpleDocTemplate, Spacer,
+                                    Table, TableStyle)
+
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
+    styles = getSampleStyleSheet()
+
+    title_style = ParagraphStyle(
+        'DocTitle',
+        parent=styles['Heading1'],
+        fontSize=18,
+        leading=22,
+        textColor=colors.HexColor('#1e293b'),
+        alignment=1,
+    )
+    subtitle_style = ParagraphStyle(
+        'SubTitle',
+        parent=styles['Normal'],
+        fontSize=10,
+        leading=13,
+        textColor=colors.HexColor('#64748b'),
+        alignment=1,
+    )
+    section_style = ParagraphStyle(
+        'Section',
+        parent=styles['Heading2'],
+        fontSize=12,
+        leading=16,
+        textColor=colors.HexColor('#4338ca'),
+    )
+    body_style = ParagraphStyle(
+        'Body',
+        parent=styles['Normal'],
+        fontSize=9,
+        leading=13,
+        textColor=colors.HexColor('#334155'),
+    )
+
+    story = []
+    story.append(Paragraph("SYNAPSE ACADEMIC DOSSIER & MENTORING REPORT", title_style))
+    story.append(Spacer(1, 4))
+    story.append(Paragraph(f"Student: {stu.full_name} | Generated on {datetime.now().strftime('%Y-%m-%d')} | Advisor: {user.full_name}", subtitle_style))
+    story.append(Spacer(1, 14))
+
+    # Bio Summary Table
+    bio_table_data = [
+        [Paragraph("<b>Student Name</b>", body_style), Paragraph(stu.full_name or "---", body_style),
+         Paragraph("<b>Email</b>", body_style), Paragraph(stu.email or "---", body_style)],
+        [Paragraph("<b>Grade Level</b>", body_style), Paragraph(profile.grade_level or "---", body_style),
+         Paragraph("<b>Field of Study</b>", body_style), Paragraph(profile.field_of_study or "---", body_style)],
+        [Paragraph("<b>Goal</b>", body_style), Paragraph(profile.goal_type or "---", body_style),
+         Paragraph("<b>Last Year GPA</b>", body_style), Paragraph(str(profile.last_year_avg or "---"), body_style)],
+    ]
+    t_bio = Table(bio_table_data, colWidths=[110, 150, 110, 150])
+    t_bio.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f8fafc')),
+        ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#cbd5e1')),
+        ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e2e8f0')),
+        ('TOPPADDING', (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+    ]))
+    story.append(t_bio)
+    story.append(Spacer(1, 14))
+
+    # Consultation Sessions Section
+    story.append(Paragraph("Recent Consultation Sessions & Directives", section_style))
+    story.append(Spacer(1, 6))
+    sessions = db.query(ConsultationSession).filter(ConsultationSession.student_id == student_id).order_by(ConsultationSession.created_at.desc()).limit(5).all()
+    if sessions:
+        cs_data = [[
+            Paragraph("<b>Date</b>", body_style),
+            Paragraph("<b>Type</b>", body_style),
+            Paragraph("<b>Evaluation</b>", body_style),
+            Paragraph("<b>Recommendations</b>", body_style),
+        ]]
+        for s in sessions:
+            cs_data.append([
+                Paragraph(str(s.session_date), body_style),
+                Paragraph(str(s.consultation_type or "تلفنی"), body_style),
+                Paragraph(str(s.student_evaluation or "خوب"), body_style),
+                Paragraph(str(s.advisor_recommendations or "---")[:160], body_style),
+            ])
+        t_cs = Table(cs_data, colWidths=[80, 70, 90, 280])
+        t_cs.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#eef2ff')),
+            ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#cbd5e1')),
+            ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e2e8f0')),
+            ('TOPPADDING', (0, 0), (-1, -1), 5),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ]))
+        story.append(t_cs)
+    else:
+        story.append(Paragraph("No consultation sessions logged yet.", body_style))
+    story.append(Spacer(1, 14))
+
+    # Report Cards Section
+    story.append(Paragraph("Report Cards & Diagnostic Performance", section_style))
+    story.append(Spacer(1, 6))
+    cards = db.query(ReportCard).filter(ReportCard.student_id == student_id).order_by(ReportCard.created_at.desc()).limit(5).all()
+    if cards:
+        rc_data = [[
+            Paragraph("<b>Report Card Title</b>", body_style),
+            Paragraph("<b>Provider</b>", body_style),
+            Paragraph("<b>Traz</b>", body_style),
+            Paragraph("<b>Rank</b>", body_style),
+            Paragraph("<b>Overall Score</b>", body_style),
+        ]]
+        for c in cards:
+            rc_data.append([
+                Paragraph(str(c.title), body_style),
+                Paragraph(str(c.provider or "خیلی سبز"), body_style),
+                Paragraph(str(c.total_traz or c.overall_traz or "---"), body_style),
+                Paragraph(str(c.overall_rank or "---"), body_style),
+                Paragraph(str(c.overall_score or "---"), body_style),
+            ])
+        t_rc = Table(rc_data, colWidths=[180, 100, 80, 80, 80])
+        t_rc.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#eef2ff')),
+            ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#cbd5e1')),
+            ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e2e8f0')),
+            ('TOPPADDING', (0, 0), (-1, -1), 5),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ]))
+        story.append(t_rc)
+    else:
+        story.append(Paragraph("No report cards uploaded yet.", body_style))
+    story.append(Spacer(1, 14))
+
+    # Weekly Study Completion Summary
+    story.append(Paragraph("Weekly Study Tasks Overview", section_style))
+    story.append(Spacer(1, 6))
+    total_tasks = db.query(SupervisionEntry).filter(SupervisionEntry.student_id == student_id).count()
+    done_tasks = db.query(SupervisionEntry).filter(SupervisionEntry.student_id == student_id, SupervisionEntry.status == "done").count()
+    pct = round((done_tasks * 100 / total_tasks)) if total_tasks > 0 else 0
+    story.append(Paragraph(f"Total Scheduled Tasks: <b>{total_tasks}</b> | Completed: <b>{done_tasks}</b> | Completion Rate: <b>{pct}%</b>", body_style))
+
+    doc.build(story)
+    buffer.seek(0)
+    filename = f"student_dossier_{stu.id}_{datetime.now().strftime('%Y%m%d')}.pdf"
+    headers = {"Content-Disposition": f'attachment; filename="{filename}"'}
+    return StreamingResponse(buffer, media_type="application/pdf", headers=headers)
+

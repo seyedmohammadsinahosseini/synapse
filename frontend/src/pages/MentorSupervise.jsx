@@ -107,6 +107,43 @@ export default function MentorSupervise({ studentId, navigate }) {
             </div>
           </div>
           <div className="flex wrap" style={{ gap: 8 }}>
+            <a
+              href={`/api/mentor/students/${studentId}/export/excel`}
+              download
+              className="btn sm"
+              style={{
+                background: '#16a34a',
+                color: '#fff',
+                borderRadius: 10,
+                fontWeight: 700,
+                fontSize: 12,
+                textDecoration: 'none',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+              }}
+            >
+              📗 خروجی اکسل کامل (.xlsx)
+            </a>
+            <a
+              href={`/api/mentor/students/${studentId}/export/pdf`}
+              target="_blank"
+              rel="noreferrer"
+              className="btn sm"
+              style={{
+                background: '#4338ca',
+                color: '#fff',
+                borderRadius: 10,
+                fontWeight: 700,
+                fontSize: 12,
+                textDecoration: 'none',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+              }}
+            >
+              📑 دانلود پرونده PDF
+            </a>
             <button
               className="btn sm"
               style={{
@@ -115,11 +152,12 @@ export default function MentorSupervise({ studentId, navigate }) {
                 borderRadius: 10,
                 boxShadow: '0 4px 14px rgba(16, 185, 129, 0.4)',
                 fontWeight: 800,
+                fontSize: 12,
               }}
               disabled={runningAi}
               onClick={triggerLiveAiDiagnostic}
             >
-              {runningAi ? '⚡ در حال پردازش و استخراج تحلیل...' : '⚡ اجرای تحلیل جامع و به‌روزرسانی نمودارهای AI'}
+              {runningAi ? '⚡ در حال پردازش...' : '⚡ تحلیل هوشمند AI'}
             </button>
             <button className="btn ghost sm" style={{ color: '#fff', borderColor: 'rgba(255,255,255,.5)', borderRadius: 10 }} onClick={() => navigate('#/chat?student=' + studentId)}>
               💬 {t('goChatStudent')}
@@ -146,6 +184,37 @@ export default function MentorSupervise({ studentId, navigate }) {
           )}
         </div>
       </div>
+
+      {/* ── Student Data Vault Quick Overview Card ── */}
+      <Card style={{ borderRadius: 16, padding: 18, marginBottom: 24, border: '1px solid var(--line)', background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)' }}>
+        <div className="between" style={{ flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
+          <div>
+            <b style={{ fontSize: 14, color: '#1e293b' }}>🗄️ صندوق داده‌ها و پرونده تحصیلی یکپارچه دانش‌آموز (Data Vault)</b>
+            <div className="small muted" style={{ marginTop: 2 }}>
+              تمامی کارنامه‌ها، نتایج آزمون‌های آزمایشی، مشاوره‌های صوتی و مکتوب، و سوابق ساعات مطالعه دانش‌آموز ثبت و تجمیع شده است.
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <a
+              href={`/api/mentor/students/${studentId}/export/excel`}
+              download
+              className="btn sm"
+              style={{ background: '#16a34a', color: '#fff', borderRadius: 8, fontSize: 12, fontWeight: 700, textDecoration: 'none' }}
+            >
+              📗 دانلود اکسل جامع (.xlsx)
+            </a>
+            <a
+              href={`/api/mentor/students/${studentId}/export/pdf`}
+              target="_blank"
+              rel="noreferrer"
+              className="btn sm"
+              style={{ background: '#4338ca', color: '#fff', borderRadius: 8, fontSize: 12, fontWeight: 700, textDecoration: 'none' }}
+            >
+              📑 خروجی پرونده PDF
+            </a>
+          </div>
+        </div>
+      </Card>
 
       {/* ── Report Cards & Diagnostic Dossier ── */}
       {reportCards.length > 0 && (
