@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { api, fa, faDate } from '../api.js'
-import { useLang } from '../i18n.jsx'
-import { Card, Stat, Badge, Modal, Empty } from '../ui.jsx'
+import { FIELDS_FA, GRADES_FA, useLang } from '../i18n.jsx'
+import { Badge, Card, Empty, Modal, Stat } from '../ui.jsx'
 
-const SUBJECTS = ['ریاضی', 'فیزیک', 'شیمی', 'زیست‌شناسی', 'ادبیات فارسی', 'زبان انگلیسی', 'عربی', 'دین و زندگی']
-const GOALS = ['better_average', 'specific_subjects', 'konkur']
+const SUBJECTS = ['ریاضی', 'فیزیک', 'شیمی', 'زیست‌شناسی', 'ادبیات فارسی', 'زبان انگلیسی', 'عربی', 'دین و زندگی', 'حسابان', 'هندسه', 'گسسته', 'فلسفه و منطق', 'جامعه‌شناسی', 'اقتصاد']
+const GOALS = ['امتحانات نهایی', 'کنکور سراسری', 'هر دو (کنکور و نهایی)']
 
 export default function AdminDashboard({ section = 'stats' }) {
   const { t, grades } = useLang()
@@ -13,10 +13,17 @@ export default function AdminDashboard({ section = 'stats' }) {
   const [students, setStudents] = useState([])
   const [mentors, setMentors] = useState([])
   const [questions, setQuestions] = useState([])
+  const [curriculumSources, setCurriculumSources] = useState([])
   const [mentorModal, setMentorModal] = useState(false)
   const [editStudent, setEditStudent] = useState(null)
   const [editMentor, setEditMentor] = useState(null)
   const [qModal, setQModal] = useState(null)
+  const [currModal, setCurrModal] = useState(false)
+  const [aiGenModal, setAiGenModal] = useState(null)
+  const [aiGenCount, setAiGenCount] = useState(5)
+  const [aiGenDifficulty, setAiGenDifficulty] = useState('medium')
+  const [generatingAi, setGeneratingAi] = useState(false)
+  const [activeQSubtab, setActiveQSubtab] = useState('curriculum') // 'questions' | 'curriculum'
   const [error, setError] = useState('')
   const [importMsg, setImportMsg] = useState('')
   const jsonRef = useRef(null)
@@ -46,13 +53,21 @@ export default function AdminDashboard({ section = 'stats' }) {
       if (which === 'students') setStudents(await api('/api/admin/students'))
       if (which === 'mentors') setMentors(await api('/api/admin/mentors'))
       if (which === 'questions') setQuestions(await api('/api/admin/questions'))
+      if (which === 'curriculum') {
+        const res = await api('/api/admin/curriculum')
+        if (res.ok && res.sources) setCurriculumSources(res.sources)
+      }
     } catch (e) {
       setError(e.message)
     }
   }
 
   useEffect(() => {
-    load('stats'); load('students'); load('mentors'); load('questions')
+    load('stats')
+    load('students')
+    load('mentors')
+    load('questions')
+    load('curriculum')
   }, [])
 
   const createMentor = async (form) => {
@@ -78,17 +93,17 @@ export default function AdminDashboard({ section = 'stats' }) {
       if (!body.password) delete body.password
       await api(`/api/admin/students/${form.id}`, { method: 'PATCH', body })
       setEditStudent(null)
-      load('students'); load('mentors')
+      load('students')
     } catch (e) {
       setError(e.message)
     }
   }
 
   const deleteStudent = async (id, name) => {
-    if (!window.confirm(`${t('deleteConfirm')}\n👨‍🎓 ${name}`)) return
+    if (!window.confirm(`آیا از حذف حساب کاربری دانش‌آموز «${name}» اطمینان دارید؟`)) return
     try {
       await api(`/api/admin/students/${id}`, { method: 'DELETE' })
-      load('students'); load('stats'); load('mentors')
+      load('students'); load('stats')
     } catch (e) {
       setError(e.message)
     }
@@ -101,17 +116,17 @@ export default function AdminDashboard({ section = 'stats' }) {
       if (!body.password) delete body.password
       await api(`/api/admin/mentors/${form.id}`, { method: 'PATCH', body })
       setEditMentor(null)
-      load('mentors'); load('students')
+      load('mentors')
     } catch (e) {
       setError(e.message)
     }
   }
 
   const deleteMentor = async (id, name) => {
-    if (!window.confirm(`${t('deleteConfirm')}\n🧑‍🏫 ${name}`)) return
+    if (!window.confirm(`آیا از حذف مشاور «${name}» اطمینان دارید؟`)) return
     try {
       await api(`/api/admin/mentors/${id}`, { method: 'DELETE' })
-      load('mentors'); load('stats'); load('students')
+      load('mentors'); load('stats')
     } catch (e) {
       setError(e.message)
     }
@@ -121,7 +136,7 @@ export default function AdminDashboard({ section = 'stats' }) {
     setError('')
     try {
       if (form.id) {
-        await api(`/api/admin/questions/${form.id}`, { method: 'PUT', body: form })
+        await api(`/api/admin/questions/${form.id}`, { method: 'PATCH', body: form })
       } else {
         await api('/api/admin/questions', { method: 'POST', body: form })
       }
@@ -133,68 +148,127 @@ export default function AdminDashboard({ section = 'stats' }) {
   }
 
   const deleteQuestion = async (id) => {
-    if (!window.confirm(t('deleteConfirm'))) return
-    await api(`/api/admin/questions/${id}`, { method: 'DELETE' })
-    load('questions'); load('stats')
+    if (!window.confirm('آیا از حذف این سوال اطمینان دارید؟')) return
+    try {
+      await api(`/api/admin/questions/${id}`, { method: 'DELETE' })
+      setQModal(null)
+      load('questions'); load('stats')
+    } catch (e) {
+      setError(e.message)
+    }
   }
 
-  const isPreUni = (s) => ['پیش‌دانشگاهی / کنکوری', 'Pre-University / Konkur'].includes(s)
+  // Curriculum Sources Actions
+  const createCurriculumSource = async (form) => {
+    setError('')
+    try {
+      await api('/api/admin/curriculum', { method: 'POST', body: form })
+      setCurrModal(false)
+      load('curriculum')
+    } catch (e) {
+      setError(e.message)
+    }
+  }
+
+  const deleteCurriculumSource = async (id) => {
+    if (!window.confirm('آیا از حذف این منبع درسی اطمینان دارید؟')) return
+    try {
+      await api(`/api/admin/curriculum/${id}`, { method: 'DELETE' })
+      load('curriculum')
+    } catch (e) {
+      setError(e.message)
+    }
+  }
+
+  const handleGenerateQuestionsFromSource = async () => {
+    if (!aiGenModal) return
+    setGeneratingAi(true)
+    setError('')
+    try {
+      const res = await api(`/api/admin/curriculum/${aiGenModal.id}/generate-questions`, {
+        method: 'POST',
+        body: {
+          count: parseInt(aiGenCount) || 5,
+          difficulty: aiGenDifficulty,
+        },
+      })
+      if (res.ok) {
+        setAiGenModal(null)
+        load('questions')
+        load('stats')
+        setImportMsg(`✅ تعداد ${fa(res.count_generated)} تست استاندارد کنکوری از مبحث «${res.source_title}» با موفقیت توسط هوش مصنوعی تولید و به بانک سوالات اضافه شد!`)
+      }
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setGeneratingAi(false)
+    }
+  }
 
   return (
     <div>
       <div className="hero">
-        <h2>{t('adminPanel')}</h2>
+        <h2>🛡️ {t('adminTitle')}</h2>
         <p>{t('adminSub')}</p>
       </div>
 
-      {error && <div className="error-box">{error}</div>}
+      {error && <div className="error-box mb">{error}</div>}
 
-      {/* ── stats ── */}
+      {/* ── overview ── */}
       {tab === 'stats' && stats && (
-        <div className="grid cols-4">
-          <Stat label={t('studentsCount')} value={fa(stats.students)} icon="👨‍🎓" color="#eef2ff" />
-          <Stat label={t('mentorsCount')} value={fa(stats.mentors)} icon="🧑‍🏫" color="#dcfce7" />
-          <Stat label={t('questionsCount')} value={fa(stats.questions)} icon="📚" color="#fef3c7" />
-          <Stat label={t('attemptsCount')} value={fa(stats.attempts)} icon="📝" color="#fce7f3" />
-        </div>
+        <>
+          <div className="stats-row mb">
+            <Stat label={t('statStudents')} value={stats.students} icon="👨‍🎓" color="#3b82f6" />
+            <Stat label={t('statMentors')} value={stats.mentors} icon="🧑‍🏫" color="#a855f7" />
+            <Stat label={t('statQuestions')} value={stats.questions} icon="📚" color="#10b981" />
+            <Stat label={t('statExams')} value={stats.attempts} icon="📝" color="#f59e0b" />
+          </div>
+          <Card>
+            <h3>{t('systemHealth')}</h3>
+            <div className="list-item between">
+              <span>{t('avgScore')}</span>
+              <b>{stats.avg_score != null ? `${fa(stats.avg_score)} / ۲۰` : '—'}</b>
+            </div>
+            <div className="list-item between">
+              <span>{t('supportInquiries')}</span>
+              <b>{fa(stats.messages)}</b>
+            </div>
+            <div className="list-item between">
+              <span>منابع درسی ثبت‌شده (Curriculum Sources)</span>
+              <b>{fa(curriculumSources.length)} سرفصل</b>
+            </div>
+          </Card>
+        </>
       )}
 
       {/* ── students ── */}
       {tab === 'students' && (
-        <Card>
+        <>
           <div className="between mb">
             <h3>{t('tabStudents')} ({fa(students.length)})</h3>
           </div>
-          <table className="table">
-            <thead>
-              <tr>
-                <th>{t('nameLabel')}</th><th>{t('emailLabel')}</th><th>{t('fieldOfStudy')}</th>
-                <th>{t('avgCol')}</th><th>{t('goal')}</th><th>{t('mentorLabel')}</th><th>{t('memberSince')}</th>
-                <th>{t('actions')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {students.length === 0 && <tr><td colSpan={8} className="empty">{t('newStudent')}…</td></tr>}
-              {students.map((s) => (
-                <tr key={s.id}>
-                  <td><b>{s.full_name}</b></td>
-                  <td className="muted">{s.email}</td>
-                  <td>{s.field_of_study || '—'}</td>
-                  <td>{s.last_year_avg != null ? fa(s.last_year_avg) : '—'}</td>
-                  <td>{t('goal_' + s.goal_type) || s.goal_type || '—'}</td>
-                  <td>{s.mentor || '—'}</td>
-                  <td className="muted">{faDate(s.joined)}</td>
-                  <td>
-                    <div className="flex">
-                      <button className="btn ghost sm" onClick={() => setEditStudent(s)}>{t('edit')}</button>
-                      <button className="btn ghost sm danger" onClick={() => deleteStudent(s.id, s.full_name)}>{t('deleteStudent')}</button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </Card>
+          <Card>
+            {students.length === 0 && <Empty>{t('tabStudents')}…</Empty>}
+            {students.map((s) => (
+              <div key={s.id} className="list-item between">
+                <div className="flex">
+                  <div className="avatar">{s.full_name.slice(0, 1)}</div>
+                  <div>
+                    <b>{s.full_name}</b>
+                    <div className="small muted">{s.email} · {s.phone || '—'}</div>
+                  </div>
+                </div>
+                <div className="flex wrap" style={{ gap: 8 }}>
+                  <Badge color="#3b82f6">{s.grade_level || '—'}</Badge>
+                  <Badge color="#10b981">{s.field_of_study || '—'}</Badge>
+                  <Badge color="#f59e0b">{t('mentor')}: {s.mentor_name || '—'}</Badge>
+                  <button className="btn ghost sm" onClick={() => setEditStudent(s)}>{t('edit')}</button>
+                  <button className="btn ghost sm danger" onClick={() => deleteStudent(s.id, s.full_name)}>حذف</button>
+                </div>
+              </div>
+            ))}
+          </Card>
+        </>
       )}
 
       {/* ── mentors ── */}
@@ -233,55 +307,144 @@ export default function AdminDashboard({ section = 'stats' }) {
         </>
       )}
 
-      {/* ── question bank ── */}
+      {/* ── question bank & curriculum sources ── */}
       {tab === 'questions' && (
         <>
           <div className="between mb wrap" style={{ gap: 8 }}>
-            <h3>{t('tabQuestions')} ({fa(questions.length)})</h3>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+              <button
+                className={`btn sm ${activeQSubtab === 'curriculum' ? '' : 'ghost'}`}
+                style={{ borderRadius: 10, fontWeight: 700 }}
+                onClick={() => setActiveQSubtab('curriculum')}
+              >
+                📚 منابع و سورس‌های درسی ({fa(curriculumSources.length)})
+              </button>
+              <button
+                className={`btn sm ${activeQSubtab === 'questions' ? '' : 'ghost'}`}
+                style={{ borderRadius: 10, fontWeight: 700 }}
+                onClick={() => setActiveQSubtab('questions')}
+              >
+                📝 بانک تست‌ها و سوالات ({fa(questions.length)})
+              </button>
+            </div>
+
             <div className="flex" style={{ gap: 8 }}>
-              <input ref={jsonRef} type="file" accept=".json,application/json" hidden
-                onChange={() => doImport('json')} />
-              <input ref={xlsxRef} type="file" accept=".xlsx,.xlsm" hidden
-                onChange={() => doImport('excel')} />
-              <button className="btn ghost sm" onClick={() => jsonRef.current?.click()}>📥 {t('importJson')}</button>
-              <button className="btn ghost sm" onClick={() => xlsxRef.current?.click()}>📊 {t('importExcel')}</button>
-              <button className="btn sm" onClick={() => setQModal('new')}>{t('newQuestion')}</button>
+              {activeQSubtab === 'curriculum' ? (
+                <button className="btn sm" style={{ background: '#4f46e5', color: '#fff' }} onClick={() => setCurrModal(true)}>
+                  + افزودن منبع / سرفصل درسی جدید
+                </button>
+              ) : (
+                <>
+                  <input ref={jsonRef} type="file" accept=".json,application/json" hidden
+                    onChange={() => doImport('json')} />
+                  <input ref={xlsxRef} type="file" accept=".xlsx,.xlsm" hidden
+                    onChange={() => doImport('excel')} />
+                  <button className="btn ghost sm" onClick={() => jsonRef.current?.click()}>📥 {t('importJson')}</button>
+                  <button className="btn ghost sm" onClick={() => xlsxRef.current?.click()}>📊 {t('importExcel')}</button>
+                  <button className="btn sm" onClick={() => setQModal('new')}>{t('newQuestion')}</button>
+                </>
+              )}
             </div>
           </div>
+
           {importMsg && (
             <div className={`mb ${importMsg.startsWith('✅') ? 'ok-box' : 'error-box'}`}>{importMsg}</div>
           )}
-          <Card>
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>#</th><th>{t('subjectCol')}</th><th>{t('model')}</th><th>{t('difficultyShort')}</th>
-                  <th>{t('questionText')}</th><th>{t('actions')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {questions.length === 0 && <tr><td colSpan={6} className="empty">{t('tabQuestions')}…</td></tr>}
-                {questions.map((q) => (
-                  <tr key={q.id}>
-                    <td>{fa(q.id)}</td>
-                    <td>{q.subject}</td>
-                    <td><Badge color="#6366f1">{t('type_' + q.type)}</Badge></td>
-                    <td>{fa('●'.repeat(q.difficulty))}</td>
-                    <td style={{ maxWidth: 340 }}>{q.text.slice(0, 70)}{q.text.length > 70 ? '…' : ''}</td>
-                    <td>
-                      <div className="flex">
-                        <button className="btn ghost sm" onClick={() => setQModal(q)}>{t('edit')}</button>
-                        <button className="btn ghost sm danger" onClick={() => deleteQuestion(q.id)}>{t('deleteQ')}</button>
+
+          {/* Subtab 1: Curriculum Sources & AI Generator */}
+          {activeQSubtab === 'curriculum' && (
+            <div>
+              {curriculumSources.length === 0 && (
+                <Card>
+                  <Empty>هنوز هیچ منبع یا سرفصل درسی ثبت نشده است. با افزودن منبع درسی، می‌توانید تست‌های استاندارد کنکوری را با هوش مصنوعی مستقیماً تولید و به بانک سوالات تزریق کنید.</Empty>
+                </Card>
+              )}
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
+                {curriculumSources.map((cs) => (
+                  <Card key={cs.id} style={{ borderRadius: 16, padding: 18, border: '1px solid var(--line)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                    <div>
+                      <div className="between mb" style={{ alignItems: 'flex-start' }}>
+                        <div>
+                          <b style={{ fontSize: 15, color: 'var(--ink)' }}>{cs.title}</b>
+                          <div className="small muted" style={{ marginTop: 2 }}>{cs.subject} · {cs.chapter_name || 'کل کتاب'}</div>
+                        </div>
+                        <span className="tag" style={{ background: '#eef2ff', color: '#4338ca', fontSize: 11, fontWeight: 700 }}>
+                          {cs.grade_level} · {cs.field_of_study}
+                        </span>
                       </div>
-                    </td>
-                  </tr>
+
+                      {cs.summary_text && (
+                        <div style={{ fontSize: 12.5, color: '#475569', lineHeight: 1.6, background: '#f8fafc', padding: 10, borderRadius: 10, marginBottom: 12 }}>
+                          {cs.summary_text.slice(0, 160)}{cs.summary_text.length > 160 ? '...' : ''}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="between" style={{ marginTop: 12, borderTop: '1px solid var(--line)', paddingTop: 10 }}>
+                      <button
+                        className="btn sm"
+                        style={{
+                          background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
+                          color: '#fff',
+                          borderRadius: 8,
+                          fontSize: 12,
+                          fontWeight: 700,
+                          padding: '6px 12px',
+                        }}
+                        onClick={() => setAiGenModal(cs)}
+                      >
+                        ✨ تولید تست‌های کنکور با AI
+                      </button>
+                      <button
+                        className="btn ghost sm danger"
+                        style={{ borderRadius: 8, fontSize: 12 }}
+                        onClick={() => deleteCurriculumSource(cs.id)}
+                      >
+                        🗑️ حذف
+                      </button>
+                    </div>
+                  </Card>
                 ))}
-              </tbody>
-            </table>
-          </Card>
+              </div>
+            </div>
+          )}
+
+          {/* Subtab 2: Question Bank Table */}
+          {activeQSubtab === 'questions' && (
+            <Card>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>#</th><th>{t('subjectCol')}</th><th>{t('model')}</th><th>{t('difficultyShort')}</th>
+                    <th>{t('questionText')}</th><th>{t('actions')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {questions.length === 0 && <tr><td colSpan={6} className="empty">{t('tabQuestions')}…</td></tr>}
+                  {questions.map((q) => (
+                    <tr key={q.id}>
+                      <td>{fa(q.id)}</td>
+                      <td>{q.subject}</td>
+                      <td><Badge color="#6366f1">{t('type_' + q.type)}</Badge></td>
+                      <td>{fa('●'.repeat(q.difficulty))}</td>
+                      <td style={{ maxWidth: 340 }}>{q.text.slice(0, 70)}{q.text.length > 70 ? '…' : ''}</td>
+                      <td>
+                        <div className="flex">
+                          <button className="btn ghost sm" onClick={() => setQModal(q)}>{t('edit')}</button>
+                          <button className="btn ghost sm danger" onClick={() => deleteQuestion(q.id)}>{t('deleteQ')}</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </Card>
+          )}
         </>
       )}
 
+      {/* ── Modals ── */}
       {mentorModal && (
         <Modal title={t('createMentor')} onClose={() => setMentorModal(false)}>
           <MentorForm onSubmit={createMentor} t={t} />
@@ -290,7 +453,7 @@ export default function AdminDashboard({ section = 'stats' }) {
 
       {editStudent && (
         <Modal title={`${t('editStudent')}: ${editStudent.full_name}`} onClose={() => setEditStudent(null)}>
-          <StudentEditForm student={editStudent} onSubmit={saveStudent} t={t} grades={grades} isPreUni={isPreUni} />
+          <StudentEditForm student={editStudent} onSubmit={saveStudent} t={t} />
         </Modal>
       )}
 
@@ -305,7 +468,133 @@ export default function AdminDashboard({ section = 'stats' }) {
           <QuestionForm question={qModal === 'new' ? null : qModal} onSubmit={saveQuestion} onDelete={qModal !== 'new' ? () => deleteQuestion(qModal.id) : null} t={t} />
         </Modal>
       )}
+
+      {/* Curriculum Source Add Modal */}
+      {currModal && (
+        <Modal title="📚 افزودن منبع و سرفصل درسی جدید" onClose={() => setCurrModal(false)} wide>
+          <CurriculumForm onSubmit={createCurriculumSource} />
+        </Modal>
+      )}
+
+      {/* AI Exam Question Generator Modal */}
+      {aiGenModal && (
+        <Modal title={`✨ تولید هوشمند تست برای «${aiGenModal.title}»`} onClose={() => setAiGenModal(null)}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={{ background: '#f8fafc', padding: 12, borderRadius: 12, border: '1px solid #e2e8f0' }}>
+              <b style={{ fontSize: 13, color: '#1e293b' }}>درس: {aiGenModal.subject} · {aiGenModal.chapter_name || 'سرفصل اصلی'}</b>
+              <div className="small muted">پایه {aiGenModal.grade_level} · رشته {aiGenModal.field_of_study}</div>
+            </div>
+
+            <label className="field">
+              <span style={{ fontWeight: 800 }}>تعداد تست‌های موردنظر:</span>
+              <input
+                type="number"
+                min="1"
+                max="20"
+                className="input"
+                value={aiGenCount}
+                onChange={(e) => setAiGenCount(e.target.value)}
+              />
+            </label>
+
+            <label className="field">
+              <span style={{ fontWeight: 800 }}>سطح دشواری تست‌ها:</span>
+              <select
+                className="input"
+                value={aiGenDifficulty}
+                onChange={(e) => setAiGenDifficulty(e.target.value)}
+              >
+                <option value="easy">🟢 آسان (تثبیت و تسلط اولیه)</option>
+                <option value="medium">🟡 متوسط (استاندارد کنکور سراسری)</option>
+                <option value="hard">🔴 دشوار / چالشی (تراز برتر)</option>
+              </select>
+            </label>
+
+            <div className="flex between" style={{ marginTop: 10 }}>
+              <button type="button" className="btn ghost" onClick={() => setAiGenModal(null)}>انصراف</button>
+              <button
+                type="button"
+                className="btn"
+                style={{ background: 'linear-gradient(135deg, #4f46e5, #7c3aed)', color: '#fff', fontWeight: 800 }}
+                disabled={generatingAi}
+                onClick={handleGenerateQuestionsFromSource}
+              >
+                {generatingAi ? '✨ در حال تولید سوالات توسط AI...' : '🚀 تولید و ذخیره در بانک سوالات'}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
+  )
+}
+
+function CurriculumForm({ onSubmit }) {
+  const [title, setTitle] = useState('')
+  const [grade, setGrade] = useState(GRADES_FA[0])
+  const [field, setField] = useState(FIELDS_FA[0])
+  const [subject, setSubject] = useState('زیست‌شناسی')
+  const [chapter, setChapter] = useState('')
+  const [summary, setSummary] = useState('')
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    onSubmit({
+      title,
+      grade_level: grade,
+      field_of_study: field,
+      subject,
+      chapter_name: chapter,
+      summary_text: summary,
+    })
+  }
+
+  return (
+    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <label className="field">
+        <span>عنوان منبع درسی:</span>
+        <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="مثلاً: زیست‌شناسی دوازدهم - فصل ۲ (جریان اطلاعات در یاخته)" required />
+      </label>
+
+      <div className="two-col" style={{ gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        <label className="field">
+          <span>پایه تحصیلی:</span>
+          <select className="input" value={grade} onChange={(e) => setGrade(e.target.value)}>
+            {GRADES_FA.map((g) => <option key={g} value={g}>{g}</option>)}
+          </select>
+        </label>
+        <label className="field">
+          <span>رشته تحصیلی:</span>
+          <select className="input" value={field} onChange={(e) => setField(e.target.value)}>
+            {FIELDS_FA.map((f) => <option key={f} value={f}>{f}</option>)}
+          </select>
+        </label>
+      </div>
+
+      <div className="two-col" style={{ gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        <label className="field">
+          <span>عنوان درس:</span>
+          <input className="input" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="مثلاً: شیمی، فیزیک، حسابان..." required />
+        </label>
+        <label className="field">
+          <span>نام فصل / مبحث:</span>
+          <input className="input" value={chapter} onChange={(e) => setChapter(e.target.value)} placeholder="مثلاً: فصل ۱ - ساختار اتم و پیوندها" />
+        </label>
+      </div>
+
+      <label className="field">
+        <span>خلاصه مفاهیم، نکات کلیدی و سرفصل‌ها (جهت استفاده هوش مصنوعی):</span>
+        <textarea
+          className="input"
+          rows={4}
+          value={summary}
+          onChange={(e) => setSummary(e.target.value)}
+          placeholder="نکات کلیدی، فرمول‌ها، روابط و تعاریف مهم این فصل..."
+        />
+      </label>
+
+      <button className="btn block" style={{ marginTop: 10 }}>💾 ثبت سرفصل منبع درسی</button>
+    </form>
   )
 }
 
@@ -325,16 +614,16 @@ function MentorForm({ onSubmit, t }) {
   )
 }
 
-function StudentEditForm({ student, onSubmit, t, grades, isPreUni }) {
+function StudentEditForm({ student, onSubmit, t }) {
   const [form, setForm] = useState({
     id: student.id,
     full_name: student.full_name || '',
     email: student.email || '',
     phone: student.phone || '',
     password: '',
-    field_of_study: student.field_of_study || '',
-    grade_level: student.grade_level || grades[0],
-    goal_type: isPreUni(student.grade_level) ? 'konkur' : (student.goal_type || 'better_average'),
+    field_of_study: student.field_of_study || FIELDS_FA[0],
+    grade_level: student.grade_level || GRADES_FA[0],
+    goal_type: student.goal_type || GOALS[1],
   })
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value })
   return (
@@ -351,15 +640,20 @@ function StudentEditForm({ student, onSubmit, t, grades, isPreUni }) {
         <label className="field">
           <span>{t('gradeLabel')}</span>
           <select className="input" value={form.grade_level} onChange={set('grade_level')}>
-            {grades.map((g) => <option key={g}>{g}</option>)}
+            {GRADES_FA.map((g) => <option key={g}>{g}</option>)}
           </select>
         </label>
-        <label className="field"><span>{t('fieldOfStudy')}</span><input className="input" value={form.field_of_study} onChange={set('field_of_study')} /></label>
+        <label className="field">
+          <span>{t('fieldOfStudy')}</span>
+          <select className="input" value={form.field_of_study} onChange={set('field_of_study')}>
+            {FIELDS_FA.map((f) => <option key={f}>{f}</option>)}
+          </select>
+        </label>
       </div>
       <label className="field">
         <span>{t('goal')}</span>
         <select className="input" value={form.goal_type} onChange={set('goal_type')}>
-          {GOALS.map((g) => <option key={g} value={g}>{t('goal_' + g)}</option>)}
+          {GOALS.map((g) => <option key={g} value={g}>{g}</option>)}
         </select>
       </label>
       <button className="btn block">{t('save')}</button>
@@ -448,26 +742,28 @@ function QuestionForm({ question, onSubmit, onDelete, t }) {
             placeholder={form.type === 'mcq' ? '0–3' : form.type === 'fill' ? '…' : '|'} />
         </label>
       </div>
-      <label className="field">
-        <span>{t('questionText')}</span>
+
+      <label className="field"><span>{t('questionText')}</span>
         <textarea className="input" rows={3} value={form.text} onChange={set('text')} required />
       </label>
+
       {form.type === 'mcq' && (
-        <label className="field">
-          <span>{t('options')}</span>
-          <div className="subjects-grid">
-            {form.options.map((o, i) => (
-              <input key={i} className="input" value={o} onChange={setOpt(i)} placeholder={`${fa(i + 1)}`} required />
-            ))}
-          </div>
-        </label>
+        <div className="two-col">
+          {[0, 1, 2, 3].map((i) => (
+            <label key={i} className="field">
+              <span>{t('optionNumber', { n: fa(i + 1) })} {form.answer === String(i) ? '✓' : ''}</span>
+              <input className="input" value={(form.options || [])[i] || ''} onChange={setOpt(i)} />
+            </label>
+          ))}
+        </div>
       )}
-      <label className="field">
-        <span>{t('explanation')}</span>
+
+      <label className="field"><span>{t('explanation')}</span>
         <textarea className="input" rows={2} value={form.explanation} onChange={set('explanation')} />
       </label>
-      <div className="flex" style={{ justifyContent: 'space-between' }}>
-        {onDelete ? <button type="button" className="btn danger sm" onClick={onDelete}>{t('deleteQ')}</button> : <span />}
+
+      <div className="flex between">
+        {onDelete && <button type="button" className="btn ghost danger" onClick={onDelete}>{t('deleteQ')}</button>}
         <button className="btn">{t('save')}</button>
       </div>
     </form>
