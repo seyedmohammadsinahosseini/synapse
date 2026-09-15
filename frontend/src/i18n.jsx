@@ -2,10 +2,13 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { setLang as setApiLang } from './api.js'
 
-export const GRADES_FA = ['هفتم', 'هشتم', 'نهم', 'دهم', 'یازدهم', 'دوازدهم', 'پیش‌دانشگاهی / کنکوری']
-export const GRADES_EN = ['7th', '8th', '9th', '10th', '11th', '12th', 'Pre-University / Konkur']
-// grade indexes that are "pre-university" (graduated, diploma holder)
-export const PRE_UNIVERSITY = [6] // پیش‌دانشگاهی / کنکوری
+export const GRADES_FA = ['دهم', 'یازدهم', 'دوازدهم']
+export const GRADES_EN = ['10th Grade', '11th Grade', '12th Grade']
+export const FIELDS_FA = ['علوم تجربی', 'ریاضی و فیزیک', 'علوم انسانی']
+export const FIELDS_EN = ['Experimental Sciences', 'Mathematics & Physics', 'Humanities']
+export const GOALS_FA = ['امتحانات نهایی', 'کنکور سراسری', 'هر دو (کنکور و نهایی)']
+export const GOALS_EN = ['Final Exams', 'National Entrance Exam (Konkur)', 'Both (Konkur & Final Exams)']
+export const PRE_UNIVERSITY = []
 
 const fa = {
   appName: 'سیناپس | Synapse',

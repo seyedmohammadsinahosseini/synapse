@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLang } from '../i18n.jsx'
+import { Logo } from '../ui.jsx'
 
 /**
  * Slide-bar navigation — a floating drawer on the inline-start edge
@@ -92,11 +93,42 @@ export default function SlideBar({ role, route, navigate }) {
     ? (faRailRight ? '⏵' : '⏴')   // collapse → point back toward the edge
     : (faRailRight ? '⏴' : '⏵')   // expand → point toward the content
 
+  const homeRoute = role === 'student' ? '#/dashboard' : role === 'mentor' ? '#/mentor' : '#/admin'
+
   return (
     <aside
       ref={ref}
       className={`slide-bar ${expanded ? 'rail-open' : 'rail-closed'}`}
     >
+      {/* Platform Brand & Logo Header */}
+      <div
+        className="slide-bar-brand"
+        title="Synapse"
+        onClick={() => go(homeRoute)}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: expanded ? 'flex-start' : 'center',
+          gap: 10,
+          padding: expanded ? '14px 16px' : '12px 0',
+          cursor: 'pointer',
+          borderBottom: '1px solid var(--line)',
+          transition: 'all .2s ease',
+        }}
+      >
+        <Logo size={expanded ? 30 : 26} />
+        {expanded && (
+          <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <span style={{ fontWeight: 900, fontSize: 14, color: 'var(--ink)', whiteSpace: 'nowrap' }}>
+              {t('appName')}
+            </span>
+            <span style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 700, whiteSpace: 'nowrap' }}>
+              {role === 'mentor' ? 'پنل مشاور تخصصی' : role === 'admin' ? 'پنل مدیریت سیستم' : 'سامانه هوشمند کنکور'}
+            </span>
+          </div>
+        )}
+      </div>
+
       <div className="slide-bar-scroll">
         {items.map((it) => {
           const active = isActive(it)
@@ -135,3 +167,4 @@ export default function SlideBar({ role, route, navigate }) {
     </aside>
   )
 }
+

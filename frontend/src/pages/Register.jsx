@@ -1,53 +1,51 @@
 import { useState } from 'react'
 import { api, fa, getLang } from '../api.js'
 import { useAuth } from '../auth.jsx'
-import { PRE_UNIVERSITY, useLang } from '../i18n.jsx'
+import { FIELDS_EN, FIELDS_FA, GOALS_EN, GOALS_FA, GRADES_EN, GRADES_FA, useLang } from '../i18n.jsx'
 import { Card, Logo } from '../ui.jsx'
 
 const CURRICULUM_TEMPLATES = {
   'علوم تجربی': {
-    'tenth': ['زیست‌شناسی ۱', 'شیمی ۱', 'فیزیک ۱', 'ریاضی ۱', 'فارسی ۱', 'عربی ۱', 'زبان انگلیسی ۱', 'دین و زندگی ۱'],
-    'eleventh': ['زیست‌شناسی ۲', 'شیمی ۲', 'فیزیک ۲', 'ریاضی ۲', 'زمین‌شناسی', 'فارسی ۲', 'عربی ۲', 'زبان انگلیسی ۲', 'دین و زندگی ۲'],
-    'twelfth': ['زیست‌شناسی ۳', 'شیمی ۳', 'فیزیک ۳', 'ریاضی ۳', 'فارسی ۳', 'عربی ۳', 'زبان انگلیسی ۳', 'دین و زندگی ۳', 'هویت بصری و سلامت'],
-    'konkur': ['زیست‌شناسی جامع', 'شیمی جامع', 'فیزیک جامع', 'ریاضی جامع', 'زمین‌شناسی کنکور'],
+    0: ['زیست‌شناسی ۱', 'شیمی ۱', 'فیزیک ۱', 'ریاضی ۱', 'فارسی ۱', 'عربی ۱', 'زبان انگلیسی ۱', 'دین و زندگی ۱'],
+    1: ['زیست‌شناسی ۲', 'شیمی ۲', 'فیزیک ۲', 'ریاضی ۲', 'زمین‌شناسی', 'فارسی ۲', 'عربی ۲', 'زبان انگلیسی ۲', 'دین و زندگی ۲'],
+    2: ['زیست‌شناسی ۳', 'شیمی ۳', 'فیزیک ۳', 'ریاضی ۳', 'فارسی ۳', 'عربی ۳', 'زبان انگلیسی ۳', 'دین و زندگی ۳', 'سلامت و بهداشت'],
   },
   'ریاضی و فیزیک': {
-    'tenth': ['ریاضی ۱', 'هندسه ۱', 'فیزیک ۱', 'شیمی ۱', 'فارسی ۱', 'عربی ۱', 'زبان انگلیسی ۱', 'دین و زندگی ۱'],
-    'eleventh': ['حسابان ۱', 'هندسه ۲', 'آمار و احتمال', 'فیزیک ۲', 'شیمی ۲', 'فارسی ۲', 'عربی ۲', 'زبان انگلیسی ۲'],
-    'twelfth': ['حسابان ۲', 'هندسه ۳', 'گسسته', 'فیزیک ۳', 'شیمی ۳', 'فارسی ۳', 'عربی ۳', 'زبان انگلیسی ۳'],
-    'konkur': ['حسابان و دیفرانسیل جامع', 'هندسه و گسسته جامع', 'فیزیک جامع', 'شیمی جامع'],
+    0: ['ریاضی ۱', 'هندسه ۱', 'فیزیک ۱', 'شیمی ۱', 'فارسی ۱', 'عربی ۱', 'زبان انگلیسی ۱', 'دین و زندگی ۱'],
+    1: ['حسابان ۱', 'هندسه ۲', 'آمار و احتمال', 'فیزیک ۲', 'شیمی ۲', 'فارسی ۲', 'عربی ۲', 'زبان انگلیسی ۲'],
+    2: ['حسابان ۲', 'هندسه ۳', 'گسسته', 'فیزیک ۳', 'شیمی ۳', 'فارسی ۳', 'عربی ۳', 'زبان انگلیسی ۳'],
   },
   'علوم انسانی': {
-    'tenth': ['علوم و فنون ادبی ۱', 'ریاضی و آمار ۱', 'جامعه‌شناسی ۱', 'منطق', 'اقتصاد', 'تاریخ ۱', 'جغرافیا ۱', 'عربی تخصصی ۱'],
-    'eleventh': ['علوم و فنون ادبی ۲', 'ریاضی و آمار ۲', 'جامعه‌شناسی ۲', 'فلسفه ۱', 'روان‌شناسی', 'تاریخ ۲', 'جغرافیا ۲'],
-    'twelfth': ['علوم و فنون ادبی ۳', 'ریاضی و آمار ۳', 'جامعه‌شناسی ۳', 'فلسفه ۲', 'تاریخ ۳', 'جغرافیا ۳', 'عربی تخصصی ۳'],
-    'konkur': ['ادبیات و علوم و فنون جامع', 'عربی تخصصی جامع', 'فلسفه و منطق جامع', 'ریاضی و آمار انسانی', 'اقتصاد و روان‌شناسی'],
+    0: ['علوم و فنون ادبی ۱', 'ریاضی و آمار ۱', 'جامعه‌شناسی ۱', 'منطق', 'اقتصاد', 'تاریخ ۱', 'جغرافیا ۱', 'عربی تخصصی ۱'],
+    1: ['علوم و فنون ادبی ۲', 'ریاضی و آمار ۲', 'جامعه‌شناسی ۲', 'فلسفه ۱', 'روان‌شناسی', 'تاریخ ۲', 'جغرافیا ۲'],
+    2: ['علوم و فنون ادبی ۳', 'ریاضی و آمار ۳', 'جامعه‌شناسی ۳', 'فلسفه ۲', 'تاریخ ۳', 'جغرافیا ۳', 'عربی تخصصی ۳'],
   },
-  'default_middle': ['ریاضی', 'علوم تجربی', 'فارسی', 'عربی', 'زبان انگلیسی', 'پیام‌های آسمان', 'مطالعات اجتماعی'],
 }
 
-const FIELDS = ['علوم تجربی', 'ریاضی و فیزیک', 'علوم انسانی', 'فنی و حرفه‌ای', 'کار و دانش']
 const STEPS = ['s1', 's2', 's3', 's4', 's5', 's6', 's7']
 
 export default function Register({ navigate }) {
   const { login } = useAuth()
-  const { t, grades, lang } = useLang()
+  const { t, lang } = useLang()
   const [step, setStep] = useState(1)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
+  const gradesList = lang === 'en' ? GRADES_EN : GRADES_FA
+  const fieldsList = lang === 'en' ? FIELDS_EN : FIELDS_FA
+  const goalsList = lang === 'en' ? GOALS_EN : GOALS_FA
+
   const [info, setInfo] = useState({ full_name: '', email: '', phone: '' })
   const [pass, setPass] = useState({ password: '', confirm: '' })
-  const [gradeIdx, setGradeIdx] = useState(-1)
-  const [field, setField] = useState(FIELDS[0])
-  const [lastYearAvg, setLastYearAvg] = useState('')
+  const [gradeIdx, setGradeIdx] = useState(0) // 0: دهم, 1: یازدهم, 2: دوازدهم
+  const [fieldIdx, setFieldIdx] = useState(0) // 0: تجربی, 1: ریاضی, 2: انسانی
+  const [goalIdx, setGoalIdx] = useState(1)  // 0: نهایی, 1: کنکور, 2: هر دو
+  const [lastYearAvg, setLastYearAvg] = useState('18.5')
   const [rows, setRows] = useState([
     { subject: 'زیست‌شناسی ۱', score: '18.5', custom: false },
     { subject: 'شیمی ۱', score: '17.0', custom: false },
     { subject: 'ریاضی ۱', score: '16.5', custom: false },
   ])
-  const [goalType, setGoalType] = useState('better_average')
-  const [goalSubjects, setGoalSubjects] = useState([])
   const [mentorCode, setMentorCode] = useState('')
   const [reportCardUploaded, setReportCardUploaded] = useState(false)
   const [parsingReport, setParsingReport] = useState(false)
@@ -55,31 +53,26 @@ export default function Register({ navigate }) {
   const setInfoField = (k) => (e) => setInfo({ ...info, [k]: e.target.value })
   const setPassField = (k) => (e) => setPass({ ...pass, [k]: e.target.value })
 
-  const grade = gradeIdx >= 0 ? grades[gradeIdx] : ''
-  const hasMajor = gradeIdx >= 3
-  const isPreUni = PRE_UNIVERSITY.includes(gradeIdx)
+  const gradeName = GRADES_FA[gradeIdx] || 'دهم'
+  const fieldName = FIELDS_FA[fieldIdx] || 'علوم تجربی'
+  const goalName = GOALS_FA[goalIdx] || 'کنکور سراسری'
   const enteredRows = rows.filter((r) => r.subject && r.score !== '')
 
-  const populateCurriculum = (gIdx, fld) => {
-    let subjs = CURRICULUM_TEMPLATES['default_middle']
-    if (gIdx >= 3) {
-      const fMap = CURRICULUM_TEMPLATES[fld] || CURRICULUM_TEMPLATES['علوم تجربی']
-      if (gIdx === 3) subjs = fMap['tenth'] || subjs
-      else if (gIdx === 4) subjs = fMap['eleventh'] || subjs
-      else if (gIdx === 5) subjs = fMap['twelfth'] || subjs
-      else if (gIdx >= 6) subjs = fMap['konkur'] || subjs
-    }
+  const populateCurriculum = (gI, fI) => {
+    const fKey = FIELDS_FA[fI] || 'علوم تجربی'
+    const fMap = CURRICULUM_TEMPLATES[fKey] || CURRICULUM_TEMPLATES['علوم تجربی']
+    const subjs = fMap[gI] || fMap[0]
     setRows(subjs.map((s) => ({ subject: s, score: '', custom: false })))
   }
 
   const handleGradeChange = (idx) => {
     setGradeIdx(idx)
-    populateCurriculum(idx, field)
+    populateCurriculum(idx, fieldIdx)
   }
 
-  const handleFieldChange = (fld) => {
-    setField(fld)
-    populateCurriculum(gradeIdx, fld)
+  const handleFieldChange = (idx) => {
+    setFieldIdx(idx)
+    populateCurriculum(gradeIdx, idx)
   }
 
   const handleReportCardUpload = async (e) => {
@@ -88,10 +81,9 @@ export default function Register({ navigate }) {
     setParsingReport(true)
     setError('')
     try {
-      // Simulate quick AI extraction for curriculum filling
       setTimeout(() => {
         setReportCardUploaded(true)
-        setLastYearAvg('18.25')
+        setLastYearAvg('18.40')
         setRows((prev) =>
           prev.map((r, i) => ({
             ...r,
@@ -99,7 +91,7 @@ export default function Register({ navigate }) {
           }))
         )
         setParsingReport(false)
-      }, 1000)
+      }, 900)
     } catch (err) {
       setError('خطا در تحلیل کارنامه')
       setParsingReport(false)
@@ -119,10 +111,10 @@ export default function Register({ navigate }) {
       if (pass.password !== pass.confirm) return t('pwMismatch')
     }
     if (step === 3 && gradeIdx < 0) return t('gradeLabel') + ' —'
-    if (step === 4 && hasMajor && !field) return t('fieldLabel') + ' —'
+    if (step === 4 && fieldIdx < 0) return t('fieldLabel') + ' —'
     if (step === 5) {
       const v = parseFloat(lastYearAvg)
-      if (isNaN(v) || v < 0 || v > 20) return t(isPreUni ? 'diplomaAvgLabel' : 'lastYearAvgLabel') + ' —'
+      if (isNaN(v) || v < 0 || v > 20) return (lang === 'en' ? 'Previous Year Average' : 'معدل سال گذشته') + ' —'
     }
     if (step === 6) {
       if (enteredRows.length === 0) return t('atLeastOneSubject')
@@ -131,7 +123,7 @@ export default function Register({ navigate }) {
         if (isNaN(v) || v < 0 || v > 20) return t('scoreRange', { s: r.subject })
       }
     }
-    if (step === 7 && !isPreUni && !goalType) return t('goalLabel') + ' —'
+    if (step === 7 && goalIdx < 0) return (lang === 'en' ? 'Target Goal' : 'هدف تحصیلی') + ' —'
     return null
   }
 
@@ -161,12 +153,12 @@ export default function Register({ navigate }) {
           email: info.email.trim(),
           phone: info.phone.trim(),
           password: pass.password,
-          grade_level: grade,
-          field_of_study: hasMajor ? field : (lang === 'fa' ? 'دورهٔ اول متوسطه (بدون رشته)' : 'Middle school (no major)'),
+          grade_level: gradeName,
+          field_of_study: fieldName,
           last_year_avg: parseFloat(lastYearAvg),
           subject_scores: scores,
-          goal_type: isPreUni ? 'konkur' : goalType,
-          goal_subjects: !isPreUni && goalType === 'specific_subjects' ? goalSubjects : [],
+          goal_type: goalName,
+          goal_subjects: [],
           mentor_code: mentorCode.trim(),
           lang,
         },
@@ -179,9 +171,6 @@ export default function Register({ navigate }) {
       setLoading(false)
     }
   }
-
-  const toggleGoalSubject = (s) =>
-    setGoalSubjects((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]))
 
   return (
     <div className="auth-wrap">
@@ -244,52 +233,66 @@ export default function Register({ navigate }) {
           </div>
         )}
 
-        {/* ═══ STEP 3 — grade ═══ */}
+        {/* ═══ STEP 3 — grade (3 choices) ═══ */}
         {step === 3 && (
           <div>
             <label className="field">
-              <span>{t('gradeLabel')}</span>
-              <select className="input" value={gradeIdx} onChange={(e) => handleGradeChange(Number(e.target.value))}>
-                <option value={-1}>{t('choose')}</option>
-                {grades.map((g, i) => <option key={g} value={i}>{g}</option>)}
-              </select>
-              <div className="hint">{t('gradeHintBelow10')}</div>
+              <span style={{ fontWeight: 800 }}>{lang === 'en' ? 'Select Grade Level:' : 'انتخاب پایه تحصیلی:'}</span>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginTop: 10 }}>
+                {gradesList.map((g, i) => (
+                  <button
+                    key={g}
+                    type="button"
+                    className={`btn ${gradeIdx === i ? '' : 'ghost'}`}
+                    style={{ padding: '16px 10px', fontSize: 15, fontWeight: 800, borderRadius: 14 }}
+                    onClick={() => handleGradeChange(i)}
+                  >
+                    🎓 {g}
+                  </button>
+                ))}
+              </div>
             </label>
-            <div className="flex between" style={{ marginTop: 16 }}>
+            <div className="flex between" style={{ marginTop: 20 }}>
               <button className="btn ghost" style={{ borderRadius: 12 }} onClick={back}>{t('prevStep')}</button>
               <button className="btn" style={{ borderRadius: 12 }} onClick={next}>{t('nextStep')}</button>
             </div>
           </div>
         )}
 
-        {/* ═══ STEP 4 — field (10th+) ═══ */}
+        {/* ═══ STEP 4 — field (3 choices) ═══ */}
         {step === 4 && (
           <div>
-            {hasMajor ? (
-              <label className="field">
-                <span>{t('fieldLabel')}</span>
-                <select className="input" value={field} onChange={(e) => handleFieldChange(e.target.value)}>
-                  {FIELDS.map((f) => <option key={f}>{f}</option>)}
-                </select>
-              </label>
-            ) : (
-              <div className="analysis-box" style={{ borderRadius: 14 }}>{t('noMajorInfo')}</div>
-            )}
-            <div className="flex between" style={{ marginTop: 16 }}>
+            <label className="field">
+              <span style={{ fontWeight: 800 }}>{lang === 'en' ? 'Select Field of Study:' : 'انتخاب رشته تحصیلی:'}</span>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginTop: 10 }}>
+                {fieldsList.map((f, i) => (
+                  <button
+                    key={f}
+                    type="button"
+                    className={`btn ${fieldIdx === i ? '' : 'ghost'}`}
+                    style={{ padding: '16px 8px', fontSize: 13.5, fontWeight: 800, borderRadius: 14 }}
+                    onClick={() => handleFieldChange(i)}
+                  >
+                    📖 {f}
+                  </button>
+                ))}
+              </div>
+            </label>
+            <div className="flex between" style={{ marginTop: 20 }}>
               <button className="btn ghost" style={{ borderRadius: 12 }} onClick={back}>{t('prevStep')}</button>
               <button className="btn" style={{ borderRadius: 12 }} onClick={next}>{t('nextStep')}</button>
             </div>
           </div>
         )}
 
-        {/* ═══ STEP 5 — last year avg OR diploma avg ═══ */}
+        {/* ═══ STEP 5 — last year avg ═══ */}
         {step === 5 && (
           <div>
             <label className="field">
-              <span>{t(isPreUni ? 'diplomaAvgLabel' : 'lastYearAvgLabel')}</span>
-              <input className="input" type="number" min="0" max="20" step="0.1" value={lastYearAvg} onChange={(e) => setLastYearAvg(e.target.value)} />
+              <span style={{ fontWeight: 800 }}>{lang === 'en' ? 'Previous Year Grade Point Average (0 - 20):' : 'معدل سال گذشته (نمره بین ۰ تا ۲۰):'}</span>
+              <input className="input" type="number" min="0" max="20" step="0.1" value={lastYearAvg} onChange={(e) => setLastYearAvg(e.target.value)} style={{ marginTop: 8 }} />
             </label>
-            <div className="flex between" style={{ marginTop: 16 }}>
+            <div className="flex between" style={{ marginTop: 20 }}>
               <button className="btn ghost" style={{ borderRadius: 12 }} onClick={back}>{t('prevStep')}</button>
               <button className="btn" style={{ borderRadius: 12 }} onClick={next}>{t('nextStep')}</button>
             </div>
@@ -299,12 +302,11 @@ export default function Register({ navigate }) {
         {/* ═══ STEP 6 — subjects + report card upload ═══ */}
         {step === 6 && (
           <div>
-            {/* Auto-Curriculum & Report Card Upload Box */}
             <div style={{ background: '#f8fafc', border: '1.5px dashed #cbd5e1', borderRadius: 14, padding: 14, marginBottom: 16 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
                 <div>
-                  <b style={{ fontSize: 13, color: '#334155' }}>📑 استخراج خودکار از کارنامه یا سرفصل رشته:</b>
-                  <div className="small muted">دروس پایه {grade} رشته {field} به‌صورت پیش‌فرض چیده شده‌اند.</div>
+                  <b style={{ fontSize: 13, color: '#334155' }}>📑 استخراج خودکار از سرفصل یا کارنامه:</b>
+                  <div className="small muted">دروس پایه {gradeName} رشته {fieldName} بر اساس برنامه درسی رسمی انتخاب شده‌اند.</div>
                 </div>
                 <div>
                   <input
@@ -321,7 +323,7 @@ export default function Register({ navigate }) {
               </div>
               {reportCardUploaded && (
                 <div style={{ color: '#16a34a', fontSize: 12, marginTop: 8, fontWeight: 600 }}>
-                  ✓ نمرات و معدل از کارنامه استخراج و جایگذاری شد!
+                  ✓ نمرات از کارنامه استخراج و جایگذاری شد!
                 </div>
               )}
             </div>
@@ -332,13 +334,13 @@ export default function Register({ navigate }) {
                 <button
                   type="button"
                   className="btn ghost sm"
-                  onClick={() => setRows([...rows, { subject: 'درس اختیاری', score: '', custom: true }])}
+                  onClick={() => setRows([...rows, { subject: 'درس انتخابی', score: '', custom: true }])}
                 >
                   + افزودن درس
                 </button>
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 240, overflowY: 'auto' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 220, overflowY: 'auto' }}>
                 {rows.map((r, i) => (
                   <div className="subject-row" key={i} style={{ display: 'flex', gap: 6 }}>
                     <input
@@ -358,8 +360,8 @@ export default function Register({ navigate }) {
                       min="0"
                       max="20"
                       step="0.25"
-                      style={{ width: 84 }}
-                      placeholder="نمره (از ۲۰)"
+                      style={{ width: 90 }}
+                      placeholder="نمره (۰-۲۰)"
                       value={r.score}
                       onChange={(e) => {
                         const c = [...rows]
@@ -367,13 +369,15 @@ export default function Register({ navigate }) {
                         setRows(c)
                       }}
                     />
-                    <button
-                      type="button"
-                      className="btn ghost sm danger"
-                      onClick={() => setRows(rows.filter((_, j) => j !== i))}
-                    >
-                      ✕
-                    </button>
+                    {r.custom && (
+                      <button
+                        type="button"
+                        className="btn ghost sm danger"
+                        onClick={() => setRows(rows.filter((_, idx) => idx !== i))}
+                      >
+                        ✕
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -386,51 +390,35 @@ export default function Register({ navigate }) {
           </div>
         )}
 
-        {/* ═══ STEP 7 — goal + mentor code + review ═══ */}
+        {/* ═══ STEP 7 — goal (3 choices) + mentor code ═══ */}
         {step === 7 && (
           <div>
-            {isPreUni ? (
-              <div className="analysis-box mb" style={{ borderRadius: 12 }}>{t('preUniGoalNote')}</div>
-            ) : (
-              <>
-                <label className="field">
-                  <span>{t('goalLabel')}</span>
-                  <select className="input" value={goalType} onChange={(e) => setGoalType(e.target.value)}>
-                    <option value="better_average">{t('goal_better_average')}</option>
-                    <option value="specific_subjects">{t('goal_specific_subjects')}</option>
-                    <option value="konkur">{t('goal_konkur')}</option>
-                  </select>
-                </label>
-                {goalType === 'specific_subjects' && (
-                  <label className="field">
-                    <span>{t('whichSubjects')}</span>
-                    <div className="subjects-grid">
-                      {enteredRows.map((r) => (
-                        <label key={r.subject} className="subject-row" style={{ cursor: 'pointer' }}>
-                          <input
-                            type="checkbox"
-                            checked={goalSubjects.includes(r.subject)}
-                            onChange={() => toggleGoalSubject(r.subject)}
-                          />
-                          <span style={{ fontSize: 13 }}>{r.subject}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </label>
-                )}
-              </>
-            )}
-
             <label className="field">
-              <span>{t('mentorCodeLabel')}</span>
-              <input className="input" value={mentorCode} onChange={(e) => setMentorCode(e.target.value)} placeholder="MNT1001" />
-              <div className="hint">{t('mentorCodeHint')}</div>
+              <span style={{ fontWeight: 800 }}>{lang === 'en' ? 'Select Your Primary Goal:' : 'هدف اصلی تحصیلی خود را انتخاب کنید:'}</span>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginTop: 10, marginBottom: 14 }}>
+                {goalsList.map((g, i) => (
+                  <button
+                    key={g}
+                    type="button"
+                    className={`btn ${goalIdx === i ? '' : 'ghost'}`}
+                    style={{ padding: '14px 8px', fontSize: 13, fontWeight: 800, borderRadius: 14 }}
+                    onClick={() => setGoalIdx(i)}
+                  >
+                    🎯 {g}
+                  </button>
+                ))}
+              </div>
+            </label>
+
+            <label className="field" style={{ marginTop: 12 }}>
+              <span>{t('mentorCodeLabel')} <span className="muted">({t('optional')})</span></span>
+              <input className="input" value={mentorCode} onChange={(e) => setMentorCode(e.target.value)} placeholder={t('mentorCodePlaceholder')} />
             </label>
 
             <div className="flex between" style={{ marginTop: 20 }}>
               <button className="btn ghost" style={{ borderRadius: 12 }} onClick={back}>{t('prevStep')}</button>
-              <button className="btn" style={{ borderRadius: 12, padding: '10px 24px' }} disabled={loading} onClick={submit}>
-                {loading ? t('analyzing') : '🚀 ثبت‌نام و تحلیل پرونده تحصیلی'}
+              <button className="btn" style={{ borderRadius: 12 }} disabled={loading} onClick={submit}>
+                {loading ? t('registering') : t('submitReg')}
               </button>
             </div>
           </div>
