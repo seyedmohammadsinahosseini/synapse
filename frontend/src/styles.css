@@ -1156,7 +1156,7 @@ html[data-theme='dark'] .btn.slot-done { background: #14532d; color: #bbf7d0; bo
 }
 /* balanced aurora — symmetric washes anchored to the very top */
 .hp-hero::before {
-  content: ''; position: absolute; inset: 0 0 20% 0; z-index: -1; pointer-events: none;
+  content: ''; position: fixed; inset: 0 0 20% 0; z-index: -1; pointer-events: none;
   background:
     radial-gradient(120% 130% at 50% -30%, rgba(79, 70, 229, 0.16), transparent 58%),
     radial-gradient(52% 90% at 0% -24%, rgba(99, 102, 241, 0.13), transparent 62%),
