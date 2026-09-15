@@ -51,20 +51,31 @@ export default function MentorDashboard({ navigate }) {
             </div>
           </Card>
 
-          <div className="section-title">⚡ {t('mentorQuickActions')}</div>
-          <div className="grid cols-3">
-            <Card className="stat" style={{ cursor: 'pointer' }} onClick={() => navigate('#/mentor/students')}>
-              <div className="stat-icon" style={{ background: '#eef2ff' }}>👨‍🎓</div>
-              <div><div className="stat-value">{t('navStudents')}</div><div className="stat-label">{fa(st.students)}</div></div>
-            </Card>
-            <Card className="stat" style={{ cursor: 'pointer' }} onClick={() => navigate('#/chat')}>
-              <div className="stat-icon" style={{ background: '#dcfce7' }}>💬</div>
-              <div><div className="stat-value">{t('navChat')}</div><div className="stat-label">{t('chatPageSub')}</div></div>
-            </Card>
-            <Card className="stat" style={{ cursor: 'pointer' }} onClick={() => navigate('#/mentor/schedule')}>
-              <div className="stat-icon" style={{ background: '#fce7f3' }}>🗓️</div>
-              <div><div className="stat-value">{t('navSchedule')}</div><div className="stat-label">{t('scheduleTitle')}</div></div>
-            </Card>
+          <div className="section-title" style={{ marginTop: 22, fontSize: 16 }}>⚡ {t('mentorQuickActions')}</div>
+          <div className="quick-hub-grid">
+            <div className="quick-hub-card" onClick={() => navigate('#/mentor/students')}>
+              <div>
+                <span className="quick-hub-icon">👨‍🎓</span>
+                <div className="quick-hub-title">{t('navStudents')}</div>
+                <div className="quick-hub-desc">مدیریت برنامه‌ها، تایید درخواست‌ها و پرونده‌های تحصیلی ({fa(st.students)} دانش‌آموز)</div>
+              </div>
+            </div>
+
+            <div className="quick-hub-card" onClick={() => navigate('#/chat')}>
+              <div>
+                <span className="quick-hub-icon">💬</span>
+                <div className="quick-hub-title">{t('navChat')}</div>
+                <div className="quick-hub-desc">گفت‌وگوی زنده با دانش‌آموزان، پیام‌های متنی و صوتی</div>
+              </div>
+            </div>
+
+            <div className="quick-hub-card" onClick={() => navigate('#/mentor/schedule')}>
+              <div>
+                <span className="quick-hub-icon">🗓️</span>
+                <div className="quick-hub-title">{t('navSchedule')}</div>
+                <div className="quick-hub-desc">مدیریت نوبت‌ها، برگزاری جلسات آنلاین و ضبط پرونده AI</div>
+              </div>
+            </div>
           </div>
         </>
       )}

@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { api, fa, faDate } from '../api.js'
-import { FIELDS_FA, GRADES_FA, useLang } from '../i18n.jsx'
+import { FIELDS_FA, GRADES_FA, useLang, tSubject } from '../i18n.jsx'
 import { Badge, Card, Empty, Modal, Stat } from '../ui.jsx'
 
 const SUBJECTS = ['ریاضی', 'فیزیک', 'شیمی', 'زیست‌شناسی', 'ادبیات فارسی', 'زبان انگلیسی', 'عربی', 'دین و زندگی', 'حسابان', 'هندسه', 'گسسته', 'فلسفه و منطق', 'جامعه‌شناسی', 'اقتصاد']
 const GOALS = ['امتحانات نهایی', 'کنکور سراسری', 'هر دو (کنکور و نهایی)']
 
-export default function AdminDashboard({ section = 'stats' }) {
-  const { t, grades } = useLang()
+export default function AdminDashboard({ section = 'stats', navigate }) {
+  const { t, grades, lang } = useLang()
   const tab = section  // active pane is driven by the slide-bar route
   const [stats, setStats] = useState(null)
   const [students, setStudents] = useState([])
@@ -214,31 +214,118 @@ export default function AdminDashboard({ section = 'stats' }) {
 
       {error && <div className="error-box mb">{error}</div>}
 
+      {/* ── 4 Main Admin Statistics Cards Horizontally Side-by-Side at Top ── */}
+      <div
+        className="stats-row mb"
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+          gap: 14,
+          marginTop: 18,
+          marginBottom: 20,
+        }}
+      >
+        <Stat
+          label={lang === 'fa' ? 'تعداد کل دانش‌آموزان' : 'Total Students'}
+          value={stats?.students ?? students.length}
+          icon="👨‍🎓"
+          color="#3b82f6"
+        />
+        <Stat
+          label={lang === 'fa' ? 'تعداد کل مشاوران' : 'Active Mentors'}
+          value={stats?.mentors ?? mentors.length}
+          icon="🧑‍🏫"
+          color="#a855f7"
+        />
+        <Stat
+          label={lang === 'fa' ? 'بانک تست‌ها و سوالات' : 'Question Bank'}
+          value={stats?.questions ?? questions.length}
+          icon="📚"
+          color="#10b981"
+        />
+        <Stat
+          label={lang === 'fa' ? 'آزمون‌های برگزارشده' : 'Exams Taken'}
+          value={stats?.attempts ?? 0}
+          icon="📝"
+          color="#f59e0b"
+        />
+      </div>
+
+      {/* ── Quick Access Hub for Admin ── */}
+      <div className="section-title" style={{ marginTop: 12, fontSize: 16 }}>⚡ {lang === 'fa' ? 'دسترسی سریع مدیریتی سامانه سیناپس' : 'Admin Operations Quick Hub'}</div>
+      <div className="quick-hub-grid">
+        <div
+          className="quick-hub-card"
+          onClick={() => (navigate ? navigate('#/admin/students') : (window.location.hash = '#/admin/students'))}
+        >
+          <div>
+            <span className="quick-hub-icon">👨‍🎓</span>
+            <div className="quick-hub-title">{lang === 'fa' ? 'مدیریت دانش‌آموزان' : 'Student Management'}</div>
+            <div className="quick-hub-desc">{lang === 'fa' ? 'مشاهده حساب‌ها، ترازها، رشته‌ها و ویرایش اطلاعات' : 'Roster of students, academic goals, scores & account controls'}</div>
+          </div>
+        </div>
+
+        <div
+          className="quick-hub-card"
+          onClick={() => (navigate ? navigate('#/admin/mentors') : (window.location.hash = '#/admin/mentors'))}
+        >
+          <div>
+            <span className="quick-hub-icon">🧑‍🏫</span>
+            <div className="quick-hub-title">{lang === 'fa' ? 'مدیریت مشاوران' : 'Mentor Management'}</div>
+            <div className="quick-hub-desc">{lang === 'fa' ? 'ثبت مشاور جدید با کد اختصاصی MNT، فعال‌سازی و نظارت' : 'Register counselors with MNT code, oversee active quotas'}</div>
+          </div>
+        </div>
+
+        <div
+          className="quick-hub-card"
+          onClick={() => {
+            setActiveQSubtab('curriculum')
+            if (navigate) navigate('#/admin/questions')
+            else window.location.hash = '#/admin/questions'
+          }}
+        >
+          <div>
+            <span className="quick-hub-icon">📚</span>
+            <div className="quick-hub-title">{lang === 'fa' ? 'منابع درسی و AI' : 'Curriculum & AI Gen'}</div>
+            <div className="quick-hub-desc">{lang === 'fa' ? 'تعریف سرفصل‌ها و تولید خودکار تست‌های کنکوری با AI' : 'Textbook topics and automated AI exam question generator'}</div>
+          </div>
+        </div>
+
+        <div
+          className="quick-hub-card"
+          onClick={() => {
+            setActiveQSubtab('questions')
+            if (navigate) navigate('#/admin/questions')
+            else window.location.hash = '#/admin/questions'
+          }}
+        >
+          <div>
+            <span className="quick-hub-icon">📝</span>
+            <div className="quick-hub-title">{lang === 'fa' ? 'بانک تست و سوالات' : 'Question Bank'}</div>
+            <div className="quick-hub-desc">{lang === 'fa' ? 'ایمپورت اکسل/JSON، ویرایش گزینه‌ها و پاسخ‌های تشریحی' : 'Import Excel/JSON tests, edit answers & full explanations'}</div>
+          </div>
+        </div>
+      </div>
+
       {/* ── overview ── */}
       {tab === 'stats' && stats && (
-        <>
-          <div className="stats-row mb">
-            <Stat label={t('statStudents')} value={stats.students} icon="👨‍🎓" color="#3b82f6" />
-            <Stat label={t('statMentors')} value={stats.mentors} icon="🧑‍🏫" color="#a855f7" />
-            <Stat label={t('statQuestions')} value={stats.questions} icon="📚" color="#10b981" />
-            <Stat label={t('statExams')} value={stats.attempts} icon="📝" color="#f59e0b" />
-          </div>
-          <Card>
-            <h3>{t('systemHealth')}</h3>
-            <div className="list-item between">
-              <span>{t('avgScore')}</span>
+        <Card>
+          <h3 style={{ margin: '0 0 16px 0', fontSize: 17 }}>📊 {lang === 'fa' ? 'سلامت و پایش سامانه' : 'System Health & Analytics'}</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+            <div className="list-item between" style={{ margin: 0 }}>
+              <span>{lang === 'fa' ? 'میانگین نمرات آزمون‌ها' : 'Average Exam Score'}</span>
               <b>{stats.avg_score != null ? `${fa(stats.avg_score)} / ۲۰` : '—'}</b>
             </div>
-            <div className="list-item between">
-              <span>{t('supportInquiries')}</span>
+            <div className="list-item between" style={{ margin: 0 }}>
+              <span>{lang === 'fa' ? 'پیام‌ها و تیکت‌های پشتیبانی' : 'Support Inquiries'}</span>
               <b>{fa(stats.messages)}</b>
             </div>
-            <div className="list-item between">
-              <span>منابع درسی ثبت‌شده (Curriculum Sources)</span>
-              <b>{fa(curriculumSources.length)} سرفصل</b>
+            <div className="list-item between" style={{ margin: 0 }}>
+              <span>{lang === 'fa' ? 'منابع درسی ثبت‌شده' : 'Curriculum Sources'}</span>
+              <b>{fa(curriculumSources.length)} {lang === 'fa' ? 'سرفصل' : 'Topics'}</b>
             </div>
-          </Card>
-        </>
+          </div>
+        </Card>
       )}
 
       {/* ── students ── */}
@@ -331,7 +418,7 @@ export default function AdminDashboard({ section = 'stats' }) {
             <div className="flex" style={{ gap: 8 }}>
               {activeQSubtab === 'curriculum' ? (
                 <button className="btn sm" style={{ background: '#4f46e5', color: '#fff' }} onClick={() => setCurrModal(true)}>
-                  + افزودن منبع / سرفصل درسی جدید
+                  + {lang === 'fa' ? 'افزودن منبع / سرفصل درسی جدید' : 'Add New Curriculum / Textbook Source'}
                 </button>
               ) : (
                 <>
@@ -356,7 +443,11 @@ export default function AdminDashboard({ section = 'stats' }) {
             <div>
               {curriculumSources.length === 0 && (
                 <Card>
-                  <Empty>هنوز هیچ منبع یا سرفصل درسی ثبت نشده است. با افزودن منبع درسی، می‌توانید تست‌های استاندارد کنکوری را با هوش مصنوعی مستقیماً تولید و به بانک سوالات تزریق کنید.</Empty>
+                  <Empty>
+                    {lang === 'fa'
+                      ? 'هنوز هیچ منبع یا سرفصل درسی ثبت نشده است. با افزودن منبع درسی، می‌توانید تست‌های استاندارد کنکوری را با هوش مصنوعی مستقیماً تولید و به بانک سوالات تزریق کنید.'
+                      : 'No curriculum sources logged yet. Add textbook chapters to let AI automatically generate standard exam questions and inject them into the question bank.'}
+                  </Empty>
                 </Card>
               )}
 
@@ -367,7 +458,7 @@ export default function AdminDashboard({ section = 'stats' }) {
                       <div className="between mb" style={{ alignItems: 'flex-start' }}>
                         <div>
                           <b style={{ fontSize: 15, color: 'var(--ink)' }}>{cs.title}</b>
-                          <div className="small muted" style={{ marginTop: 2 }}>{cs.subject} · {cs.chapter_name || 'کل کتاب'}</div>
+                          <div className="small muted" style={{ marginTop: 2 }}>{tSubject(cs.subject, lang)} · {cs.chapter_name || (lang === 'fa' ? 'کل کتاب' : 'Entire Book')}</div>
                         </div>
                         <span className="tag" style={{ background: '#eef2ff', color: '#4338ca', fontSize: 11, fontWeight: 700 }}>
                           {cs.grade_level} · {cs.field_of_study}
@@ -375,7 +466,7 @@ export default function AdminDashboard({ section = 'stats' }) {
                       </div>
 
                       {cs.summary_text && (
-                        <div style={{ fontSize: 12.5, color: '#475569', lineHeight: 1.6, background: '#f8fafc', padding: 10, borderRadius: 10, marginBottom: 12 }}>
+                        <div className="curriculum-summary-box">
                           {cs.summary_text.slice(0, 160)}{cs.summary_text.length > 160 ? '...' : ''}
                         </div>
                       )}
@@ -394,14 +485,14 @@ export default function AdminDashboard({ section = 'stats' }) {
                         }}
                         onClick={() => setAiGenModal(cs)}
                       >
-                        ✨ تولید تست‌های کنکور با AI
+                        ✨ {lang === 'fa' ? 'تولید تست‌های کنکور با AI' : 'Generate Konkur MCQs with AI'}
                       </button>
                       <button
                         className="btn ghost sm danger"
                         style={{ borderRadius: 8, fontSize: 12 }}
                         onClick={() => deleteCurriculumSource(cs.id)}
                       >
-                        🗑️ حذف
+                        🗑️ {lang === 'fa' ? 'حذف' : 'Delete'}
                       </button>
                     </div>
                   </Card>

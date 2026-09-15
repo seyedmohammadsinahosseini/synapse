@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { api, fa, getLang } from '../api.js'
+import { api, fa } from '../api.js'
 import { useToast } from '../components/Toast.jsx'
-import { useLang } from '../i18n.jsx'
+import { useLang, tDay } from '../i18n.jsx'
 import { Card, Empty, Modal } from '../ui.jsx'
 
 const DAY_LABELS_FA = ['ش', 'ی', 'د', 'س', 'چ', 'پ', 'ج']
@@ -15,16 +15,16 @@ const fmt = (m) => fa(toHM(m))
 
 const DURATION_PRESETS = [30, 45, 60, 90, 120]
 const EVALUATIONS = [
-  { id: 'عالی', label: '🟢 عالی (پیشرفت بالا)', color: '#16a34a' },
-  { id: 'خوب', label: '🔵 خوب (پایدار)', color: '#2563eb' },
-  { id: 'متوسط', label: '🟡 متوسط (نیاز به پیگیری)', color: '#d97706' },
-  { id: 'نیازمند انگیزه', label: '🟠 نیازمند انگیزه و تقویت روحیه', color: '#ea580c' },
-  { id: 'بحرانی', label: '🔴 بحرانی (افت شدید/عدم پایبندی)', color: '#dc2626' },
+  { id: 'عالی', label_fa: '🟢 عالی (پیشرفت بالا)', label_en: '🟢 Excellent (High Growth)', color: '#16a34a' },
+  { id: 'خوب', label_fa: '🔵 خوب (پایدار)', label_en: '🔵 Good (Stable)', color: '#2563eb' },
+  { id: 'متوسط', label_fa: '🟡 متوسط (نیاز به پیگیری)', label_en: '🟡 Moderate (Needs Follow-up)', color: '#d97706' },
+  { id: 'نیازمند انگیزه', label_fa: '🟠 نیازمند انگیزه و تقویت روحیه', label_en: '🟠 Needs Motivation & Boost', color: '#ea580c' },
+  { id: 'بحرانی', label_fa: '🔴 بحرانی (افت شدید/عدم پایبندی)', label_en: '🔴 Critical (Steep Drop)', color: '#dc2626' },
 ]
 
 export default function MentorSchedule({ navigate }) {
-  const { t } = useLang()
-  const isEn = getLang() === 'en'
+  const { t, lang } = useLang()
+  const isEn = lang === 'en'
   const today = new Date()
   const [ym, setYm] = useState({ y: today.getFullYear(), m: today.getMonth() + 1 })
   const [cal, setCal] = useState(null)
@@ -220,7 +220,7 @@ export default function MentorSchedule({ navigate }) {
         setRecordingSeconds((prev) => prev + 1)
       }, 1000)
     } catch (err) {
-      show('عدم دسترسی به میکروفون مرورگر', 'err')
+      show(isEn ? 'Microphone access denied' : 'عدم دسترسی به میکروفون مرورگر', 'err')
     }
   }
 
@@ -249,7 +249,7 @@ export default function MentorSchedule({ navigate }) {
         body: {
           student_id: activeSlot.student_id,
           notes: notes,
-          audio_transcript: notes || `بررسی وضعیت هفتگی دانش‌آموز ${activeSlot.student_name}`,
+          audio_transcript: notes || `Student consultation review for ${activeSlot.student_name}`,
         },
       })
       if (res.ok && res.suggestion) {
@@ -261,10 +261,10 @@ export default function MentorSchedule({ navigate }) {
         if (s.advisor_recommendations) setAdvisorDirectives(s.advisor_recommendations)
         if (s.next_session_date) setNextSessionDate(s.next_session_date)
         if (s.ai_diagnostic_notes) setAiDiagNotes(s.ai_diagnostic_notes)
-        show('تحلیل هوشمند جلسه با موفقیت انجام و تکمیل شد! ✨')
+        show(isEn ? 'AI consultation analysis generated successfully! ✨' : 'تحلیل هوشمند جلسه با موفقیت انجام و تکمیل شد! ✨')
       }
     } catch (err) {
-      show('خطا در تحلیل هوش مصنوعی: ' + err.message, 'err')
+      show((isEn ? 'AI Analysis Error: ' : 'خطا در تحلیل هوش مصنوعی: ') + err.message, 'err')
     } finally {
       setAiAnalyzing(false)
     }
@@ -284,18 +284,18 @@ export default function MentorSchedule({ navigate }) {
           duration_minutes: parseInt(sessionDuration) || 45,
           consultation_type: consultType,
           student_evaluation: studentEval,
-          discussion_topics: discussionTopics || notes || 'بررسی وضعیت تحصیلی و انگیزشی',
-          advisor_recommendations: advisorDirectives || 'تداوم اجرای برنامه هفتگی و حل تست‌های علامت‌دار',
+          discussion_topics: discussionTopics || notes || (isEn ? 'Academic review & motivation analysis' : 'بررسی وضعیت تحصیلی و انگیزشی'),
+          advisor_recommendations: advisorDirectives || (isEn ? 'Continue weekly plan and flagged question practice' : 'تداوم اجرای برنامه هفتگی و حل تست‌های علامت‌دار'),
           next_session_date: nextSessionDate || '',
           ai_diagnostic_notes: aiDiagNotes || '',
         },
       })
-      show('پرونده جلسه مشاوره با موفقیت ثبت شد و نوبت پایان یافت! ✅')
+      show(isEn ? 'Consultation record saved and slot completed! ✅' : 'پرونده جلسه مشاوره با موفقیت ثبت شد و نوبت پایان یافت! ✅')
       setConsultModalOpen(false)
       load()
       loadPastSessions()
     } catch (err) {
-      show('خطا در ثبت جلسه مشاوره: ' + err.message, 'err')
+      show((isEn ? 'Save error: ' : 'خطا در ثبت جلسه مشاوره: ') + err.message, 'err')
     } finally {
       setSaving(false)
     }
@@ -319,6 +319,28 @@ export default function MentorSchedule({ navigate }) {
     const m = Math.floor(secs / 60)
     const s = secs % 60
     return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+  }
+
+  const evalLabel = (ev) => {
+    if (!isEn) return ev
+    const map = {
+      'عالی': 'Excellent',
+      'خوب': 'Good',
+      'متوسط': 'Moderate',
+      'نیازمند انگیزه': 'Needs Motivation',
+      'بحرانی': 'Critical',
+    }
+    return map[ev] || ev
+  }
+
+  const consultTypeLabel = (ct) => {
+    if (!isEn) return ct
+    const map = {
+      'تلفنی': 'Phone Call',
+      'حضوری': 'In-Person',
+      'آنلاین': 'Online Meeting',
+    }
+    return map[ct] || ct
   }
 
   return (
@@ -468,43 +490,90 @@ export default function MentorSchedule({ navigate }) {
 
           {selDate && (
             <Card className="mt">
-              <h4 className="mb">{t('slotFree')} / {t('slotBooked')}</h4>
+              <div className="between mb">
+                <h4 style={{ margin: 0 }}>{t('slotFree')} / {t('slotBooked')}</h4>
+                <span className="small muted">
+                  {fa(slotsFor(selDate).length)} {isEn ? 'slots on this day' : 'نوبت در این روز'}
+                </span>
+              </div>
+
               {slotsFor(selDate).length === 0 && <Empty>{t('noSlotsDay')}</Empty>}
-              {slotsFor(selDate).map((s) => (
-                <div key={s.id} className="list-item between" style={{ flexWrap: 'wrap', gap: 8, padding: '10px 0' }}>
-                  <div className="flex" style={{ gap: 8, alignItems: 'center' }}>
-                    <span className={`slot-chip ${s.student_id ? 'taken' : 'free'}`}>
-                      {fmt(s.start_min)} ({fa(s.duration_min || 45)}′)
-                    </span>
-                    {s.student_id ? (
-                      <div>
-                        <b style={{ fontSize: 13, color: 'var(--ink)' }}>🧑‍🎓 {s.student_name}</b>
-                        {s.student_email && <div className="small muted" style={{ fontSize: 11 }}>{s.student_email}</div>}
-                      </div>
-                    ) : (
-                      <span className="small muted">{t('slotFree')}</span>
-                    )}
-                  </div>
-                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                    {s.student_id ? (
-                      <>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {slotsFor(selDate).map((s) => (
+                  <div
+                    key={s.id}
+                    style={{
+                      border: s.student_id ? '1.5px solid #c7d2fe' : '1px solid var(--line)',
+                      background: s.student_id ? 'linear-gradient(135deg, var(--card) 0%, var(--tint-fill) 100%)' : 'var(--bg)',
+                      borderRadius: 14,
+                      padding: 12,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      flexWrap: 'wrap',
+                      gap: 10,
+                    }}
+                  >
+                    <div className="flex" style={{ gap: 10, alignItems: 'center' }}>
+                      <span className={`slot-chip ${s.student_id ? 'taken' : 'free'}`} style={{ fontWeight: 800 }}>
+                        ⏰ {fmt(s.start_min)} ({fa(s.duration_min || 45)} {t('durationMin')})
+                      </span>
+                      {s.student_id ? (
+                        <div>
+                          <div style={{ fontWeight: 800, fontSize: 13.5, color: 'var(--ink)' }}>🧑‍🎓 {s.student_name}</div>
+                          {s.student_email && <div className="small muted" style={{ fontSize: 11 }}>{s.student_email}</div>}
+                        </div>
+                      ) : (
+                        <span className="tag" style={{ background: '#dcfce7', color: '#15803d', fontWeight: 700, fontSize: 11.5 }}>
+                          🟢 {isEn ? 'Available Slot (Ready for booking)' : 'اسلات خالی (آماده رزرو دانش‌آموز)'}
+                        </span>
+                      )}
+                    </div>
+
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                      {s.student_id ? (
+                        <>
+                          <button
+                            type="button"
+                            className="btn sm"
+                            style={{
+                              background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
+                              color: '#fff',
+                              borderRadius: 10,
+                              fontSize: 12.5,
+                              fontWeight: 800,
+                              padding: '6px 14px',
+                            }}
+                            onClick={() => openConsultationModal(s)}
+                          >
+                            🎙️ {isEn ? 'Start Session & AI Dossier' : 'شروع جلسه و پرونده AI'}
+                          </button>
+                          <button
+                            type="button"
+                            className="btn ghost sm slot-done"
+                            style={{ borderRadius: 10, fontSize: 12, color: '#16a34a', borderColor: '#bbf7d0' }}
+                            disabled={saving}
+                            onClick={() => completeHeld(s)}
+                          >
+                            ✅ {t('markHeld')}
+                          </button>
+                        </>
+                      ) : (
                         <button
-                          className="btn sm"
-                          style={{ background: '#4f46e5', color: '#fff', borderRadius: 8, fontSize: 12, padding: '5px 12px' }}
-                          onClick={() => openConsultationModal(s)}
+                          type="button"
+                          className="btn ghost sm danger"
+                          style={{ borderRadius: 10, fontSize: 12, padding: '5px 12px' }}
+                          disabled={saving}
+                          onClick={() => removeSlot(s.id)}
                         >
-                          🎙️ شروع جلسه مشاوره
+                          🗑️ {isEn ? 'Delete Slot' : 'حذف اسلات'}
                         </button>
-                        <button className="btn ghost sm slot-done" disabled={saving} onClick={() => completeHeld(s)}>
-                          ✅ {t('markHeld')}
-                        </button>
-                      </>
-                    ) : (
-                      <button className="btn ghost sm danger" disabled={saving} onClick={() => removeSlot(s.id)}>✕</button>
-                    )}
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </Card>
           )}
         </div>
@@ -513,42 +582,39 @@ export default function MentorSchedule({ navigate }) {
       {/* ── Consultation Session Logs & Timeline Card ────────────────────── */}
       <Card className="mt" style={{ marginTop: 24 }}>
         <div className="between mb">
-          <h3 style={{ margin: 0 }}>📋 تاریخچه و پرونده جلسات مشاوره برگزار شده</h3>
-          <span className="chip">{fa(pastSessions.length)} جلسه ثبت‌شده</span>
+          <h3 style={{ margin: 0 }}>
+            📋 {isEn ? 'Consultation History & Diagnostic Dossiers' : 'تاریخچه و پرونده جلسات مشاوره برگزار شده'}
+          </h3>
+          <span className="chip">
+            {fa(pastSessions.length)} {isEn ? 'Sessions Logged' : 'جلسه ثبت‌شده'}
+          </span>
         </div>
 
-        {loadingSessions && <div className="small muted">در حال دریافت جلسات...</div>}
+        {loadingSessions && <div className="small muted">{isEn ? 'Loading sessions...' : 'در حال دریافت جلسات...'}</div>}
         {!loadingSessions && pastSessions.length === 0 && (
-          <Empty>هنوز هیچ جلسه مشاوره‌ای ثبت نشده است. پس از برگزاری هر جلسه، جزئیات و توصیه‌ها در اینجا ذخیره می‌شوند.</Empty>
+          <Empty>
+            {isEn
+              ? 'No consultation sessions recorded yet. Completed session dossiers and recommendations will appear here.'
+              : 'هنوز هیچ جلسه مشاوره‌ای ثبت نشده است. پس از برگزاری هر جلسه، جزئیات و توصیه‌ها در اینجا ذخیره می‌شوند.'}
+          </Empty>
         )}
 
         {pastSessions.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             {pastSessions.map((ps) => (
-              <div
-                key={ps.id}
-                style={{
-                  border: '1px solid var(--line)',
-                  borderRadius: 14,
-                  padding: 16,
-                  background: 'var(--card-subtle, #fafafa)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 10,
-                }}
-              >
+              <div key={ps.id} className="dossier-card">
                 <div className="between" style={{ flexWrap: 'wrap', gap: 8 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <b style={{ fontSize: 14, color: 'var(--ink)' }}>🧑‍🎓 {ps.student_name}</b>
                     <span className="tag" style={{ background: '#e0e7ff', color: '#3730a3', fontSize: 11 }}>
                       {ps.grade_level} · {ps.field_of_study}
                     </span>
-                    <span className="tag" style={{ background: '#f1f5f9', color: '#475569', fontSize: 11 }}>
-                      📞 نوع: {ps.consultation_type}
+                    <span className="tag" style={{ background: 'var(--card)', color: 'var(--ink)', fontSize: 11, border: '1px solid var(--line)' }}>
+                      📞 {isEn ? 'Type:' : 'نوع:'} {consultTypeLabel(ps.consultation_type)}
                     </span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span className="small muted">🗓️ {fa(ps.session_date)} ({fa(ps.duration_minutes)} دقیقه)</span>
+                    <span className="small muted">🗓️ {fa(ps.session_date)} ({fa(ps.duration_minutes)} {t('durationMin')})</span>
                     <span
                       className="tag"
                       style={{
@@ -557,28 +623,28 @@ export default function MentorSchedule({ navigate }) {
                         fontWeight: 700,
                       }}
                     >
-                      وضعیت: {ps.student_evaluation}
+                      {isEn ? 'Status:' : 'وضعیت:'} {evalLabel(ps.student_evaluation)}
                     </span>
                   </div>
                 </div>
 
                 {ps.discussion_topics && (
-                  <div style={{ fontSize: 13, lineHeight: 1.6, background: '#fff', padding: 10, borderRadius: 10, border: '1px solid #f1f5f9' }}>
-                    <b style={{ color: '#334155' }}>💬 مباحث مطرح‌شده: </b>
-                    <span style={{ color: '#475569' }}>{ps.discussion_topics}</span>
+                  <div className="dossier-topic-box">
+                    <b style={{ color: 'var(--primary)' }}>💬 {isEn ? 'Discussion Topics:' : 'مباحث مطرح‌شده:'} </b>
+                    <span>{ps.discussion_topics}</span>
                   </div>
                 )}
 
                 {ps.advisor_recommendations && (
-                  <div style={{ fontSize: 13, lineHeight: 1.6, background: '#eef2ff', padding: 10, borderRadius: 10, border: '1px solid #c7d2fe' }}>
-                    <b style={{ color: '#3730a3' }}>🎯 توصیه‌ها و برنامه‌های مشاور: </b>
-                    <span style={{ color: '#1e1b4b' }}>{ps.advisor_recommendations}</span>
+                  <div className="dossier-directive-box">
+                    <b style={{ color: 'var(--primary)' }}>🎯 {isEn ? 'Advisor Recommendations & Strategy:' : 'توصیه‌ها و برنامه‌های مشاور:'} </b>
+                    <span style={{ display: 'block', marginTop: 4, whiteSpace: 'pre-line' }}>{ps.advisor_recommendations}</span>
                   </div>
                 )}
 
                 {ps.next_session_date && (
                   <div className="small muted" style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600 }}>
-                    <span>⏳ تاریخ جلسه بعدی:</span>
+                    <span>⏳ {isEn ? 'Next Session Date:' : 'تاریخ جلسه بعدی:'}</span>
                     <span style={{ color: 'var(--primary)' }}>{fa(ps.next_session_date)}</span>
                   </div>
                 )}
@@ -588,22 +654,26 @@ export default function MentorSchedule({ navigate }) {
         )}
       </Card>
 
-      {/* ── Consultation Floating Modal (Template Provided by User) ───────── */}
+      {/* ── Consultation Floating Modal (Bilingual & Dark-Mode Friendly) ───────── */}
       {consultModalOpen && activeSlot && (
         <Modal
-          title={`🎙️ جلسه مشاوره تخصصی با ${activeSlot.student_name || 'دانش‌آموز'}`}
+          title={isEn ? `🎙️ Diagnostic Consultation Session with ${activeSlot.student_name || 'Student'}` : `🎙️ جلسه مشاوره تخصصی با ${activeSlot.student_name || 'دانش‌آموز'}`}
           wide
           onClose={() => setConsultModalOpen(false)}
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {/* Top Info Bar */}
-            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, padding: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+            <div style={{ background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: 12, padding: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
               <div>
-                <b style={{ fontSize: 14, color: '#1e293b' }}>دانش‌آموز: {activeSlot.student_name}</b>
-                <div className="small muted">نوبت ثبت‌شده: {activeSlot.date_str} ساعت {fmt(activeSlot.start_min)}</div>
+                <b style={{ fontSize: 14, color: 'var(--ink)' }}>
+                  {isEn ? 'Student:' : 'دانش‌آموز:'} {activeSlot.student_name}
+                </b>
+                <div className="small muted">
+                  {isEn ? 'Booked Slot:' : 'نوبت ثبت‌شده:'} {activeSlot.date_str} {isEn ? 'at' : 'ساعت'} {fmt(activeSlot.start_min)}
+                </div>
               </div>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <span className="small muted">شیوه برگزاری:</span>
+                <span className="small muted">{isEn ? 'Meeting Mode:' : 'شیوه برگزاری:'}</span>
                 {['تلفنی', 'حضوری', 'آنلاین'].map((tVal) => (
                   <button
                     key={tVal}
@@ -612,19 +682,23 @@ export default function MentorSchedule({ navigate }) {
                     style={{ borderRadius: 8, padding: '4px 10px', fontSize: 12 }}
                     onClick={() => setConsultType(tVal)}
                   >
-                    {tVal}
+                    {consultTypeLabel(tVal)}
                   </button>
                 ))}
               </div>
             </div>
 
             {/* Audio Recording & Upload Module */}
-            <div style={{ background: 'linear-gradient(135deg, #f0fdf4 0%, #e0f2fe 100%)', border: '1px solid #bae6fd', borderRadius: 16, padding: 16 }}>
+            <div style={{ background: 'linear-gradient(135deg, rgba(34,197,94,0.12) 0%, rgba(14,165,233,0.12) 100%)', border: '1px solid var(--line)', borderRadius: 16, padding: 16 }}>
               <div className="between" style={{ flexWrap: 'wrap', gap: 10 }}>
                 <div>
-                  <b style={{ fontSize: 14, color: '#0369a1' }}>🎙️ ضبط و پیوست صوت جلسه مشاوره</b>
-                  <div className="small muted" style={{ color: '#0284c7' }}>
-                    می‌توانید گفت‌وگو را به صورت زنده ضبط کنید یا فایل صوتی جلسه را آپلود نمایید.
+                  <b style={{ fontSize: 14, color: 'var(--ink)' }}>
+                    🎙️ {isEn ? 'Record / Attach Consultation Audio' : 'ضبط و پیوست صوت جلسه مشاوره'}
+                  </b>
+                  <div className="small muted" style={{ marginTop: 2 }}>
+                    {isEn
+                      ? 'Record conversation live or upload an audio recording file for AI transcription.'
+                      : 'می‌توانید گفت‌وگو را به صورت زنده ضبط کنید یا فایل صوتی جلسه را آپلود نمایید.'}
                   </div>
                 </div>
 
@@ -637,7 +711,7 @@ export default function MentorSchedule({ navigate }) {
                       onClick={startRecording}
                     >
                       <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#fff' }}></span>
-                      شروع ضبط زنده
+                      {isEn ? 'Start Live Record' : 'شروع ضبط زنده'}
                     </button>
                   ) : (
                     <button
@@ -646,12 +720,12 @@ export default function MentorSchedule({ navigate }) {
                       style={{ background: '#dc2626', color: '#fff', borderRadius: 10, animation: 'pulse 1.2s infinite' }}
                       onClick={stopRecording}
                     >
-                      ⏹️ توقف ضبط ({formatTimer(recordingSeconds)})
+                      ⏹️ {isEn ? 'Stop Recording' : 'توقف ضبط'} ({formatTimer(recordingSeconds)})
                     </button>
                   )}
 
-                  <label className="btn ghost sm" style={{ borderRadius: 10, cursor: 'pointer', margin: 0, background: '#fff' }}>
-                    📤 آپلود صوت
+                  <label className="btn ghost sm" style={{ borderRadius: 10, cursor: 'pointer', margin: 0, background: 'var(--card)' }}>
+                    📤 {isEn ? 'Upload Audio' : 'آپلود صوت'}
                     <input type="file" accept="audio/*" style={{ display: 'none' }} onChange={handleAudioFileUpload} />
                   </label>
                 </div>
@@ -668,7 +742,7 @@ export default function MentorSchedule({ navigate }) {
             <div>
               <div className="between mb" style={{ alignItems: 'center' }}>
                 <label style={{ fontWeight: 800, fontSize: 13, color: 'var(--ink)' }}>
-                  ✍️ یادداشت‌ها و سرفصل‌های مطرح‌شده توسط مشاور:
+                  ✍️ {isEn ? 'Mentor Notes & Topics Covered:' : 'یادداشت‌ها و سرفصل‌های مطرح‌شده توسط مشاور:'}
                 </label>
                 <button
                   type="button"
@@ -684,14 +758,16 @@ export default function MentorSchedule({ navigate }) {
                   disabled={aiAnalyzing}
                   onClick={handleAiSuggest}
                 >
-                  {aiAnalyzing ? '✨ در حال تحلیل...' : '✨ تحلیل هوشمند جلسه (AI Assistant)'}
+                  {aiAnalyzing
+                    ? (isEn ? '✨ Analyzing...' : '✨ در حال تحلیل...')
+                    : (isEn ? '✨ AI Smart Analysis' : '✨ تحلیل هوشمند جلسه (AI Assistant)')}
                 </button>
               </div>
               <textarea
                 className="input"
                 rows={3}
                 style={{ width: '100%', borderRadius: 12, fontSize: 13, resize: 'vertical' }}
-                placeholder="نکات کلیدی صحبت با دانش‌آموز، چالش‌های درسی، ساعت مطالعه، وضعیت روحی و ..."
+                placeholder={isEn ? 'Key discussion points, student challenges, study hours, psychological state...' : 'نکات کلیدی صحبت با دانش‌آموز، چالش‌های درسی، ساعت مطالعه، وضعیت روحی و ...'}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
               />
@@ -700,7 +776,9 @@ export default function MentorSchedule({ navigate }) {
             {/* AI Diagnostics Fields */}
             <div className="two-col" style={{ gridTemplateColumns: '1.2fr 1fr', gap: 12 }}>
               <label className="field">
-                <span style={{ fontWeight: 800 }}>ارزیابی و وضعیت دانش‌آموز در این جلسه:</span>
+                <span style={{ fontWeight: 800 }}>
+                  {isEn ? 'Student Evaluation in this session:' : 'ارزیابی و وضعیت دانش‌آموز در این جلسه:'}
+                </span>
                 <select
                   className="input"
                   value={studentEval}
@@ -708,14 +786,16 @@ export default function MentorSchedule({ navigate }) {
                   style={{ borderRadius: 10 }}
                 >
                   {EVALUATIONS.map((ev) => (
-                    <option key={ev.id} value={ev.id}>{ev.label}</option>
+                    <option key={ev.id} value={ev.id}>
+                      {isEn ? ev.label_en : ev.label_fa}
+                    </option>
                   ))}
                 </select>
               </label>
 
               <div className="two-col" style={{ gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                 <label className="field">
-                  <span>مدت جلسه (دقیقه):</span>
+                  <span>{isEn ? 'Duration (min):' : 'مدت جلسه (دقیقه):'}</span>
                   <input
                     type="number"
                     min="10"
@@ -727,10 +807,10 @@ export default function MentorSchedule({ navigate }) {
                   />
                 </label>
                 <label className="field">
-                  <span>تاریخ جلسه بعدی:</span>
+                  <span>{isEn ? 'Next Session Date:' : 'تاریخ جلسه بعدی:'}</span>
                   <input
                     type="text"
-                    placeholder="مثلا ۱۴۰۵/۰۶/۳۱"
+                    placeholder={isEn ? 'e.g. 2026-09-22' : 'مثلا ۱۴۰۵/۰۶/۳۱'}
                     className="input"
                     value={nextSessionDate}
                     onChange={(e) => setNextSessionDate(e.target.value)}
@@ -743,23 +823,27 @@ export default function MentorSchedule({ navigate }) {
             {/* Discussion Topics & Directives */}
             <div className="two-col" style={{ gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <label className="field">
-                <span style={{ fontWeight: 800 }}>💬 مباحث و چالش‌های بررسی‌شده:</span>
+                <span style={{ fontWeight: 800 }}>
+                  💬 {isEn ? 'Discussion Topics & Challenges Analyzed:' : 'مباحث و چالش‌های بررسی‌شده:'}
+                </span>
                 <textarea
                   className="input"
                   rows={4}
                   style={{ width: '100%', borderRadius: 12, fontSize: 13, resize: 'vertical' }}
-                  placeholder="سرفصل‌های تحلیل‌شده، افت تراز، زمان‌بندی تست‌ها..."
+                  placeholder={isEn ? 'Subject drop, pacing, weak concepts...' : 'سرفصل‌های تحلیل‌شده، افت تراز، زمان‌بندی تست‌ها...'}
                   value={discussionTopics}
                   onChange={(e) => setDiscussionTopics(e.target.value)}
                 />
               </label>
               <label className="field">
-                <span style={{ fontWeight: 800, color: 'var(--primary)' }}>🎯 توصیه‌ها و تکالیف مشاور برای دانش‌آموز:</span>
+                <span style={{ fontWeight: 800, color: 'var(--primary)' }}>
+                  🎯 {isEn ? 'Mentor Strategic Directives & Assignments:' : 'توصیه‌ها و تکالیف مشاور برای دانش‌آموز:'}
+                </span>
                 <textarea
                   className="input"
                   rows={4}
                   style={{ width: '100%', borderRadius: 12, fontSize: 13, resize: 'vertical' }}
-                  placeholder="۱. افزایش ساعت مطالعه به ۷ ساعت&#10;۲. اجرای تکنیک ضربدر منها..."
+                  placeholder={isEn ? '1. Increase study hours to 7h\n2. Solve flagged biology questions...' : '۱. افزایش ساعت مطالعه به ۷ ساعت\n۲. اجرای تکنیک ضربدر منها...'}
                   value={advisorDirectives}
                   onChange={(e) => setAdvisorDirectives(e.target.value)}
                 />
@@ -767,8 +851,8 @@ export default function MentorSchedule({ navigate }) {
             </div>
 
             {aiDiagNotes && (
-              <div style={{ background: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: 12, padding: 12, fontSize: 12, color: '#5b21b6' }}>
-                <b>💡 بینش تشخیصی هوش مصنوعی: </b> {aiDiagNotes}
+              <div className="dossier-ai-box">
+                <b>💡 {isEn ? 'AI Diagnostic Insight: ' : 'بینش تشخیصی هوش مصنوعی: '}</b> {aiDiagNotes}
               </div>
             )}
 
@@ -780,7 +864,7 @@ export default function MentorSchedule({ navigate }) {
                 style={{ borderRadius: 12 }}
                 onClick={() => setConsultModalOpen(false)}
               >
-                انصراف
+                {isEn ? 'Cancel' : 'انصراف'}
               </button>
               <button
                 type="button"
@@ -789,7 +873,9 @@ export default function MentorSchedule({ navigate }) {
                 disabled={saving}
                 onClick={handleSaveConsultation}
               >
-                {saving ? 'در حال ذخیره‌سازی...' : '💾 ثبت نهایی پرونده جلسه و اتمام نوبت'}
+                {saving
+                  ? (isEn ? 'Saving...' : 'در حال ذخیره‌سازی...')
+                  : (isEn ? '💾 Finalize Dossier & Complete Slot' : '💾 ثبت نهایی پرونده جلسه و اتمام نوبت')}
               </button>
             </div>
           </div>
@@ -800,4 +886,3 @@ export default function MentorSchedule({ navigate }) {
     </div>
   )
 }
-

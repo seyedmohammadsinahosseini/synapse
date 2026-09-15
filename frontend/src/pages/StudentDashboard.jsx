@@ -7,7 +7,7 @@ const GOAL_ICONS = { better_average: '📈', specific_subjects: '🎯', konkur: 
 const PRE_UNI_GRADES = ['پیش‌دانشگاهی / کنکوری', 'Pre-University / Konkur']
 
 export default function StudentDashboard({ navigate }) {
-  const { t } = useLang()
+  const { t, lang } = useLang()
   const [d, setD] = useState(null)
   const [error, setError] = useState('')
   const [mentorCode, setMentorCode] = useState('')
@@ -80,66 +80,65 @@ export default function StudentDashboard({ navigate }) {
         </Card>
       )}
 
-      <div className="grid cols-3">
+      {/* Quick Access Action Hub */}
+      <div className="section-title" style={{ marginTop: 24, fontSize: 16 }}>⚡ {lang === 'fa' ? 'دسترسی سریع به پنل‌ها و بخش‌های کلیدی' : 'Quick Access Hub'}</div>
+      <div className="quick-hub-grid">
+        <div className="quick-hub-card" onClick={() => navigate('#/plan')}>
+          <div>
+            <span className="quick-hub-icon">📋</span>
+            <div className="quick-hub-title">{lang === 'fa' ? 'برنامه درسی و هفتگی' : 'Weekly Study Plan'}</div>
+            <div className="quick-hub-desc">{lang === 'fa' ? 'مشاهده و زمان‌بندی باکس‌های مطالعه، ثبت ساعت و تیک انجام' : 'View study calendar, track task completion and log hours'}</div>
+          </div>
+        </div>
+
+        <div className="quick-hub-card" onClick={() => navigate('#/report-cards')}>
+          <div>
+            <span className="quick-hub-icon">📊</span>
+            <div className="quick-hub-title">{lang === 'fa' ? 'کارنامه‌ها و تراز آزمون' : 'Exam Report Cards'}</div>
+            <div className="quick-hub-desc">{lang === 'fa' ? 'ثبت کارنامه آزمون آزمایشی، تحلیل هوشمند و خروجی پرونده PDF' : 'Upload mock exams, view rank & scores, download PDF dossier'}</div>
+          </div>
+        </div>
+
+        <div className="quick-hub-card" onClick={() => navigate('#/chat')}>
+          <div>
+            <span className="quick-hub-icon">💬</span>
+            <div className="quick-hub-title">{lang === 'fa' ? 'گفت‌وگو با مشاور و AI' : 'Consultant & AI Chat'}</div>
+            <div className="quick-hub-desc">{lang === 'fa' ? 'ارتباط زنده با مشاور تخصصی و دستیار هوشمند سیناپس' : 'Direct live chat with your mentor and AI academic assistant'}</div>
+          </div>
+        </div>
+
+        <div className="quick-hub-card" onClick={() => navigate('#/consult')}>
+          <div>
+            <span className="quick-hub-icon">🗓️</span>
+            <div className="quick-hub-title">{lang === 'fa' ? 'رزرو و تکالیف مشاوره' : 'Bookings & Directives'}</div>
+            <div className="quick-hub-desc">{lang === 'fa' ? 'هماهنگی جلسات آنلاین/تلفنی، ثبت گزارش و تکالیف هفتگی' : 'Schedule 1-on-1 calls, mentor assignments and action items'}</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid cols-3 mb">
         <Stat label={isPreUni ? t('diplomaAvg') : t('lastYearAvg')} value={fa(p.last_year_avg)} icon="🎓" color="#eef2ff" />
         <Stat label={t('examsTaken')} value={fa(d.exam_count)} icon="📝" color="#dcfce7" />
         <Stat label={t('latestExamAvg')} value={d.latest_exam_avg != null ? fa(d.latest_exam_avg) : '—'} icon="🧠" color="#fce7f3" />
       </div>
 
-      {/* Quick Access Action Hub */}
-      <div className="section-title" style={{ marginTop: 22 }}>⚡ دسترسی سریع به بخش‌های اصلی سامانه</div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 20 }}>
-        <Card
-          style={{ padding: 14, borderRadius: 16, cursor: 'pointer', border: '1px solid var(--line)', transition: 'transform .15s' }}
-          onClick={() => navigate('#/plan')}
-        >
-          <div style={{ fontSize: 24, marginBottom: 6 }}>📋</div>
-          <b style={{ fontSize: 13.5, color: 'var(--ink)' }}>برنامه درسی هفتگی</b>
-          <div className="small muted" style={{ fontSize: 11, marginTop: 2 }}>مشاهده پارت‌ها و ثبت تیک پیشرفت</div>
-        </Card>
-
-        <Card
-          style={{ padding: 14, borderRadius: 16, cursor: 'pointer', border: '1px solid var(--line)', transition: 'transform .15s' }}
-          onClick={() => navigate('#/report-cards')}
-        >
-          <div style={{ fontSize: 24, marginBottom: 6 }}>📊</div>
-          <b style={{ fontSize: 13.5, color: 'var(--ink)' }}>کارنامه‌ها و تراز آزمون</b>
-          <div className="small muted" style={{ fontSize: 11, marginTop: 2 }}>آپلود کارنامه و دریافت پرونده PDF</div>
-        </Card>
-
-        <Card
-          style={{ padding: 14, borderRadius: 16, cursor: 'pointer', border: '1px solid var(--line)', transition: 'transform .15s' }}
-          onClick={() => navigate('#/chat')}
-        >
-          <div style={{ fontSize: 24, marginBottom: 6 }}>💬</div>
-          <b style={{ fontSize: 13.5, color: 'var(--ink)' }}>گفت‌وگو با مشاور و AI</b>
-          <div className="small muted" style={{ fontSize: 11, marginTop: 2 }}>پرسش‌های درسی، انگیزه و تحلیل</div>
-        </Card>
-
-        <Card
-          style={{ padding: 14, borderRadius: 16, cursor: 'pointer', border: '1px solid var(--line)', transition: 'transform .15s' }}
-          onClick={() => navigate('#/consult')}
-        >
-          <div style={{ fontSize: 24, marginBottom: 6 }}>🗓️</div>
-          <b style={{ fontSize: 13.5, color: 'var(--ink)' }}>رزرو و توصیه‌های مشاوره</b>
-          <div className="small muted" style={{ fontSize: 11, marginTop: 2 }}>جلسات تلفنی/آنلاین و تکالیف مشاور</div>
-        </Card>
-      </div>
-
       {/* Report Cards Quick Banner */}
-      <Card style={{ borderRadius: 18, padding: 18, marginTop: 8, background: 'linear-gradient(135deg, #f8fafc 0%, #ede9fe 100%)', border: '1.5px solid #c7d2fe' }}>
+      <Card className="report-card-banner" style={{ borderRadius: 18, padding: 18, marginTop: 8 }}>
         <div className="flex wrap between items-center">
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
               <span style={{ fontSize: 20 }}>📊</span>
-              <b style={{ fontSize: 16, color: '#3730a3' }}>کارنامه‌ها و تحلیل آزمون‌های آزمایشی (خیلی سبز / قلم‌چی)</b>
+              <b style={{ fontSize: 16 }}>{lang === 'fa' ? 'کارنامه‌ها و تحلیل آزمون‌های آزمایشی (خیلی سبز / قلم‌چی)' : 'Mock Exam Report Cards & Performance Analysis'}</b>
             </div>
-            <p className="small muted" style={{ margin: 0, color: '#4338ca' }}>
-              کارنامه خود را بارگذاری کنید تا نمودارهای تراز، مقایسه با میانگین و پرونده عملکرد PDF استخراج شود.
+            <p className="small muted" style={{ margin: 0 }}>
+              {lang === 'fa'
+                ? 'کارنامه خود را بارگذاری کنید تا نمودارهای تراز، مقایسه با میانگین و پرونده عملکرد PDF استخراج شود.'
+                : 'Upload your report card to generate score percentiles, comparison charts, and a comprehensive PDF dossier.'
+              }
             </p>
           </div>
-          <button className="btn" style={{ borderRadius: 12, background: '#4f46e5' }} onClick={() => navigate('#/report-cards')}>
-            📊 مشاهده و بارگذاری کارنامه
+          <button className="btn" style={{ borderRadius: 12 }} onClick={() => navigate('#/report-cards')}>
+            📊 {lang === 'fa' ? 'مشاهده و بارگذاری کارنامه' : 'View & Upload Report Cards'}
           </button>
         </div>
       </Card>

@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
-import { api, fa, faDate } from '../api.js'
-import { useLang } from '../i18n.jsx'
-import { Card, Empty, Modal, Badge } from '../ui.jsx'
+import { api, fa } from '../api.js'
+import { useLang, tSubject } from '../i18n.jsx'
+import { Card, Modal, Badge } from '../ui.jsx'
 
 export default function ReportCardPage({ navigate }) {
-  const { t } = useLang()
+  const { t, lang } = useLang()
+  const isEn = lang === 'en'
+
   const [reportCards, setReportCards] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -12,7 +14,7 @@ export default function ReportCardPage({ navigate }) {
   const [selectedCard, setSelectedCard] = useState(null)
 
   // Upload Form State
-  const [title, setTitle] = useState('آزمون مرحله‌ای خیلی سبز')
+  const [title, setTitle] = useState(isEn ? 'Kheili Sabz Mock Exam 3' : 'آزمون مرحله ۳ خیلی سبز')
   const [provider, setProvider] = useState('خیلی سبز')
   const [examDate, setExamDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [totalTraz, setTotalTraz] = useState(6500)
@@ -80,7 +82,7 @@ export default function ReportCardPage({ navigate }) {
         })
         if (!res.ok) {
           const errData = await res.json()
-          throw new Error(errData.detail || 'خطا در بارگذاری کارنامه')
+          throw new Error(errData.detail || (isEn ? 'Error uploading report card' : 'خطا در بارگذاری کارنامه'))
         }
         const data = await res.json()
         setUploadModal(false)
@@ -113,6 +115,19 @@ export default function ReportCardPage({ navigate }) {
   const subjects = selectedCard?.parsed_data?.subjects || []
   const insights = selectedCard?.ai_insights || {}
 
+  const translateProvider = (p) => {
+    if (!isEn) return p
+    const map = {
+      'خیلی سبز': 'Kheili Sabz',
+      'قلم‌چی': 'Kanoon / Ghalamchi',
+      'گاج': 'GAAJ',
+      'سنجش': 'Sanjesh',
+      'مدرسه': 'School Exam',
+      'سایر': 'Other',
+    }
+    return map[p] || p
+  }
+
   return (
     <div className="report-card-page">
       {/* Top Hero Banner */}
@@ -120,13 +135,17 @@ export default function ReportCardPage({ navigate }) {
         <div className="flex wrap between items-center">
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-              <h2 style={{ margin: 0, fontSize: 24 }}>📊 تحلیل کارنامه و ارزیابی هوشمند آزمون‌ها</h2>
+              <h2 style={{ margin: 0, fontSize: 24 }}>
+                📊 {isEn ? 'Report Card Analysis & Diagnostic AI' : 'تحلیل کارنامه و ارزیابی هوشمند آزمون‌ها'}
+              </h2>
               <span className="badge" style={{ fontSize: 13, padding: '4px 12px', borderRadius: 12 }}>
-                خیلی سبز · قلم‌چی · گاج · سنجش · آزمون‌های مدرسه
+                {isEn ? 'Kheili Sabz · Ghalamchi · GAAJ · Sanjesh · School' : 'خیلی سبز · قلم‌چی · گاج · سنجش · آزمون‌های مدرسه'}
               </span>
             </div>
             <p style={{ margin: 0, opacity: 0.9 }}>
-              تصویر یا PDF کارنامه خود را بارگذاری کنید تا هوش مصنوعی درصدها، تراز، نمودارهای پیشرفت و نقاط ضعف/قوت شما را استخراج کند.
+              {isEn
+                ? 'Upload your exam report card (image or PDF) to let AI extract percentages, standard score (Traz), progress trends, and diagnostic strengths/weaknesses.'
+                : 'تصویر یا PDF کارنامه خود را بارگذاری کنید تا هوش مصنوعی درصدها، تراز، نمودارهای پیشرفت و نقاط ضعف/قوت شما را استخراج کند.'}
             </p>
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
@@ -135,7 +154,7 @@ export default function ReportCardPage({ navigate }) {
               style={{ borderRadius: 12, padding: '10px 18px', background: '#fff', color: '#4f46e5', fontWeight: 700 }}
               onClick={() => setUploadModal(true)}
             >
-              📤 بارگذاری کارنامه جدید
+              📤 {isEn ? 'Upload New Report Card' : 'بارگذاری کارنامه جدید'}
             </button>
           </div>
         </div>
@@ -145,59 +164,52 @@ export default function ReportCardPage({ navigate }) {
 
       {/* Main Content: Card List & Details */}
       {loading ? (
-        <div className="empty">در حال بارگذاری کارنامه‌ها...</div>
+        <div className="empty">{isEn ? 'Loading report cards...' : 'در حال بارگذاری کارنامه‌ها...'}</div>
       ) : reportCards.length === 0 ? (
         <Card style={{ borderRadius: 20, padding: 40, textAlign: 'center', opacity: 0.85 }}>
           <div style={{ fontSize: 48, marginBottom: 12 }}>📑</div>
-          <h3>هنوز کارنامه‌ای ثبت نشده است</h3>
+          <h3>{isEn ? 'No Report Cards Uploaded Yet' : 'هنوز کارنامه‌ای ثبت نشده است'}</h3>
           <p className="muted" style={{ maxWidth: 500, margin: '0 auto 20px auto' }}>
-            با بارگذاری اولین کارنامه آزمون آزمایشی (خیلی سبز، قلم‌چی یا مدرسه)، جداول دقیق درصدها، نمودارهای تحلیلی و پرونده تحلیلی هوش مصنوعی فعال می‌شود.
+            {isEn
+              ? 'Upload your first mock exam report card (Kheili Sabz, Ghalamchi, or School) to unlock performance tables, visual analytics, and deep AI dossiers.'
+              : 'با بارگذاری اولین کارنامه آزمون آزمایشی (خیلی سبز، قلم‌چی یا مدرسه)، جداول دقیق درصدها، نمودارهای تحلیلی و پرونده تحلیلی هوش مصنوعی فعال می‌شود.'}
           </p>
           <button className="btn" style={{ borderRadius: 12, padding: '10px 24px' }} onClick={() => setUploadModal(true)}>
-            📤 بارگذاری اولین کارنامه آزمایشی
+            📤 {isEn ? 'Upload First Mock Exam Card' : 'بارگذاری اولین کارنامه آزمایشی'}
           </button>
-
-          {/* Dimmed Placeholder Preview */}
-          <div style={{ marginTop: 36, opacity: 0.35, filter: 'grayscale(60%)', pointerEvents: 'none' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-              <div style={{ border: '1px dashed #cbd5e1', borderRadius: 16, height: 160, display: 'grid', placeItems: 'center' }}>
-                نمودار تراز و درصد دروس (پس از بارگذاری فعال می‌شود)
-              </div>
-              <div style={{ border: '1px dashed #cbd5e1', borderRadius: 16, height: 160, display: 'grid', placeItems: 'center' }}>
-                جدول مقایسه‌ای با میانگین کشوری (خیلی سبز)
-              </div>
-            </div>
-          </div>
         </Card>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
           {/* Card selector bar */}
           <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 6 }}>
-            {reportCards.map((rc) => (
-              <button
-                key={rc.id}
-                onClick={() => setSelectedCard(rc)}
-                style={{
-                  background: selectedCard?.id === rc.id ? '#4f46e5' : '#ffffff',
-                  color: selectedCard?.id === rc.id ? '#ffffff' : '#1e293b',
-                  border: selectedCard?.id === rc.id ? '2px solid #4f46e5' : '1px solid #e2e8f0',
-                  borderRadius: 14,
-                  padding: '10px 18px',
-                  fontWeight: 600,
-                  fontSize: 14,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  whiteSpace: 'nowrap',
-                  boxShadow: '0 2px 6px rgba(0,0,0,0.04)',
-                }}
-              >
-                <span>📊</span>
-                <span>{rc.title}</span>
-                <span style={{ fontSize: 11, opacity: 0.8 }}>({rc.provider})</span>
-              </button>
-            ))}
+            {reportCards.map((rc) => {
+              const active = selectedCard?.id === rc.id
+              return (
+                <button
+                  key={rc.id}
+                  onClick={() => setSelectedCard(rc)}
+                  style={{
+                    background: active ? 'var(--primary)' : 'var(--card)',
+                    color: active ? '#ffffff' : 'var(--ink)',
+                    border: active ? '2px solid var(--primary)' : '1px solid var(--line)',
+                    borderRadius: 14,
+                    padding: '10px 18px',
+                    fontWeight: 600,
+                    fontSize: 14,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    whiteSpace: 'nowrap',
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.04)',
+                  }}
+                >
+                  <span>📊</span>
+                  <span>{rc.title}</span>
+                  <span style={{ fontSize: 11, opacity: 0.8 }}>({translateProvider(rc.provider)})</span>
+                </button>
+              )
+            })}
           </div>
 
           {selectedCard && (
@@ -208,10 +220,14 @@ export default function ReportCardPage({ navigate }) {
                   <div>
                     <h3 style={{ margin: '0 0 6px 0', fontSize: 20 }}>{selectedCard.title}</h3>
                     <div className="small muted" style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
-                      <span>صادرکننده: <b>{selectedCard.provider}</b></span>
-                      <span>تاریخ آزمون: <b>{fa(selectedCard.exam_date || 'نامشخص')}</b></span>
-                      {selectedCard.total_traz && <span>تراز کل: <b style={{ color: '#4f46e5' }}>{fa(selectedCard.total_traz)}</b></span>}
-                      {selectedCard.overall_rank && <span>رتبه آزمون: <b>{fa(selectedCard.overall_rank)}</b></span>}
+                      <span>{isEn ? 'Provider:' : 'صادرکننده:'} <b>{translateProvider(selectedCard.provider)}</b></span>
+                      <span>{isEn ? 'Exam Date:' : 'تاریخ آزمون:'} <b>{fa(selectedCard.exam_date || (isEn ? 'Unspecified' : 'نامشخص'))}</b></span>
+                      {selectedCard.total_traz && (
+                        <span>{isEn ? 'Total Traz:' : 'تراز کل:'} <b style={{ color: 'var(--primary)' }}>{fa(selectedCard.total_traz)}</b></span>
+                      )}
+                      {selectedCard.overall_rank && (
+                        <span>{isEn ? 'Rank:' : 'رتبه آزمون:'} <b>{fa(selectedCard.overall_rank)}</b></span>
+                      )}
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: 10 }}>
@@ -231,7 +247,7 @@ export default function ReportCardPage({ navigate }) {
                         boxShadow: '0 4px 12px rgba(16, 185, 129, 0.25)',
                       }}
                     >
-                      📄 دریافت فایل PDF پرونده جامع عملکرد
+                      📄 {isEn ? 'Download Full Performance PDF Dossier' : 'دریافت فایل PDF پرونده جامع عملکرد'}
                     </a>
                   </div>
                 </div>
@@ -241,7 +257,9 @@ export default function ReportCardPage({ navigate }) {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 20 }}>
                 {/* Visual Bars Chart */}
                 <Card style={{ borderRadius: 18, padding: 22 }}>
-                  <h4 style={{ margin: '0 0 16px 0', fontSize: 16 }}>📊 نمودار مقایسه‌ای درصد دروس با میانگین</h4>
+                  <h4 style={{ margin: '0 0 16px 0', fontSize: 16 }}>
+                    📊 {isEn ? 'Subject Score Comparison with Class Average' : 'نمودار مقایسه‌ای درصد دروس با میانگین'}
+                  </h4>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                     {subjects.map((s, idx) => {
                       const pct = s.percentage ?? s.score ?? 0
@@ -249,12 +267,12 @@ export default function ReportCardPage({ navigate }) {
                       return (
                         <div key={idx}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4 }}>
-                            <b>{s.subject}</b>
+                            <b>{tSubject(s.subject, lang)}</b>
                             <span style={{ fontWeight: 600, color: pct >= 60 ? '#16a34a' : pct >= 40 ? '#ca8a04' : '#dc2626' }}>
-                              درصد شما: {fa(pct)}٪ (میانگین: {fa(avg)}٪)
+                              {isEn ? `Your Score: ${fa(pct)}% (Avg: ${fa(avg)}%)` : `درصد شما: ${fa(pct)}٪ (میانگین: ${fa(avg)}٪)`}
                             </span>
                           </div>
-                          <div style={{ background: '#f1f5f9', height: 12, borderRadius: 6, overflow: 'hidden', position: 'relative' }}>
+                          <div style={{ background: 'var(--track-fill, #e2e8f0)', height: 12, borderRadius: 6, overflow: 'hidden', position: 'relative' }}>
                             <div
                               style={{
                                 background: pct >= 60 ? '#22c55e' : pct >= 40 ? '#f59e0b' : '#ef4444',
@@ -273,7 +291,7 @@ export default function ReportCardPage({ navigate }) {
                                 width: 2,
                                 background: '#334155',
                               }}
-                              title={`میانگین: ${avg}%`}
+                              title={isEn ? `Average: ${avg}%` : `میانگین: ${avg}%`}
                             />
                           </div>
                         </div>
@@ -284,16 +302,18 @@ export default function ReportCardPage({ navigate }) {
 
                 {/* Score & Traz Breakdown Table */}
                 <Card style={{ borderRadius: 18, padding: 22 }}>
-                  <h4 style={{ margin: '0 0 16px 0', fontSize: 16 }}>📋 ریزنمرات، درصد و تراز تخصصی</h4>
+                  <h4 style={{ margin: '0 0 16px 0', fontSize: 16 }}>
+                    📋 {isEn ? 'Score, Percentage & Traz Breakdown' : 'ریزنمرات، درصد و تراز تخصصی'}
+                  </h4>
                   <div style={{ overflowX: 'auto' }}>
                     <table className="table" style={{ width: '100%', textAlign: 'start' }}>
                       <thead>
                         <tr>
-                          <th>نام درس</th>
-                          <th>درصد</th>
-                          <th>تراز</th>
-                          <th>میانگین</th>
-                          <th>وضعیت</th>
+                          <th>{isEn ? 'Subject' : 'نام درس'}</th>
+                          <th>{isEn ? 'Percentage' : 'درصد'}</th>
+                          <th>{isEn ? 'Traz' : 'تراز'}</th>
+                          <th>{isEn ? 'Class Avg' : 'میانگین'}</th>
+                          <th>{isEn ? 'Status' : 'وضعیت'}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -303,9 +323,9 @@ export default function ReportCardPage({ navigate }) {
                           const isHigh = pct >= avg
                           return (
                             <tr key={idx}>
-                              <td><b>{s.subject}</b></td>
+                              <td><b>{tSubject(s.subject, lang)}</b></td>
                               <td>{fa(pct)}٪</td>
-                              <td><b style={{ color: '#4f46e5' }}>{fa(s.traz || '—')}</b></td>
+                              <td><b style={{ color: 'var(--primary)' }}>{fa(s.traz || '—')}</b></td>
                               <td>{fa(avg)}٪</td>
                               <td>
                                 <span
@@ -316,7 +336,9 @@ export default function ReportCardPage({ navigate }) {
                                     color: isHigh ? '#15803d' : '#b91c1c',
                                   }}
                                 >
-                                  {isHigh ? 'بالاتر از میانگین' : 'نیاز به تمرین'}
+                                  {isHigh
+                                    ? (isEn ? 'Above Average' : 'بالاتر از میانگین')
+                                    : (isEn ? 'Needs Practice' : 'نیاز به تمرین')}
                                 </span>
                               </td>
                             </tr>
@@ -331,19 +353,23 @@ export default function ReportCardPage({ navigate }) {
               {/* AI Diagnostic Summary & Recommendations */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 20 }}>
                 {/* AI Diagnostic Box */}
-                <Card style={{ borderRadius: 18, padding: 22, background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                <Card style={{ borderRadius: 18, padding: 22, background: 'var(--card)', border: '1px solid var(--line)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                     <span style={{ fontSize: 20 }}>🤖</span>
-                    <h4 style={{ margin: 0, fontSize: 16, color: '#1e293b' }}>جمع‌بندی و تحلیل تشخیصی هوش مصنوعی</h4>
+                    <h4 style={{ margin: 0, fontSize: 16, color: 'var(--ink)' }}>
+                      {isEn ? 'AI Diagnostic Summary & Evaluation' : 'جمع‌بندی و تحلیل تشخیصی هوش مصنوعی'}
+                    </h4>
                   </div>
-                  <div className="small" style={{ color: '#334155', lineHeight: 1.7, whiteSpace: 'pre-line' }}>
-                    {insights.diagnostic_summary || 'تحلیل در حال پردازش است...'}
+                  <div className="small" style={{ color: 'var(--ink)', lineHeight: 1.7, whiteSpace: 'pre-line' }}>
+                    {insights.diagnostic_summary || (isEn ? 'AI diagnostic processing in progress...' : 'تحلیل در حال پردازش است...')}
                   </div>
 
                   {insights.recommendations?.length > 0 && (
                     <div style={{ marginTop: 14 }}>
-                      <b className="small" style={{ color: '#4f46e5', display: 'block', marginBottom: 6 }}>💡 راهکارهای پیشنهادی هوش مصنوعی:</b>
-                      <ul style={{ margin: 0, paddingInlineStart: 20, fontSize: 13, color: '#475569', lineHeight: 1.6 }}>
+                      <b className="small" style={{ color: 'var(--primary)', display: 'block', marginBottom: 6 }}>
+                        💡 {isEn ? 'AI Recommended Action Plan:' : 'راهکارهای پیشنهادی هوش مصنوعی:'}
+                      </b>
+                      <ul style={{ margin: 0, paddingInlineStart: 20, fontSize: 13, color: 'var(--ink)', lineHeight: 1.6 }}>
                         {insights.recommendations.map((rec, i) => (
                           <li key={i}>{rec}</li>
                         ))}
@@ -354,31 +380,39 @@ export default function ReportCardPage({ navigate }) {
 
                 {/* Strengths & Weaknesses Cards */}
                 <Card style={{ borderRadius: 18, padding: 22 }}>
-                  <h4 style={{ margin: '0 0 14px 0', fontSize: 16 }}>🎯 دروس محوری و نقاط نیازمند ارتقا</h4>
+                  <h4 style={{ margin: '0 0 14px 0', fontSize: 16 }}>
+                    🎯 {isEn ? 'Core Strengths & Target Growth Areas' : 'دروس محوری و نقاط نیازمند ارتقا'}
+                  </h4>
 
                   <div style={{ marginBottom: 16 }}>
-                    <span className="small muted" style={{ display: 'block', marginBottom: 6 }}>نقاط قوت شناسایی شده:</span>
+                    <span className="small muted" style={{ display: 'block', marginBottom: 6 }}>
+                      {isEn ? 'Identified Strengths:' : 'نقاط قوت شناسایی شده:'}
+                    </span>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                       {(insights.strengths || ['زیست‌شناسی', 'ادبیات فارسی']).map((item, idx) => (
-                        <Badge key={idx} color="#22c55e">✓ {item}</Badge>
+                        <Badge key={idx} color="#22c55e">✓ {tSubject(item, lang)}</Badge>
                       ))}
                     </div>
                   </div>
 
                   <div style={{ marginBottom: 16 }}>
-                    <span className="small muted" style={{ display: 'block', marginBottom: 6 }}>نقاط نیازمند توجه و تمرین بیشتر:</span>
+                    <span className="small muted" style={{ display: 'block', marginBottom: 6 }}>
+                      {isEn ? 'Needs Focus & Practice:' : 'نقاط نیازمند توجه و تمرین بیشتر:'}
+                    </span>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                       {(insights.weaknesses || ['فیزیک', 'ریاضی']).map((item, idx) => (
-                        <Badge key={idx} color="#ef4444">✕ {item}</Badge>
+                        <Badge key={idx} color="#ef4444">✕ {tSubject(item, lang)}</Badge>
                       ))}
                     </div>
                   </div>
 
                   <div>
-                    <span className="small muted" style={{ display: 'block', marginBottom: 6 }}>اولویت مطالعه هفتگی:</span>
+                    <span className="small muted" style={{ display: 'block', marginBottom: 6 }}>
+                      {isEn ? 'Weekly Study Priority:' : 'اولویت مطالعه هفتگی:'}
+                    </span>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                       {(insights.focus_subjects || ['فیزیک', 'شیمی']).map((item, idx) => (
-                        <Badge key={idx} color="#6366f1">🔥 {item}</Badge>
+                        <Badge key={idx} color="#6366f1">🔥 {tSubject(item, lang)}</Badge>
                       ))}
                     </div>
                   </div>
@@ -391,66 +425,69 @@ export default function ReportCardPage({ navigate }) {
 
       {/* Upload / Add Report Card Modal */}
       {uploadModal && (
-        <Modal title="📤 بارگذاری و تحلیل کارنامه آزمون آزمایشی" onClose={() => setUploadModal(false)}>
+        <Modal
+          title={isEn ? '📤 Upload & Analyze Mock Exam Report Card' : '📤 بارگذاری و تحلیل کارنامه آزمون آزمایشی'}
+          onClose={() => setUploadModal(false)}
+        >
           <form onSubmit={handleUpload} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             {/* Mode Toggle */}
-            <div style={{ display: 'flex', background: '#f1f5f9', padding: 4, borderRadius: 10 }}>
+            <div style={{ display: 'flex', background: 'var(--bg)', padding: 4, borderRadius: 10, border: '1px solid var(--line)' }}>
               <button
                 type="button"
                 className="btn sm"
                 style={{
                   flex: 1,
-                  background: uploadMode === 'file' ? '#4f46e5' : 'transparent',
-                  color: uploadMode === 'file' ? '#fff' : '#64748b',
+                  background: uploadMode === 'file' ? 'var(--primary)' : 'transparent',
+                  color: uploadMode === 'file' ? '#fff' : 'var(--muted)',
                   borderRadius: 8,
                 }}
                 onClick={() => setUploadMode('file')}
               >
-                📁 بارگذاری فایل (عکس یا PDF)
+                📁 {isEn ? 'Upload File (Image / PDF)' : 'بارگذاری فایل (عکس یا PDF)'}
               </button>
               <button
                 type="button"
                 className="btn sm"
                 style={{
                   flex: 1,
-                  background: uploadMode === 'manual' ? '#4f46e5' : 'transparent',
-                  color: uploadMode === 'manual' ? '#fff' : '#64748b',
+                  background: uploadMode === 'manual' ? 'var(--primary)' : 'transparent',
+                  color: uploadMode === 'manual' ? '#fff' : 'var(--muted)',
                   borderRadius: 8,
                 }}
                 onClick={() => setUploadMode('manual')}
               >
-                ✍️ ثبت دستی درصدها
+                ✍️ {isEn ? 'Manual Subject Entry' : 'ثبت دستی درصدها'}
               </button>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <div>
-                <label className="small muted">عنوان کارنامه:</label>
+                <label className="small muted">{isEn ? 'Report Card Title:' : 'عنوان کارنامه:'}</label>
                 <input
                   className="input"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="مثال: آزمون مرحله ۳ خیلی سبز"
+                  placeholder={isEn ? 'e.g. Kheili Sabz Mock Exam 3' : 'مثال: آزمون مرحله ۳ خیلی سبز'}
                   required
                 />
               </div>
 
               <div>
-                <label className="small muted">صادرکننده آزمون:</label>
+                <label className="small muted">{isEn ? 'Exam Provider:' : 'صادرکننده آزمون:'}</label>
                 <select className="input" value={provider} onChange={(e) => setProvider(e.target.value)}>
-                  <option value="خیلی سبز">خیلی سبز</option>
-                  <option value="قلم‌چی">قلم‌چی</option>
-                  <option value="گاج">گاج</option>
-                  <option value="سنجش">سنجش</option>
-                  <option value="مدرسه">مدرسه / آزمون کلاسی</option>
-                  <option value="سایر">سایر</option>
+                  <option value="خیلی سبز">{isEn ? 'Kheili Sabz' : 'خیلی سبز'}</option>
+                  <option value="قلم‌چی">{isEn ? 'Kanoon / Ghalamchi' : 'قلم‌چی'}</option>
+                  <option value="گاج">{isEn ? 'GAAJ' : 'گاج'}</option>
+                  <option value="سنجش">{isEn ? 'Sanjesh' : 'سنجش'}</option>
+                  <option value="مدرسه">{isEn ? 'School / Class Exam' : 'مدرسه / آزمون کلاسی'}</option>
+                  <option value="سایر">{isEn ? 'Other' : 'سایر'}</option>
                 </select>
               </div>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
               <div>
-                <label className="small muted">تاریخ آزمون:</label>
+                <label className="small muted">{isEn ? 'Exam Date:' : 'تاریخ آزمون:'}</label>
                 <input
                   type="date"
                   className="input"
@@ -460,22 +497,22 @@ export default function ReportCardPage({ navigate }) {
               </div>
 
               <div>
-                <label className="small muted">تراز کل (اختیاری):</label>
+                <label className="small muted">{isEn ? 'Total Traz (Optional):' : 'تراز کل (اختیاری):'}</label>
                 <input
                   type="number"
                   className="input"
-                  placeholder="مثلا 6500"
+                  placeholder={isEn ? 'e.g. 6500' : 'مثلا 6500'}
                   value={totalTraz}
                   onChange={(e) => setTotalTraz(e.target.value)}
                 />
               </div>
 
               <div>
-                <label className="small muted">رتبه کل (اختیاری):</label>
+                <label className="small muted">{isEn ? 'Overall Rank (Optional):' : 'رتبه کل (اختیاری):'}</label>
                 <input
                   type="number"
                   className="input"
-                  placeholder="مثلا 120"
+                  placeholder={isEn ? 'e.g. 120' : 'مثلا 120'}
                   value={overallRank}
                   onChange={(e) => setOverallRank(e.target.value)}
                 />
@@ -483,7 +520,7 @@ export default function ReportCardPage({ navigate }) {
             </div>
 
             {uploadMode === 'file' ? (
-              <div style={{ border: '2px dashed #cbd5e1', borderRadius: 14, padding: 20, textAlign: 'center', background: '#f8fafc' }}>
+              <div style={{ border: '2px dashed var(--line)', borderRadius: 14, padding: 20, textAlign: 'center', background: 'var(--bg)' }}>
                 <input
                   type="file"
                   accept="image/*,application/pdf"
@@ -493,24 +530,26 @@ export default function ReportCardPage({ navigate }) {
                 />
                 <label htmlFor="reportCardFileInput" style={{ cursor: 'pointer', display: 'block' }}>
                   <div style={{ fontSize: 36, marginBottom: 8 }}>📄</div>
-                  <b>{file ? file.name : 'انتخاب تصویر یا PDF کارنامه آزمون'}</b>
+                  <b style={{ color: 'var(--ink)' }}>{file ? file.name : (isEn ? 'Select Image or PDF of Report Card' : 'انتخاب تصویر یا PDF کارنامه آزمون')}</b>
                   <div className="small muted" style={{ marginTop: 4 }}>
-                    فرمت‌های مجاز: JPG, PNG, PDF (خیلی سبز، قلم‌چی یا مدرسه)
+                    {isEn ? 'Accepted formats: JPG, PNG, PDF (Kheili Sabz, Ghalamchi, GAAJ, etc.)' : 'فرمت‌های مجاز: JPG, PNG, PDF (خیلی سبز، قلم‌چی یا مدرسه)'}
                   </div>
                 </label>
               </div>
             ) : (
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                  <label className="small muted">درصدهای دروس را وارد کنید:</label>
-                  <button type="button" className="btn ghost sm" onClick={addManualRow}>+ افزودن درس</button>
+                  <label className="small muted">{isEn ? 'Enter subject percentages & traz:' : 'درصدهای دروس را وارد کنید:'}</label>
+                  <button type="button" className="btn ghost sm" onClick={addManualRow}>
+                    + {isEn ? 'Add Subject' : 'افزودن درس'}
+                  </button>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 220, overflowY: 'auto' }}>
                   {manualRows.map((row, idx) => (
                     <div key={idx} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                       <input
                         className="input"
-                        placeholder="نام درس"
+                        placeholder={isEn ? 'Subject name' : 'نام درس'}
                         value={row.subject}
                         onChange={(e) => handleManualRowChange(idx, 'subject', e.target.value)}
                         style={{ flex: 1.5 }}
@@ -518,7 +557,7 @@ export default function ReportCardPage({ navigate }) {
                       <input
                         className="input"
                         type="number"
-                        placeholder="درصد"
+                        placeholder={isEn ? 'Score %' : 'درصد'}
                         value={row.percentage}
                         onChange={(e) => handleManualRowChange(idx, 'percentage', parseFloat(e.target.value) || 0)}
                         style={{ width: 68 }}
@@ -526,7 +565,7 @@ export default function ReportCardPage({ navigate }) {
                       <input
                         className="input"
                         type="number"
-                        placeholder="تراز"
+                        placeholder={isEn ? 'Traz' : 'تراز'}
                         value={row.traz}
                         onChange={(e) => handleManualRowChange(idx, 'traz', parseInt(e.target.value) || 0)}
                         style={{ width: 78 }}
@@ -534,7 +573,7 @@ export default function ReportCardPage({ navigate }) {
                       <input
                         className="input"
                         type="number"
-                        placeholder="میانگین"
+                        placeholder={isEn ? 'Avg %' : 'میانگین'}
                         value={row.class_average}
                         onChange={(e) => handleManualRowChange(idx, 'class_average', parseFloat(e.target.value) || 0)}
                         style={{ width: 72 }}
@@ -547,9 +586,13 @@ export default function ReportCardPage({ navigate }) {
             )}
 
             <div className="flex mt" style={{ justifyContent: 'space-between', marginTop: 14 }}>
-              <button type="button" className="btn ghost" onClick={() => setUploadModal(false)}>انصراف</button>
+              <button type="button" className="btn ghost" onClick={() => setUploadModal(false)}>
+                {isEn ? 'Cancel' : 'انصراف'}
+              </button>
               <button type="submit" className="btn" disabled={submitting}>
-                {submitting ? 'در حال تحلیل و ثبت...' : '🚀 ثبت و تحلیل هوشمند کارنامه'}
+                {submitting
+                  ? (isEn ? 'Analyzing...' : 'در حال تحلیل و ثبت...')
+                  : (isEn ? '🚀 Submit & Run AI Diagnostics' : '🚀 ثبت و تحلیل هوشمند کارنامه')}
               </button>
             </div>
           </form>
@@ -557,7 +600,9 @@ export default function ReportCardPage({ navigate }) {
       )}
 
       <div style={{ marginTop: 24 }}>
-        <button className="btn ghost" onClick={() => navigate('#/dashboard')}>← بازگشت به داشبورد</button>
+        <button className="btn ghost" onClick={() => navigate('#/dashboard')}>
+          ← {isEn ? 'Back to Dashboard' : 'بازگشت به داشبورد'}
+        </button>
       </div>
     </div>
   )

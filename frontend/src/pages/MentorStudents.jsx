@@ -1,21 +1,62 @@
 import { useEffect, useState } from 'react'
 import { api, fa, faDate } from '../api.js'
 import { useAuth } from '../auth.jsx'
+import { useToast } from '../components/Toast.jsx'
 import { useLang } from '../i18n.jsx'
-import { Card, Badge, Empty } from '../ui.jsx'
+import { Badge, Card, Empty } from '../ui.jsx'
 
-/** All connected students with their weekly plan-colour traffic light. */
+/** All connected students with pending connection approval requests. */
 export default function MentorStudents({ navigate }) {
   const { user } = useAuth()
-  const { t } = useLang()
+  const { t, lang } = useLang()
   const [students, setStudents] = useState(null)
+  const [pendingRequests, setPendingRequests] = useState([])
   const [error, setError] = useState('')
+  const [actionBusy, setActionBusy] = useState(false)
+  const { show, view } = useToast()
 
-  useEffect(() => {
+  const load = () => {
     api('/api/mentor/students')
       .then(setStudents)
       .catch((e) => setError(e.message))
+
+    api('/api/mentor/students/pending-requests')
+      .then((res) => {
+        if (res.ok && res.requests) setPendingRequests(res.requests)
+      })
+      .catch(() => {})
+  }
+
+  useEffect(() => {
+    load()
   }, [])
+
+  const handleApprove = async (studentId, studentName) => {
+    setActionBusy(true)
+    try {
+      await api(`/api/mentor/students/${studentId}/approve`, { method: 'POST' })
+      show(`دانش‌آموز «${studentName}» با موفقیت تایید و به لیست نظارت اضافه شد!`)
+      load()
+    } catch (e) {
+      show('خطا در تایید دانش‌آموز: ' + e.message, 'err')
+    } finally {
+      setActionBusy(false)
+    }
+  }
+
+  const handleReject = async (studentId, studentName) => {
+    if (!window.confirm(`آیا از رد درخواست دانش‌آموز «${studentName}» اطمینان دارید؟`)) return
+    setActionBusy(true)
+    try {
+      await api(`/api/mentor/students/${studentId}/reject`, { method: 'POST' })
+      show(`درخواست دانش‌آموز «${studentName}» رد شد.`, 'err')
+      load()
+    } catch (e) {
+      show('خطا در رد درخواست: ' + e.message, 'err')
+    } finally {
+      setActionBusy(false)
+    }
+  }
 
   return (
     <div>
@@ -31,6 +72,76 @@ export default function MentorStudents({ navigate }) {
         </div>
       </div>
       {error && <div className="error-box">{error}</div>}
+
+      {/* ── Pending Connection Requests ── */}
+      {pendingRequests.length > 0 && (
+        <div style={{ marginBottom: 28 }}>
+          <div className="section-title" style={{ color: '#d97706', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span>⏳</span>
+            <span>{lang === 'fa' ? `درخواست‌های جدید اتصال دانش‌آموز (${fa(pendingRequests.length)})` : `Pending Student Requests (${fa(pendingRequests.length)})`}</span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 14 }}>
+            {pendingRequests.map((req) => (
+              <Card
+                key={req.student_id}
+                className="pending-request-card"
+              >
+                <div className="between mb">
+                  <div className="flex" style={{ gap: 10 }}>
+                    <div className="avatar" style={{ background: '#f59e0b', color: '#fff' }}>
+                      {req.full_name.slice(0, 1)}
+                    </div>
+                    <div>
+                      <b style={{ fontSize: 14 }}>{req.full_name}</b>
+                      <div className="small muted">{req.email} · {req.phone || (lang === 'fa' ? 'بدون شماره' : 'No phone')}</div>
+                    </div>
+                  </div>
+                  <span className="tag" style={{ background: '#fef08a', color: '#854d0e', fontWeight: 700, fontSize: 11 }}>
+                    {lang === 'fa' ? 'در انتظار تایید' : 'Pending Approval'}
+                  </span>
+                </div>
+
+                <div className="flex wrap" style={{ gap: 6, marginBottom: 12 }}>
+                  <span className="tag">
+                    🎓 {t('gradeLabel')}: {req.grade_level}
+                  </span>
+                  <span className="tag">
+                    📖 {t('fieldOfStudy')}: {req.field_of_study}
+                  </span>
+                  <span className="tag">
+                    📊 {t('lastYearAvg')}: {fa(req.last_year_avg)}
+                  </span>
+                  <span className="tag">
+                    🎯 {t('goal')}: {t('goal_' + req.goal_type) || req.goal_type}
+                  </span>
+                </div>
+
+                <div className="flex between" style={{ borderTop: '1px solid var(--line)', paddingTop: 10 }}>
+                  <button
+                    className="btn sm"
+                    style={{ background: '#16a34a', color: '#fff', borderRadius: 8, fontSize: 12, fontWeight: 700 }}
+                    disabled={actionBusy}
+                    onClick={() => handleApprove(req.student_id, req.full_name)}
+                  >
+                    ✓ {lang === 'fa' ? 'تایید اتصال دانش‌آموز' : 'Approve Connection'}
+                  </button>
+                  <button
+                    className="btn ghost sm danger"
+                    style={{ borderRadius: 8, fontSize: 12 }}
+                    disabled={actionBusy}
+                    onClick={() => handleReject(req.student_id, req.full_name)}
+                  >
+                    ✕ {lang === 'fa' ? 'رد درخواست' : 'Reject'}
+                  </button>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Active Approved Students ── */}
+      <div className="section-title">👥 دانش‌آموزان تحت نظارت فعال</div>
       {!students && <Empty>…</Empty>}
       {students && students.length === 0 && (
         <Empty>{t('noStudentsYet', { code: user.code })}</Empty>
@@ -92,6 +203,7 @@ export default function MentorStudents({ navigate }) {
           ))}
         </div>
       )}
+      {view}
     </div>
   )
 }

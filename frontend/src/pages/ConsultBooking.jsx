@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import { api, fa } from '../api.js'
 import { useToast } from '../components/Toast.jsx'
-import { useLang } from '../i18n.jsx'
+import { useLang, tDay } from '../i18n.jsx'
 import { Card, Empty } from '../ui.jsx'
 
 export default function ConsultBooking({ navigate }) {
-  const { t } = useLang()
+  const { t, lang } = useLang()
+  const isEn = lang === 'en'
   const [data, setData] = useState(null)
   const [sessions, setSessions] = useState([])
   const [error, setError] = useState('')
@@ -26,7 +27,11 @@ export default function ConsultBooking({ navigate }) {
   useEffect(load, [])
 
   const book = async (slot) => {
-    if (!window.confirm(`${t('bookingConfirm')}\n${slot.date_str} — ساعت ${slot.start} (${slot.duration_min} دقیقه)`)) return
+    const confirmMsg = isEn
+      ? `Confirm consultation booking?\nDate: ${slot.date_str} at ${slot.start} (${slot.duration_min} min)`
+      : `${t('bookingConfirm')}\n${slot.date_str} — ساعت ${slot.start} (${slot.duration_min} دقیقه)`
+
+    if (!window.confirm(confirmMsg)) return
     setBusy(true)
     try {
       await api('/api/consult/book', { method: 'POST', body: { slot_id: slot.id } })
@@ -49,13 +54,37 @@ export default function ConsultBooking({ navigate }) {
   const dKey = (ds) => {
     try {
       const d = new Date(ds + 'T00:00:00')
-      return fa(d.toLocaleDateString('fa-IR'))
+      return isEn
+        ? d.toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' })
+        : fa(d.toLocaleDateString('fa-IR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }))
     } catch { return ds }
   }
 
   if (error) return <div className="empty">⚠️ {error}</div>
 
   const days = data?.free_by_day ? Object.keys(data.free_by_day).sort() : []
+
+  const evalLabel = (ev) => {
+    if (!isEn) return ev
+    const map = {
+      'عالی': 'Excellent',
+      'خوب': 'Good',
+      'متوسط': 'Moderate',
+      'نیازمند انگیزه': 'Needs Motivation',
+      'بحرانی': 'Critical',
+    }
+    return map[ev] || ev
+  }
+
+  const consultTypeLabel = (ct) => {
+    if (!isEn) return ct
+    const map = {
+      'تلفنی': 'Phone Call',
+      'حضوری': 'In-Person',
+      'آنلاین': 'Online Meeting',
+    }
+    return map[ct] || ct
+  }
 
   return (
     <div>
@@ -76,7 +105,7 @@ export default function ConsultBooking({ navigate }) {
                 {s.date_str ? dKey(s.date_str) : s.date_str}
               </span>
               <b>{fa(s.start)}</b>
-              <span className="small muted">({fa(s.duration_min || 45)} دقیقه)</span>
+              <span className="small muted">({fa(s.duration_min || 45)} {t('durationMin')})</span>
             </div>
             <button className="btn ghost sm danger" disabled={busy} onClick={() => cancel(s)}>
               {t('cancelSlot')}
@@ -86,35 +115,32 @@ export default function ConsultBooking({ navigate }) {
       </Card>
 
       {/* Consultation Directives & Session History */}
-      <div className="section-title" style={{ marginTop: 24 }}>🎯 پرونده و توصیه‌های جلسات مشاوره با مشاور ارشد</div>
+      <div className="section-title" style={{ marginTop: 24 }}>
+        🎯 {isEn ? 'Senior Mentor Consultation Records & Directives' : 'پرونده و توصیه‌های جلسات مشاوره با مشاور ارشد'}
+      </div>
       <Card>
         {sessions.length === 0 && (
-          <Empty>هنوز هیچ پرونده جلسه‌ای ثبت نشده است. پس از پایان جلسه مشاوره، توصیه‌ها و برنامه‌های مشاور در اینجا قرار می‌گیرد.</Empty>
+          <Empty>
+            {isEn
+              ? 'No consultation records logged yet. Once you complete a session with your mentor, their personalized recommendations and directives will appear here.'
+              : 'هنوز هیچ پرونده جلسه‌ای ثبت نشده است. پس از پایان جلسه مشاوره، توصیه‌ها و برنامه‌های مشاور در اینجا قرار می‌گیرد.'}
+          </Empty>
         )}
         {sessions.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             {sessions.map((s) => (
-              <div
-                key={s.id}
-                style={{
-                  border: '1px solid var(--line)',
-                  borderRadius: 14,
-                  padding: 16,
-                  background: 'var(--card-subtle, #f8fafc)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 10,
-                }}
-              >
+              <div key={s.id} className="dossier-card">
                 <div className="between" style={{ flexWrap: 'wrap', gap: 8 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <b style={{ fontSize: 14, color: 'var(--ink)' }}>🧑‍🏫 مشاور: {s.mentor_name}</b>
+                    <b style={{ fontSize: 14, color: 'var(--ink)' }}>
+                      🧑‍🏫 {isEn ? 'Mentor:' : 'مشاور:'} {s.mentor_name}
+                    </b>
                     <span className="tag" style={{ background: '#e0e7ff', color: '#3730a3', fontSize: 11 }}>
-                      📞 نوع: {s.consultation_type}
+                      📞 {isEn ? 'Type:' : 'نوع:'} {consultTypeLabel(s.consultation_type)}
                     </span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span className="small muted">🗓️ {fa(s.session_date)} ({fa(s.duration_minutes)} دقیقه)</span>
+                    <span className="small muted">🗓️ {fa(s.session_date)} ({fa(s.duration_minutes)} {t('durationMin')})</span>
                     <span
                       className="tag"
                       style={{
@@ -123,28 +149,28 @@ export default function ConsultBooking({ navigate }) {
                         fontWeight: 700,
                       }}
                     >
-                      ارزیابی عملکرد: {s.student_evaluation}
+                      {isEn ? 'Evaluation:' : 'ارزیابی عملکرد:'} {evalLabel(s.student_evaluation)}
                     </span>
                   </div>
                 </div>
 
                 {s.discussion_topics && (
-                  <div style={{ fontSize: 13, lineHeight: 1.6, background: '#fff', padding: 12, borderRadius: 10, border: '1px solid #e2e8f0' }}>
-                    <b style={{ color: '#334155' }}>💬 مباحث بررسی‌شده: </b>
-                    <span style={{ color: '#475569' }}>{s.discussion_topics}</span>
+                  <div className="dossier-topic-box">
+                    <b style={{ color: 'var(--primary)' }}>💬 {isEn ? 'Discussion Topics:' : 'مباحث بررسی‌شده:'} </b>
+                    <span>{s.discussion_topics}</span>
                   </div>
                 )}
 
                 {s.advisor_recommendations && (
-                  <div style={{ fontSize: 13, lineHeight: 1.6, background: '#eef2ff', padding: 12, borderRadius: 10, border: '1px solid #c7d2fe' }}>
-                    <b style={{ color: '#3730a3' }}>🎯 توصیه‌ها و برنامه‌های راهبردی مشاور: </b>
-                    <div style={{ color: '#1e1b4b', marginTop: 4, whiteSpace: 'pre-line' }}>{s.advisor_recommendations}</div>
+                  <div className="dossier-directive-box">
+                    <b style={{ color: 'var(--primary)' }}>🎯 {isEn ? 'Mentor Strategic Recommendations & Advice:' : 'توصیه‌ها و برنامه‌های راهبردی مشاور:'} </b>
+                    <div style={{ marginTop: 4, whiteSpace: 'pre-line' }}>{s.advisor_recommendations}</div>
                   </div>
                 )}
 
                 {s.next_session_date && (
                   <div className="small muted" style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700 }}>
-                    <span>⏳ نوبت جلسه بعدی:</span>
+                    <span>⏳ {isEn ? 'Next Session Date:' : 'نوبت جلسه بعدی:'}</span>
                     <span style={{ color: 'var(--primary)' }}>{fa(s.next_session_date)}</span>
                   </div>
                 )}
@@ -168,7 +194,7 @@ export default function ConsultBooking({ navigate }) {
                 disabled={busy}
                 onClick={() => book(s)}
               >
-                {fa(s.start)} · {fa(s.duration_min || 45)} دقیقه
+                {fa(s.start)} · {fa(s.duration_min || 45)} {t('durationMin')}
               </button>
             ))}
           </div>
@@ -182,4 +208,3 @@ export default function ConsultBooking({ navigate }) {
     </div>
   )
 }
-

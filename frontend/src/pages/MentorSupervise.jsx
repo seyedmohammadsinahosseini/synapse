@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api, fa, faDate, getLang } from '../api.js'
-import { useLang } from '../i18n.jsx'
+import { useLang, tSubject } from '../i18n.jsx'
 import { Card, Badge, Empty, Modal, ScoreBadge, SubjectScores } from '../ui.jsx'
 import PlanSection from '../components/PlanSection.jsx'
 
@@ -14,8 +14,8 @@ const METHOD_ICONS = {
 }
 
 export default function MentorSupervise({ studentId, navigate }) {
-  const { t } = useLang()
-  const isEn = getLang() === 'en'
+  const { t, lang } = useLang()
+  const isEn = lang === 'en'
 
   const [s, setS] = useState(null)
   const [error, setError] = useState('')
@@ -173,13 +173,13 @@ export default function MentorSupervise({ studentId, navigate }) {
         <div className="flex wrap mt" style={{ marginTop: 16, gap: 8 }}>
           <span className="badge">🎯 {t('goal_' + st.goal_type) || st.goal_type}</span>
           <span className="badge">{isPreUni ? t('diplomaAvg') : t('lastYearAvg')}: {fa(st.last_year_avg)}</span>
-          {st.goal_subjects?.length > 0 && <span className="badge">📚 {st.goal_subjects.join('، ')}</span>}
+          {st.goal_subjects?.length > 0 && <span className="badge">📚 {st.goal_subjects.map((s) => tSubject(s, lang)).join(isEn ? ', ' : '، ')}</span>}
           <span className="badge" style={{ background: 'var(--card)', color: planColor, fontWeight: 700 }}>
             {t('studentStates')}: {comp.done}✓ / {comp.missed}✕
           </span>
           {reportCards.length > 0 && (
             <span className="badge" style={{ background: 'var(--tint-fill)', color: 'var(--primary)' }}>
-              📊 {fa(reportCards.length)} کارنامه آزمون بارگذاری شده
+              📊 {fa(reportCards.length)} {isEn ? 'Report cards uploaded' : 'کارنامه آزمون بارگذاری شده'}
             </span>
           )}
         </div>
@@ -343,18 +343,18 @@ export default function MentorSupervise({ studentId, navigate }) {
           <div className="small muted mt">{t('strengths')}</div>
           <div className="strong">
             {s.analysis?.strengths?.length
-              ? s.analysis.strengths.map((x) => <Badge key={x} color="#22c55e">✓ {x}</Badge>)
+              ? s.analysis.strengths.map((x) => <Badge key={x} color="#22c55e">✓ {tSubject(x, lang)}</Badge>)
               : '—'}
           </div>
           <div className="small muted mt">{t('weaknesses')}</div>
           <div className="weak">
             {s.analysis?.weaknesses?.length
-              ? s.analysis.weaknesses.map((x) => <Badge key={x} color="#ef4444">✕ {x}</Badge>)
+              ? s.analysis.weaknesses.map((x) => <Badge key={x} color="#ef4444">✕ {tSubject(x, lang)}</Badge>)
               : '—'}
           </div>
           <div className="small muted mt">{t('suggestedSubjects')}</div>
           <div className="flex wrap">
-            {s.analysis?.focus_subjects?.map((x) => <Badge key={x} color="#a855f7">{x}</Badge>)}
+            {s.analysis?.focus_subjects?.map((x) => <Badge key={x} color="#a855f7">{tSubject(x, lang)}</Badge>)}
           </div>
         </Card>
 
@@ -401,7 +401,7 @@ export default function MentorSupervise({ studentId, navigate }) {
               >
                 {/* Header with Trajectory and Growth Badge */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <b style={{ fontSize: 16, color: 'var(--ink)' }}>📚 {sub.subject}</b>
+                  <b style={{ fontSize: 16, color: 'var(--ink)' }}>📚 {tSubject(sub.subject, lang)}</b>
                   <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                     <span className="badge" style={{ background: `${trajColor}22`, color: trajColor, fontWeight: 800 }}>
                       {trajLabel}
