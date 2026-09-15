@@ -10,6 +10,109 @@ export const GOALS_FA = ['امتحانات نهایی', 'کنکور سراسری
 export const GOALS_EN = ['Final Exams', 'National Entrance Exam (Konkur)', 'Both (Konkur & Final Exams)']
 export const PRE_UNIVERSITY = []
 
+export const WEEKDAYS_MAP = {
+  'شنبه': 'Saturday',
+  'یکشنبه': 'Sunday',
+  'دوشنبه': 'Monday',
+  'سه‌شنبه': 'Tuesday',
+  'چهارشنبه': 'Wednesday',
+  'پنج‌شنبه': 'Thursday',
+  'پنجشنبه': 'Thursday',
+  'جمعه': 'Friday',
+}
+
+export const SHORT_WEEKDAYS_MAP = {
+  'ش': 'Sat',
+  'ی': 'Sun',
+  'د': 'Mon',
+  'س': 'Tue',
+  'چ': 'Wed',
+  'پ': 'Thu',
+  'ج': 'Fri',
+}
+
+export const SUBJECT_TRANSLATIONS = {
+  'ریاضی': 'Mathematics',
+  'ریاضیات': 'Mathematics',
+  'ریاضی ۱': 'Mathematics 1',
+  'ریاضی ۲': 'Mathematics 2',
+  'ریاضی ۳': 'Mathematics 3',
+  'زیست‌شناسی': 'Biology',
+  'زیست': 'Biology',
+  'زیست‌شناسی ۱': 'Biology 1',
+  'زیست‌شناسی ۲': 'Biology 2',
+  'زیست‌شناسی ۳': 'Biology 3',
+  'شیمی': 'Chemistry',
+  'شیمی ۱': 'Chemistry 1',
+  'شیمی ۲': 'Chemistry 2',
+  'شیمی ۳': 'Chemistry 3',
+  'فیزیک': 'Physics',
+  'فیزیک ۱': 'Physics 1',
+  'فیزیک ۲': 'Physics 2',
+  'فیزیک ۳': 'Physics 3',
+  'ادبیات': 'Persian Literature',
+  'ادبیات فارسی': 'Persian Literature',
+  'فارسی': 'Persian',
+  'فارسی ۱': 'Persian 1',
+  'فارسی ۲': 'Persian 2',
+  'فارسی ۳': 'Persian 3',
+  'عربی': 'Arabic',
+  'عربی تخصصی': 'Specialized Arabic',
+  'عربی ۱': 'Arabic 1',
+  'عربی ۲': 'Arabic 2',
+  'عربی ۳': 'Arabic 3',
+  'زبان انگلیسی': 'English Language',
+  'زبان': 'English',
+  'زبان ۱': 'English 1',
+  'زبان ۲': 'English 2',
+  'زبان ۳': 'English 3',
+  'دین و زندگی': 'Religious Studies',
+  'دین و زندگی ۱': 'Religious Studies 1',
+  'دین و زندگی ۲': 'Religious Studies 2',
+  'دین و زندگی ۳': 'Religious Studies 3',
+  'حسابان': 'Calculus',
+  'حسابان ۱': 'Calculus 1',
+  'حسابان ۲': 'Calculus 2',
+  'هندسه': 'Geometry',
+  'هندسه ۱': 'Geometry 1',
+  'هندسه ۲': 'Geometry 2',
+  'هندسه ۳': 'Geometry 3',
+  'گسسته': 'Discrete Math',
+  'آمار و احتمال': 'Statistics & Probability',
+  'زمین‌شناسی': 'Geology',
+  'فلسفه و منطق': 'Philosophy & Logic',
+  'فلسفه': 'Philosophy',
+  'منطق': 'Logic',
+  'جامعه‌شناسی': 'Sociology',
+  'اقتصاد': 'Economics',
+  'روان‌شناسی': 'Psychology',
+  'تاریخ': 'History',
+  'جغرافیا': 'Geography',
+  'سلامت و بهداشت': 'Health & Hygiene',
+  'آزمون شبیه‌ساز کنکور': 'Konkur Simulation',
+  'آزمون جامع شبیه‌ساز کنکور': 'Comprehensive Konkur Simulation',
+  'تحلیل آزمون': 'Exam Analysis',
+  'جلسه با مشاور': 'Mentor Session',
+}
+
+export function tDay(d, lang) {
+  if (!d) return ''
+  if (lang === 'en') {
+    const trimmed = String(d).trim()
+    return WEEKDAYS_MAP[trimmed] || SHORT_WEEKDAYS_MAP[trimmed] || trimmed
+  }
+  return d
+}
+
+export function tSubject(s, lang) {
+  if (!s) return ''
+  if (lang === 'en') {
+    const trimmed = String(s).trim()
+    return SUBJECT_TRANSLATIONS[trimmed] || trimmed
+  }
+  return s
+}
+
 const fa = {
   appName: 'سیناپس | Synapse',
   footer: 'سیناپس (Synapse) — پلتفرم هوشمند تحصیلی، برنامه‌ریزی، تحلیل کارنامه و مشاوره',
@@ -192,11 +295,19 @@ const fa = {
 
   // admin
   adminPanel: '🛡️ پنل مدیریت',
+  adminTitle: 'پنل مدیریت سامانه سیناپس',
   adminSub: 'مدیریت مربیان، دانش‌آموزان و بانک سؤالات',
   tabStats: '📊 آمار',
   tabStudents: '👨‍🎓 دانش‌آموزان',
   tabMentors: '🧑‍🏫 مربیان و کدها',
   tabQuestions: '📚 بانک سؤالات',
+  statStudents: 'تعداد کل دانش‌آموزان',
+  statMentors: 'تعداد کل مشاوران',
+  statQuestions: 'بانک تست‌ها و سوالات',
+  statExams: 'آزمون‌های برگزارشده',
+  systemHealth: 'سلامت و پایش سیستم',
+  avgScore: 'میانگین نمرات آزمون‌ها',
+  supportInquiries: 'پیام‌ها و تیکت‌های پشتیبانی',
   studentsCount: 'دانش‌آموزان',
   mentorsCount: 'مربیان',
   questionsCount: 'سؤالات بانک',
@@ -405,11 +516,19 @@ const en = {
   voiceTitle: 'Record voice message',
 
   adminPanel: '🛡️ Admin panel',
+  adminTitle: 'Synapse Admin Control Center',
   adminSub: 'Manage mentors, students and the question bank',
   tabStats: '📊 Stats',
   tabStudents: '👨‍🎓 Students',
   tabMentors: '🧑‍🏫 Mentors & codes',
   tabQuestions: '📚 Question bank',
+  statStudents: 'Total Students',
+  statMentors: 'Active Mentors',
+  statQuestions: 'Question Bank Items',
+  statExams: 'Exams Taken',
+  systemHealth: 'System Health & Metrics',
+  avgScore: 'Exam Score Average',
+  supportInquiries: 'Support Tickets & Inquiries',
   studentsCount: 'Students',
   mentorsCount: 'Mentors',
   questionsCount: 'Questions',

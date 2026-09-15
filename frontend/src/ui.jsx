@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { fa } from './api.js'
 import { useTheme } from './theme.jsx'
+import { useLang, tSubject } from './i18n.jsx'
 
 export function Logo({ size = 40, className = '' }) {
   const { theme } = useTheme()
@@ -110,6 +111,7 @@ const ICON_BG = ['#eef2ff', '#fce7f3', '#dcfce7', '#fef3c7', '#e0f2fe', '#f3e8ff
 const subjectIcon = (s) => SUBJECT_ICONS[s] || '📘'
 
 export function SubjectScores({ items, scoreKey = 'score', iconKey }) {
+  const { lang } = useLang()
   const [shown, setShown] = useState(false)
   useEffect(() => {
     const t = setTimeout(() => setShown(true), 80)
@@ -129,7 +131,7 @@ export function SubjectScores({ items, scoreKey = 'score', iconKey }) {
             </div>
             <div className="ss-main">
               <div className="ss-top">
-                <span className="ss-name">{it.subject}</span>
+                <span className="ss-name">{tSubject(it.subject, lang)}</span>
                 <ScoreBadge score={score} />
               </div>
               <div className="ss-track">

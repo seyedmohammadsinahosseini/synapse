@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react'
 import { api, fa, faDate } from '../api.js'
-import { useLang } from '../i18n.jsx'
+import { useLang, tSubject } from '../i18n.jsx'
 import { Card, Badge, Empty, ScoreBadge, SubjectScores } from '../ui.jsx'
 
 /**
  * Student academic record and diagnostic performance view.
  */
 export default function HistoryPage({ navigate }) {
-  const { t } = useLang()
+  const { t, lang } = useLang()
   const [d, setD] = useState(null)
   const [error, setError] = useState('')
 
@@ -36,8 +36,8 @@ export default function HistoryPage({ navigate }) {
           </button>
         </div>
         <div className="flex wrap mt">
-          <span className="badge">{p.field_of_study}</span>
-          <span className="badge">{p.grade_level}</span>
+          <span className="badge">{t(p.field_of_study) || p.field_of_study}</span>
+          <span className="badge">{t(p.grade_level) || p.grade_level}</span>
           <span className="badge">🎯 {t('goal_' + p.goal_type) || p.goal_type}</span>
         </div>
       </div>
@@ -48,9 +48,9 @@ export default function HistoryPage({ navigate }) {
         <div className="analysis-box">{analysis.summary || '—'}</div>
         <div className="flex wrap mt" style={{ gap: 8 }}>
           <Badge color="#6366f1">{t('aiAnalysis')}</Badge>
-          {analysis.strengths?.map((s) => <Badge key={s} color="#22c55e">✓ {s}</Badge>)}
-          {analysis.weaknesses?.map((s) => <Badge key={s} color="#ef4444">✕ {s}</Badge>)}
-          {analysis.focus_subjects?.map((s) => <Badge key={s} color="#a855f7">🎯 {s}</Badge>)}
+          {analysis.strengths?.map((s) => <Badge key={s} color="#22c55e">✓ {tSubject(s, lang)}</Badge>)}
+          {analysis.weaknesses?.map((s) => <Badge key={s} color="#ef4444">✕ {tSubject(s, lang)}</Badge>)}
+          {analysis.focus_subjects?.map((s) => <Badge key={s} color="#a855f7">🎯 {tSubject(s, lang)}</Badge>)}
         </div>
       </Card>
 
