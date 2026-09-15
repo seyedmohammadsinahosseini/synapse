@@ -26,9 +26,17 @@ export default function ExamPanel({ examId, navigate }) {
         if (data.status === 'submitted') {
           setResult(data)
         } else {
-          const started = new Date(data.started_at).getTime()
-          const end = started + data.time_limit_seconds * 1000
-          const rem = Math.max(0, Math.floor((end - Date.now()) / 1000))
+          let rem = data.remaining_seconds
+          if (rem == null || isNaN(rem)) {
+            const startedIso = data.started_at ? (data.started_at.endsWith('Z') ? data.started_at : data.started_at + 'Z') : null
+            const started = startedIso ? new Date(startedIso).getTime() : Date.now()
+            const timeLimit = data.time_limit_seconds || 600
+            const end = started + timeLimit * 1000
+            rem = Math.max(0, Math.floor((end - Date.now()) / 1000))
+          }
+          if (rem <= 0 && data.status !== 'submitted') {
+            rem = data.time_limit_seconds || 600
+          }
           setRemaining(rem)
         }
       })
