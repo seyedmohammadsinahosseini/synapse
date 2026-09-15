@@ -158,14 +158,14 @@ export default function ProfilePage({ navigate }) {
               }}
               onClick={() => setEditModalOpen(true)}
             >
-              ✏️ ویرایش مشخصات فردی
+              ✏️ {lang === 'fa' ? 'ویرایش مشخصات فردی' : 'Edit Profile Details'}
             </button>
             <button
               className="btn ghost sm"
               style={{ color: '#fff', borderColor: 'rgba(255,255,255,.5)', borderRadius: 12, padding: '10px 16px' }}
               onClick={() => navigate(backHome)}
             >
-              ← بازگشت
+              {lang === 'fa' ? '← بازگشت' : '← Back'}
             </button>
           </div>
         </div>
@@ -178,13 +178,13 @@ export default function ProfilePage({ navigate }) {
               padding: '6px 14px',
               borderRadius: 12,
               fontSize: 13,
-              fontWeight: 500,
+              fontWeight: 600,
               display: 'inline-flex',
               alignItems: 'center',
               gap: 6,
             }}
           >
-            🆔 شناسه حساب: <b>{fa(user?.id)}</b>
+            ✉️ {user?.email}
           </span>
           {user?.role === 'mentor' && user?.code && (
             <span
@@ -196,7 +196,7 @@ export default function ProfilePage({ navigate }) {
                 fontWeight: 600,
               }}
             >
-              🔑 کد اختصاصی مشاور: {user.code}
+              🔑 {lang === 'fa' ? 'کد اختصاصی مشاور:' : 'Mentor Code:'} {user.code}
             </span>
           )}
           <span
@@ -207,7 +207,7 @@ export default function ProfilePage({ navigate }) {
               fontSize: 13,
             }}
           >
-            🛡️ امنیت: ورود دو مرحله‌ای فعال
+            🛡️ {lang === 'fa' ? 'امنیت: حساب احراز هویت شده' : 'Security: Verified Account'}
           </span>
         </div>
       </div>
@@ -221,33 +221,33 @@ export default function ProfilePage({ navigate }) {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
             <h3 style={{ margin: 0, fontSize: 18, display: 'flex', alignItems: 'center', gap: 8 }}>
               <span>👤</span>
-              <span>خلاصه اطلاعات کاربری</span>
+              <span>{lang === 'fa' ? 'خلاصه اطلاعات کاربری' : 'Account Summary'}</span>
             </h3>
             <button
               className="btn ghost sm"
               style={{ borderRadius: 10, fontSize: 12 }}
               onClick={() => setEditModalOpen(true)}
             >
-              تغییر مشخصات
+              {lang === 'fa' ? 'تغییر مشخصات' : 'Edit Info'}
             </button>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 8, borderBottom: '1px solid #f1f5f9' }}>
-              <span className="small muted">نام و نام خانوادگی:</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 8, borderBottom: '1px solid var(--line)' }}>
+              <span className="small muted">{lang === 'fa' ? 'نام و نام خانوادگی:' : 'Full Name:'}</span>
               <b>{user?.full_name || '—'}</b>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 8, borderBottom: '1px solid #f1f5f9' }}>
-              <span className="small muted">پست الکترونیک:</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 8, borderBottom: '1px solid var(--line)' }}>
+              <span className="small muted">{lang === 'fa' ? 'پست الکترونیک:' : 'Email Address:'}</span>
               <b dir="ltr">{user?.email || '—'}</b>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 8, borderBottom: '1px solid #f1f5f9' }}>
-              <span className="small muted">شماره تماس:</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 8, borderBottom: '1px solid var(--line)' }}>
+              <span className="small muted">{lang === 'fa' ? 'شماره تماس:' : 'Phone Number:'}</span>
               <b dir="ltr">{user?.phone || '—'}</b>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span className="small muted">آدرس / استان:</span>
-              <b>{user?.address || 'ثبت نشده'}</b>
+              <span className="small muted">{lang === 'fa' ? 'آدرس / استان:' : 'Address / City:'}</span>
+              <b>{user?.address || (lang === 'fa' ? 'ثبت نشده' : 'Not specified')}</b>
             </div>
           </div>
         </Card>
@@ -256,17 +256,20 @@ export default function ProfilePage({ navigate }) {
         <Card style={{ borderRadius: 20, padding: 24, boxShadow: '0 8px 24px rgba(0,0,0,0.04)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
             <span style={{ fontSize: 20 }}>🔒</span>
-            <h3 style={{ margin: 0, fontSize: 18 }}>امنیت و کلمه عبور</h3>
+            <h3 style={{ margin: 0, fontSize: 18 }}>{lang === 'fa' ? 'امنیت و کلمه عبور' : 'Security & Password'}</h3>
           </div>
           <p className="small muted" style={{ marginBottom: 16, lineHeight: 1.6 }}>
-            جهت حفظ امنیت حساب کاربری، توصیه می‌شود کلمه عبور خود را دوره‌ای تغییر داده و از رمزهای ترکیبی استفاده کنید.
+            {lang === 'fa'
+              ? 'جهت حفظ امنیت حساب کاربری، توصیه می‌شود کلمه عبور خود را دوره‌ای تغییر داده و از رمزهای ترکیبی استفاده کنید.'
+              : 'To keep your account secure, change your password periodically using strong letters and numbers.'
+            }
           </p>
           <button
             className="btn ghost"
             style={{ borderRadius: 12, width: '100%', justifyContent: 'center' }}
             onClick={() => { setPwOpen(true); setPwErr('') }}
           >
-            🔑 تغییر کلمه عبور
+            🔑 {lang === 'fa' ? 'تغییر کلمه عبور' : 'Change Password'}
           </button>
         </Card>
 
@@ -274,7 +277,7 @@ export default function ProfilePage({ navigate }) {
         <Card style={{ borderRadius: 20, padding: 24, boxShadow: '0 8px 24px rgba(0,0,0,0.04)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
             <span style={{ fontSize: 20 }}>🌐</span>
-            <h3 style={{ margin: 0, fontSize: 18 }}>زبان سامانه (Language)</h3>
+            <h3 style={{ margin: 0, fontSize: 18 }}>{lang === 'fa' ? 'زبان سامانه (Language)' : 'System Language'}</h3>
           </div>
           <div className="lang-switch" style={{ borderRadius: 14 }}>
             <span className={`lang-thumb ${lang === 'en' ? 'thumb-en' : ''}`} />
@@ -283,14 +286,14 @@ export default function ProfilePage({ navigate }) {
               className={`lang-opt ${lang === 'fa' ? 'active' : ''}`}
               onClick={() => setLang('fa')}
             >
-              <span className="flag">🇮🇷</span> فارسی (پیش‌فرض)
+              <span className="flag">🇮🇷</span> {lang === 'fa' ? 'فارسی (پیش‌فرض)' : 'Persian (FA)'}
             </button>
             <button
               key={'en-' + lang}
               className={`lang-opt ${lang === 'en' ? 'active' : ''}`}
               onClick={() => setLang('en')}
             >
-              <span className="flag">🇬🇧</span> English
+              <span className="flag">🇬🇧</span> English (EN)
             </button>
           </div>
         </Card>
@@ -299,24 +302,27 @@ export default function ProfilePage({ navigate }) {
         <Card style={{ borderRadius: 20, padding: 24, boxShadow: '0 8px 24px rgba(0,0,0,0.04)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
             <span style={{ fontSize: 20 }}>🚪</span>
-            <h3 style={{ margin: 0, fontSize: 18 }}>مدیریت نشست و خروج</h3>
+            <h3 style={{ margin: 0, fontSize: 18 }}>{lang === 'fa' ? 'مدیریت نشست و خروج' : 'Session & Logout'}</h3>
           </div>
           <p className="small muted" style={{ marginBottom: 16, lineHeight: 1.6 }}>
-            برای خروج امن از پنل کاربری روی دکمه زیر کلیک کنید.
+            {lang === 'fa'
+              ? 'برای خروج امن از پنل کاربری روی دکمه زیر کلیک کنید.'
+              : 'Click below to securely end your active session and log out.'
+            }
           </p>
           <button
             className="btn sm logout-red"
             style={{ borderRadius: 12, width: '100%', padding: '10px 0' }}
             onClick={() => setLogoutAsk(true)}
           >
-            🚪 خروج از حساب کاربری
+            🚪 {lang === 'fa' ? 'خروج از حساب کاربری' : 'Sign Out of Account'}
           </button>
         </Card>
       </div>
 
       {/* Floating Edit Profile Modal */}
       {editModalOpen && form && (
-        <Modal title="✏️ ویرایش مشخصات فردی" onClose={() => setEditModalOpen(false)}>
+        <Modal title={lang === 'fa' ? '✏️ ویرایش مشخصات فردی' : '✏️ Edit Profile Details'} onClose={() => setEditModalOpen(false)}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <label className="field">
               <span>{t('fieldName')}</span>
@@ -332,7 +338,7 @@ export default function ProfilePage({ navigate }) {
                 <input
                   className="input"
                   dir="ltr"
-                  style={{ textAlign: 'right' }}
+                  style={{ textAlign: lang === 'fa' ? 'right' : 'left' }}
                   value={form.email}
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
                 />
@@ -342,7 +348,7 @@ export default function ProfilePage({ navigate }) {
                 <input
                   className="input"
                   dir="ltr"
-                  style={{ textAlign: 'right' }}
+                  style={{ textAlign: lang === 'fa' ? 'right' : 'left' }}
                   value={form.phone}
                   onChange={(e) => setForm({ ...form, phone: e.target.value })}
                 />
@@ -354,14 +360,14 @@ export default function ProfilePage({ navigate }) {
                 className="input"
                 value={form.address}
                 onChange={(e) => setForm({ ...form, address: e.target.value })}
-                placeholder="شهر یا استان محل سکونت"
+                placeholder={lang === 'fa' ? 'شهر یا استان محل سکونت' : 'City / Province of residence'}
               />
             </label>
           </div>
           <div className="flex mt" style={{ justifyContent: 'space-between', marginTop: 18 }}>
-            <button className="btn ghost" onClick={() => setEditModalOpen(false)}>انصراف</button>
+            <button className="btn ghost" onClick={() => setEditModalOpen(false)}>{t('cancel')}</button>
             <button className="btn" disabled={saving} onClick={save}>
-              {saving ? 'در حال ذخیره...' : 'ذخیره تغییرات'}
+              {saving ? (lang === 'fa' ? 'در حال ذخیره...' : 'Saving...') : (lang === 'fa' ? 'ذخیره تغییرات' : 'Save Changes')}
             </button>
           </div>
         </Modal>
