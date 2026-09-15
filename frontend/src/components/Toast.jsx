@@ -12,12 +12,13 @@ export function useToast() {
   const show = (text, type = 'ok') => {
     setToast({ text, type })
     if (timer.current) clearTimeout(timer.current)
-    timer.current = setTimeout(() => setToast(null), 2600)
+    timer.current = setTimeout(() => setToast(null), 2200)
   }
 
   const view = toast ? (
     <div className={`toast toast-${toast.type || 'ok'}`} key={Date.now()}>
-      {toast.type === 'err' ? '⚠️' : '✅'} {toast.text}
+      <span style={{ fontSize: 14 }}>{toast.type === 'err' ? '⚠️' : '✅'}</span>
+      <span>{toast.text}</span>
     </div>
   ) : null
 

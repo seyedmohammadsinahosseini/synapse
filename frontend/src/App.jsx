@@ -85,20 +85,39 @@ function Shell({ children, route, navigate, bare = false, hideFloats = false }) 
   return (
     <div className={cls.join(' ')}>
       <header className="topbar">
-        <a className="brand" href={role ? (role === 'student' ? '#/dashboard' : role === 'mentor' ? '#/mentor' : '#/admin') : '#/'}>
-          <Logo size={34} />
-          {/* brand name only on the login / register pages */}
-          {!loggedIn && <span>{t('appName')}</span>}
-        </a>
+        {!showRail ? (
+          <a className="brand" href="#/">
+            <Logo size={34} />
+            <span>{t('appName')}</span>
+          </a>
+        ) : (
+          <div className="topbar-space" style={{ width: 10 }}></div>
+        )}
         <div className="topbar-user">
           {role === 'admin' && <AdminSupportBell />}
-          <button
-            className="btn ghost sm icon-btn theme-btn"
-            title={t(lang === 'fa' ? 'themeDark' : 'themeLight')}
-            onClick={toggle}
-          >
-            <span className="theme-ico">{theme === 'dark' ? '☀️' : '🌙'}</span>
-          </button>
+          <div className="theme-uiverse-wrap" title={t(theme === 'dark' ? 'themeLight' : 'themeDark')}>
+            <input
+              className="theme-uiverse-input"
+              id="theme-dn-toggle"
+              type="checkbox"
+              checked={theme === 'dark'}
+              onChange={toggle}
+              aria-label="Toggle dark/light theme"
+            />
+            <label className="theme-uiverse-toggle" htmlFor="theme-dn-toggle">
+              <span className="toggle__handler">
+                <span className="crater crater--1" />
+                <span className="crater crater--2" />
+                <span className="crater crater--3" />
+              </span>
+              <span className="star star--1" />
+              <span className="star star--2" />
+              <span className="star star--3" />
+              <span className="star star--4" />
+              <span className="star star--5" />
+              <span className="star star--6" />
+            </label>
+          </div>
           {/* language toggle lives in Profile — shown in the top bar only on
               the login/register pages so guests can still switch */}
           {!loggedIn && (
@@ -106,7 +125,7 @@ function Shell({ children, route, navigate, bare = false, hideFloats = false }) 
               className="btn ghost sm lang-btn"
               onClick={() => setLang(lang === 'fa' ? 'en' : 'fa')}
             >
-              {lang === 'fa' ? 'EN' : 'فا'}
+              {lang === 'fa' ? 'EN' : 'FA'}
             </button>
           )}
           {loggedIn && (
@@ -273,14 +292,14 @@ function Routes() {
       : 'stats'
     return (
       <Shell route={route} navigate={navigate}>
-        <AdminDashboard {...params} section={section} />
+        <AdminDashboard {...params} section={section} navigate={navigate} />
       </Shell>
     )
   }
 
   return (
     <Shell route={route} navigate={navigate}>
-      <StudentDashboard {...params} />
+      <StudentDashboard {...params} navigate={navigate} />
     </Shell>
   )
 }

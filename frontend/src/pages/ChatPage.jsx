@@ -1,21 +1,26 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { api, faDate, getLang, getToken } from '../api.js'
+import { api, fa, faDate, getLang, getToken } from '../api.js'
 import { useAuth } from '../auth.jsx'
 import { useLang } from '../i18n.jsx'
 import ChatPanel from '../components/ChatPanel.jsx'
 
 export default function ChatPage({ navigate, preselectStudent = null }) {
   const { user } = useAuth()
-  const { t } = useLang()
+  const { t, lang } = useLang()
+  const isEn = lang === 'en'
   const isMentor = user?.role === 'mentor'
 
   const [convs, setConvs] = useState(null)
-  const [sel, setSel] = useState({
+  const [sel, setSel] = useState(() => ({
     type: 'ai',
     student_id: 'ai',
-    peer_name: isMentor ? 'دستیار مشاوره‌ای هوش مصنوعی (AI)' : 'دستیار هوشمند تحصیلی (AI)',
-    subtitle: isMentor ? 'راهبردهای مشاوره‌ای، بودجه‌بندی و تحلیل پیشرفت' : 'تحلیل، برنامه‌ریزی، آزمون و رفع اشکال هوشمند',
-  })
+    peer_name: isMentor
+      ? (isEn ? 'AI Mentorship Assistant' : 'دستیار مشاوره‌ای هوش مصنوعی (AI)')
+      : (isEn ? 'AI Academic Assistant' : 'دستیار هوشمند تحصیلی (AI)'),
+    subtitle: isMentor
+      ? (isEn ? 'Consultation strategies, pacing & progress diagnostics' : 'راهبردهای مشاوره‌ای، بودجه‌بندی و تحلیل پیشرفت')
+      : (isEn ? 'Diagnostics, planning, tests & smart troubleshooting' : 'تحلیل، برنامه‌ریزی، آزمون و رفع اشکال هوشمند'),
+  }))
   const [connectCode, setConnectCode] = useState('')
   const [connecting, setConnecting] = useState(false)
   const [msg, setMsg] = useState('')
@@ -37,7 +42,9 @@ export default function ChatPage({ navigate, preselectStudent = null }) {
           setAiMessages([{
             role: 'ai',
             content: isMentor
-              ? 'سلام استاد گرامی! من دستیار هوشمند مشاوره‌ای شما هستم. می‌توانید درباره استراتژی‌های بودجه‌بندی، ارتقای عملکرد دانش‌آموزان یا متدهای مشاوره‌ای با من گفتگو کنید.'
+              ? (isEn
+                  ? 'Hello mentor! I am your AI mentorship assistant. You can consult with me about study pacing, student performance improvement, or advisory strategies.'
+                  : 'سلام استاد گرامی! من دستیار هوشمند مشاوره‌ای شما هستم. می‌توانید درباره استراتژی‌های بودجه‌بندی، ارتقای عملکرد دانش‌آموزان یا متدهای مشاوره‌ای با من گفتگو کنید.')
               : t('aiWelcome'),
           }])
         }
@@ -45,14 +52,16 @@ export default function ChatPage({ navigate, preselectStudent = null }) {
       .catch(() => setAiMessages([{
         role: 'ai',
         content: isMentor
-          ? 'سلام استاد گرامی! من دستیار هوشمند مشاوره‌ای شما هستم. چطور می‌توانم به شما کمک کنم؟'
+          ? (isEn
+              ? 'Hello mentor! I am your AI mentorship assistant. How can I assist you today?'
+              : 'سلام استاد گرامی! من دستیار هوشمند مشاوره‌ای شما هستم. چطور می‌توانم به شما کمک کنم؟')
           : t('aiWelcome'),
       }]))
   }
 
   useEffect(() => {
     loadAiHistory()
-  }, [isMentor]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isMentor, isEn]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (aiBodyRef.current) aiBodyRef.current.scrollTop = aiBodyRef.current.scrollHeight
@@ -118,7 +127,7 @@ export default function ChatPage({ navigate, preselectStudent = null }) {
         method: 'POST', body: { code: connectCode },
       })
       setConnectCode('')
-      setMsg(t('connectedOk'))
+      show ? show(t('connectedOk')) : setMsg(t('connectedOk'))
       load()
     } catch (e) {
       setMsg('⚠️ ' + e.message)
@@ -131,17 +140,17 @@ export default function ChatPage({ navigate, preselectStudent = null }) {
   const noMentorStudent = !isMentor && convs && convs.length === 0
 
   const mentorChips = [
-    ['/students_overview', '📊 تحلیل وضعیت کلی دانش‌آموزان'],
-    ['/plan_strategy', '💡 راهبرد و بودجه‌بندی برنامه هفتگی'],
-    ['/motivation', '🎯 متدهای افزایش انگیزه و تمرکز'],
-    ['/weakness_guide', '🔍 تکنیک‌های جبران افت تراز'],
+    ['/students_overview', isEn ? '📊 Students Overview' : '📊 تحلیل وضعیت کلی دانش‌آموزان'],
+    ['/plan_strategy', isEn ? '💡 Weekly Pacing Strategy' : '💡 راهبرد و بودجه‌بندی برنامه هفتگی'],
+    ['/motivation', isEn ? '🎯 Motivation Techniques' : '🎯 متدهای افزایش انگیزه و تمرکز'],
+    ['/weakness_guide', isEn ? '🔍 Score Recovery Guide' : '🔍 تکنیک‌های جبران افت تراز'],
   ]
 
   const studentChips = [
-    ['/test', '🎯 ساخت آزمون تستی سریع'],
-    ['/exam', '📝 ایجاد امتحان کامل جامع'],
-    ['/plan', '📋 وضعیت برنامه درسی'],
-    ['/report', '📊 تحلیل کارنامه و تراز'],
+    ['/test', isEn ? '🎯 Quick MCQ Test' : '🎯 ساخت آزمون تستی سریع'],
+    ['/exam', isEn ? '📝 Comprehensive Exam' : '📝 ایجاد امتحان کامل جامع'],
+    ['/plan', isEn ? '📋 Study Plan Status' : '📋 وضعیت برنامه درسی'],
+    ['/report', isEn ? '📊 Report Card Analysis' : '📊 تحلیل کارنامه و تراز'],
   ]
 
   const activeChips = isMentor ? mentorChips : studentChips
@@ -155,7 +164,11 @@ export default function ChatPage({ navigate, preselectStudent = null }) {
             <span>💬</span>
             <span>{t('chatPageTitle')}</span>
           </h3>
-          {convs && <span className="badge" style={{ fontSize: 11 }}>{convs.length + 1} گفتگو</span>}
+          {convs && (
+            <span className="badge" style={{ fontSize: 11 }}>
+              {fa(convs.length + 1)} {isEn ? 'Chats' : 'گفتگو'}
+            </span>
+          )}
         </div>
 
         <div className="chat-list-scroll" style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -175,8 +188,12 @@ export default function ChatPage({ navigate, preselectStudent = null }) {
               setSel({
                 type: 'ai',
                 student_id: 'ai',
-                peer_name: isMentor ? 'دستیار مشاوره‌ای هوش مصنوعی (AI)' : 'دستیار هوشمند تحصیلی (AI)',
-                subtitle: isMentor ? 'راهبردهای مشاوره‌ای، بودجه‌بندی و تحلیل پیشرفت' : 'تحلیل، برنامه‌ریزی، آزمون و رفع اشکال هوشمند',
+                peer_name: isMentor
+                  ? (isEn ? 'AI Mentorship Assistant' : 'دستیار مشاوره‌ای هوش مصنوعی (AI)')
+                  : (isEn ? 'AI Academic Assistant' : 'دستیار هوشمند تحصیلی (AI)'),
+                subtitle: isMentor
+                  ? (isEn ? 'Consultation strategies, pacing & progress diagnostics' : 'راهبردهای مشاوره‌ای، بودجه‌بندی و تحلیل پیشرفت')
+                  : (isEn ? 'Diagnostics, planning, tests & smart troubleshooting' : 'تحلیل، برنامه‌ریزی، آزمون و رفع اشکال هوشمند'),
               })
               setError('')
             }}
@@ -185,26 +202,30 @@ export default function ChatPage({ navigate, preselectStudent = null }) {
             <div className="chat-conv-body">
               <div className="between" style={{ gap: 6, marginBottom: 2 }}>
                 <b className="chat-conv-name" style={{ color: 'var(--primary)' }}>
-                  {isMentor ? 'دستیار مشاور (AI)' : 'دستیار هوشمند (AI)'}
+                  {isMentor ? (isEn ? 'AI Mentor Assistant' : 'دستیار مشاور (AI)') : (isEn ? 'AI Smart Assistant' : 'دستیار هوشمند (AI)')}
                 </b>
-                <span className="badge" style={{ fontSize: 10, background: 'var(--grad)', color: '#fff', padding: '1px 6px' }}>📌 پین شده</span>
+                <span className="badge" style={{ fontSize: 10, background: 'var(--grad)', color: '#fff', padding: '1px 6px' }}>
+                  {isEn ? '📌 PINNED' : '📌 پین شده'}
+                </span>
               </div>
               <div className="small muted chat-conv-preview" style={{ fontSize: 11.5 }}>
-                {isMentor ? 'راهبردهای مشاوره‌ای و بودجه‌بندی...' : 'آماده پاسخ به سوالات، ایجاد آزمون و تحلیل...'}
+                {isMentor
+                  ? (isEn ? 'Pacing strategies, motivation and diagnostics...' : 'راهبردهای مشاوره‌ای و بودجه‌بندی...')
+                  : (isEn ? 'Ready for queries, exam generator and review...' : 'آماده پاسخ به سوالات، ایجاد آزمون و تحلیل...')}
               </div>
             </div>
           </div>
 
           <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', margin: '8px 6px 4px 6px' }}>
-            {isMentor ? 'دانش‌آموزان شما' : 'گفتگو با مشاور'}
+            {isMentor ? (isEn ? 'YOUR STUDENTS' : 'دانش‌آموزان شما') : (isEn ? 'MENTOR CHAT' : 'گفتگو با مشاور')}
           </div>
 
-          {!convs && <div className="empty">در حال بارگذاری گفتگوها...</div>}
+          {!convs && <div className="empty">{isEn ? 'Loading conversations...' : 'در حال بارگذاری گفتگوها...'}</div>}
           {convs && sorted.length === 0 && !noMentorStudent && (
             <div className="empty small muted">{t('chatNoConversations')}</div>
           )}
           {convs && noMentorStudent && (
-            <div className="empty small muted">هنوز به مشاور متصل نشده‌اید</div>
+            <div className="empty small muted">{isEn ? 'Not connected to a mentor yet' : 'هنوز به مشاور متصل نشده‌اید'}</div>
           )}
 
           {sorted.map((c) => {
@@ -244,13 +265,17 @@ export default function ChatPage({ navigate, preselectStudent = null }) {
                 <div className="avatar" style={{ background: 'var(--grad)', fontSize: 20 }}>🤖</div>
                 <div>
                   <b style={{ fontSize: 16, display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span>{isMentor ? 'دستیار تخصصی مشاوره‌ای هوش مصنوعی' : 'دستیار هوشمند تحصیلی هوش مصنوعی'}</span>
+                    <span>
+                      {isMentor
+                        ? (isEn ? 'Specialized AI Mentorship Assistant' : 'دستیار تخصصی مشاوره‌ای هوش مصنوعی')
+                        : (isEn ? 'AI Smart Academic Assistant' : 'دستیار هوشمند تحصیلی هوش مصنوعی')}
+                    </span>
                     <span className="badge" style={{ fontSize: 10, background: 'var(--tint-fill)', color: 'var(--primary)' }}>GPT-4o</span>
                   </b>
                   <div className="small muted">
                     {isMentor
-                      ? 'راهنمای بودجه‌بندی، تحلیل روند دانش‌آموزان و ارائه راهکارهای مشاوره‌ای'
-                      : 'تحلیل سوابق، ساخت آزمون، مشاوره درسی و رفع اشکال ۲۴ ساعته'}
+                      ? (isEn ? 'Budgeting guide, student trends, and personalized advisory methods' : 'راهنمای بودجه‌بندی، تحلیل روند دانش‌آموزان و ارائه راهکارهای مشاوره‌ای')
+                      : (isEn ? '24/7 background diagnostics, exam maker, and smart tutoring' : 'تحلیل سوابق، ساخت آزمون، مشاوره درسی و رفع اشکال ۲۴ ساعته')}
                   </div>
                 </div>
               </div>
@@ -301,7 +326,11 @@ export default function ChatPage({ navigate, preselectStudent = null }) {
                 value={aiInput}
                 onChange={(e) => setAiInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && sendAiMessage()}
-                placeholder={isMentor ? 'از هوش مصنوعی بپرسید (مثلا: راهکار افزایش تمرکز در دروس محاسباتی)...' : 'از هوش مصنوعی بپرسید (مثلا: چطور زیست را ۱۰۰ بزنم؟)...'}
+                placeholder={
+                  isMentor
+                    ? (isEn ? 'Ask AI assistant (e.g. methods to improve calculation focus)...' : 'از هوش مصنوعی بپرسید (مثلا: راهکار افزایش تمرکز در دروس محاسباتی)...')
+                    : (isEn ? 'Ask AI assistant (e.g. how to score 100% in biology?)...' : 'از هوش مصنوعی بپرسید (مثلا: چطور زیست را ۱۰۰ بزنم؟)...')
+                }
               />
               <button
                 className="btn"
@@ -309,7 +338,7 @@ export default function ChatPage({ navigate, preselectStudent = null }) {
                 onClick={() => sendAiMessage()}
                 disabled={aiTyping || !aiInput.trim()}
               >
-                {aiTyping ? 'در حال ارسال...' : 'ارسال'}
+                {aiTyping ? (isEn ? 'Sending...' : 'در حال ارسال...') : (isEn ? 'Send' : 'ارسال')}
               </button>
             </div>
           </div>

@@ -8,7 +8,8 @@ import { useLang } from '../i18n.jsx'
  * without the /test /exam /plan command chips.
  */
 export default function ChatPanel({ studentId, mentorId }) {
-  const { t } = useLang()
+  const { t, lang } = useLang()
+  const isEn = lang === 'en'
   const [msgs, setMsgs] = useState([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(true)
@@ -124,7 +125,7 @@ export default function ChatPanel({ studentId, mentorId }) {
                 m.audio_path ? (
                   <audio controls src={m.audio_path} />
                 ) : (
-                  <span>🎤 پیام صوتی</span>
+                  <span>🎤 {isEn ? 'Voice message' : 'پیام صوتی'}</span>
                 )
               ) : (
                 m.text

@@ -110,20 +110,20 @@ export default function SlideBar({ role, route, navigate }) {
           alignItems: 'center',
           justifyContent: expanded ? 'flex-start' : 'center',
           gap: 10,
-          padding: expanded ? '14px 16px' : '12px 0',
+          padding: expanded ? '16px 16px 12px' : '14px 0 12px',
           cursor: 'pointer',
-          borderBottom: '1px solid var(--line)',
+          borderBottom: 'none',
           transition: 'all .2s ease',
         }}
       >
-        <Logo size={expanded ? 30 : 26} />
+        <Logo size={expanded ? 34 : 38} />
         {expanded && (
           <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            <span style={{ fontWeight: 900, fontSize: 14, color: 'var(--ink)', whiteSpace: 'nowrap' }}>
+            <span style={{ fontWeight: 900, fontSize: 14.5, color: 'var(--ink)', whiteSpace: 'nowrap' }}>
               {t('appName')}
             </span>
-            <span style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 700, whiteSpace: 'nowrap' }}>
-              {role === 'mentor' ? 'پنل مشاور تخصصی' : role === 'admin' ? 'پنل مدیریت سیستم' : 'سامانه هوشمند کنکور'}
+            <span style={{ fontSize: 10.5, color: 'var(--muted)', fontWeight: 700, whiteSpace: 'nowrap' }}>
+              {role === 'mentor' ? (lang === 'fa' ? 'پنل مشاور تخصصی' : 'Mentor Panel') : role === 'admin' ? (lang === 'fa' ? 'پنل مدیریت سیستم' : 'Admin Panel') : (lang === 'fa' ? 'سامانه هوشمند کنکور' : 'Smart Konkur System')}
             </span>
           </div>
         )}
