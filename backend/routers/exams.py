@@ -90,10 +90,16 @@ def start_exam(data: ExamStartRequest, user: User = Depends(get_current_user),
     attempt = build_attempt(db, user, data.kind, data.count, data.difficulty, data.model)
     qs = db.query(ExamQuestion).filter(ExamQuestion.attempt_id == attempt.id)\
            .order_by(ExamQuestion.order).all()
+    now_utc = datetime.utcnow()
+    elapsed = (now_utc - attempt.started_at).total_seconds() if attempt.started_at else 0
+    time_limit = attempt.time_limit_seconds or (attempt.total_questions * 90) or 600
+    rem_sec = max(30, int(time_limit - elapsed))
     return {
         "exam_id": attempt.id,
         "kind": attempt.kind,
-        "time_limit_seconds": attempt.time_limit_seconds,
+        "time_limit_seconds": time_limit,
+        "remaining_seconds": rem_sec,
+        "started_at": (attempt.started_at.isoformat() + "Z") if attempt.started_at else None,
         "total_questions": attempt.total_questions,
         "difficulty": attempt.difficulty,
         "model": attempt.question_model,
@@ -113,12 +119,17 @@ def get_exam(exam_id: int, user: User = Depends(get_current_user),
 
     qs = db.query(ExamQuestion).filter(ExamQuestion.attempt_id == attempt.id)\
            .order_by(ExamQuestion.order).all()
+    now_utc = datetime.utcnow()
+    elapsed = (now_utc - attempt.started_at).total_seconds() if attempt.started_at else 0
+    time_limit = attempt.time_limit_seconds or (attempt.total_questions * 90) or 600
+    rem_sec = max(0, int(time_limit - elapsed))
     return {
         "exam_id": attempt.id,
         "kind": attempt.kind,
         "status": attempt.status,
-        "time_limit_seconds": attempt.time_limit_seconds,
-        "started_at": attempt.started_at.isoformat() if attempt.started_at else None,
+        "time_limit_seconds": time_limit,
+        "remaining_seconds": rem_sec,
+        "started_at": (attempt.started_at.isoformat() + "Z") if attempt.started_at else None,
         "total_questions": attempt.total_questions,
         "questions": [_public_question(eq.question) for eq in qs],
     }
