@@ -29,6 +29,8 @@ class ManualSubjectIn(BaseModel):
     class_average: Optional[float] = Field(default=None, ge=0, le=100)
     class_avg: Optional[float] = Field(default=None, ge=0, le=100)
     rank: Optional[int] = Field(default=None, ge=1)
+    coefficient: Optional[float] = Field(default=None, ge=1, le=25)
+    unit: Optional[float] = Field(default=None, ge=1, le=25)
 
 
 class ReportCardManualIn(BaseModel):
@@ -70,15 +72,40 @@ async def upload_report_card(
 
     ai_result = ai.analyze_report_card(filename, source=source or provider)
 
-    subjects_list = ai_result.get("subjects", [])
-    overall_score = ai_result.get("overall_score", 17.5)
+    profile = db.query(StudentProfile).filter(StudentProfile.user_id == user.id).first()
+    field = profile.field_of_study if profile else "علوم تجربی"
+    def_coeffs = ai.get_field_coefficients(field)
+    saved_coeffs = profile.subject_coefficients if (profile and profile.subject_coefficients) else {}
+
+    raw_subjects = ai_result.get("subjects", [])
+    subjects_list = []
+    for s in raw_subjects:
+        s_name = s.get("subject", "")
+        coeff = saved_coeffs.get(s_name) or def_coeffs.get(s_name) or s.get("coefficient") or 1.0
+        subjects_list.append({
+            "subject": s_name,
+            "score": s.get("score") or round((s.get("percentage", 70) / 100) * 20, 1),
+            "percentage": s.get("percentage", 70.0),
+            "traz": s.get("traz") or 6000,
+            "class_average": s.get("class_avg") or s.get("class_average") or 45.0,
+            "rank": s.get("rank") or 100,
+            "coefficient": coeff,
+            "unit": coeff,
+        })
+
+    sum_weights = sum(s.get("coefficient", 1.0) for s in subjects_list) or 1.0
+    overall_score = round(sum(s["score"] for s in subjects_list) / max(1, len(subjects_list)), 2)
+    weighted_score = round(sum(s["score"] * s.get("coefficient", 1.0) for s in subjects_list) / sum_weights, 2)
     calc_traz = total_traz or ai_result.get("overall_traz", 6500)
+    weighted_traz = round(sum(s["traz"] * s.get("coefficient", 1.0) for s in subjects_list) / sum_weights)
 
     parsed_data = {
         "title": title,
         "provider": provider or source,
         "exam_date": exam_date or datetime.now().strftime("%Y-%m-%d"),
         "total_traz": calc_traz,
+        "weighted_traz": weighted_traz,
+        "weighted_score": weighted_score,
         "overall_rank": overall_rank or 120,
         "subjects": subjects_list,
     }
@@ -115,18 +142,17 @@ async def upload_report_card(
     db.add(card)
     db.flush()
 
-    profile = db.query(StudentProfile).filter(StudentProfile.user_id == user.id).first()
     if profile:
         profile.ai_dossier = {"analytical_dossier": ai_result.get("ai_dossier", "")}
         current_scores = [
-            {"subject": s["subject"], "score": s.get("score") or round((s.get("percentage", 70) / 100) * 20, 1)}
+            {"subject": s["subject"], "score": s["score"]}
             for s in subjects_list
         ]
         if current_scores:
             profile.subject_scores = current_scores
 
         for s in subjects_list:
-            sc = s.get("score") or round((s.get("percentage", 70) / 100) * 20, 1)
+            sc = s["score"]
             db.add(Grade(
                 student_id=user.id,
                 subject=s["subject"],
@@ -145,6 +171,8 @@ async def upload_report_card(
         "source": card.source,
         "exam_date": card.exam_date,
         "total_traz": card.total_traz,
+        "weighted_traz": weighted_traz,
+        "weighted_score": weighted_score,
         "overall_rank": card.overall_rank,
         "file_path": card.file_path,
         "parsed_data": card.parsed_data,
@@ -166,6 +194,8 @@ def list_report_cards(user: User = Depends(get_current_user), db: Session = Depe
         "source": c.source,
         "exam_date": c.exam_date,
         "total_traz": c.total_traz or c.overall_traz,
+        "weighted_traz": (c.parsed_data or {}).get("weighted_traz") or c.total_traz or c.overall_traz,
+        "weighted_score": (c.parsed_data or {}).get("weighted_score") or c.overall_score,
         "overall_rank": c.overall_rank,
         "file_path": c.file_path,
         "parsed_data": c.parsed_data or {"subjects": c.summary_metrics},
@@ -184,6 +214,11 @@ def submit_manual_report_card(
     if user.role != "student":
         raise HTTPException(status_code=403, detail="Student access required")
 
+    profile = db.query(StudentProfile).filter(StudentProfile.user_id == user.id).first()
+    field = profile.field_of_study if profile else "علوم تجربی"
+    def_coeffs = ai.get_field_coefficients(field)
+    user_coeffs = dict(profile.subject_coefficients) if (profile and profile.subject_coefficients) else {}
+
     subjects_list = []
     for s in data.subjects:
         pct = s.percentage
@@ -198,6 +233,9 @@ def submit_manual_report_card(
         elif sc is None:
             sc = 12.0
 
+        coeff = s.coefficient or s.unit or user_coeffs.get(s.subject) or def_coeffs.get(s.subject) or 1.0
+        user_coeffs[s.subject] = coeff
+
         cavg = s.class_average if s.class_average is not None else s.class_avg
         subjects_list.append({
             "subject": s.subject,
@@ -206,11 +244,16 @@ def submit_manual_report_card(
             "traz": s.traz or 6000,
             "class_average": cavg or 40.0,
             "rank": s.rank or 100,
+            "coefficient": coeff,
+            "unit": coeff,
         })
 
+    sum_weights = sum(s.get("coefficient", 1.0) for s in subjects_list) or 1.0
     overall_score = round(sum(s["score"] for s in subjects_list) / max(1, len(subjects_list)), 2)
+    weighted_score = round(sum(s["score"] * s.get("coefficient", 1.0) for s in subjects_list) / sum_weights, 2)
     traz_vals = [s["traz"] for s in subjects_list if s.get("traz")]
     overall_traz = data.total_traz or (round(sum(traz_vals) / len(traz_vals)) if traz_vals else 6500)
+    weighted_traz = round(sum(s["traz"] * s.get("coefficient", 1.0) for s in subjects_list) / sum_weights)
 
     ai_result = ai.analyze_report_card(json.dumps(subjects_list, ensure_ascii=False), source=data.provider or data.source)
 
@@ -219,6 +262,8 @@ def submit_manual_report_card(
         "provider": data.provider or data.source,
         "exam_date": data.exam_date or datetime.now().strftime("%Y-%m-%d"),
         "total_traz": overall_traz,
+        "weighted_traz": weighted_traz,
+        "weighted_score": weighted_score,
         "overall_rank": data.overall_rank or 100,
         "subjects": subjects_list,
     }
@@ -229,8 +274,8 @@ def submit_manual_report_card(
         "weaknesses": ai_result.get("weaknesses", ["فیزیک", "ریاضی"]),
         "focus_subjects": ai_result.get("focus_subjects", ["فیزیک", "شیمی"]),
         "recommendations": ai_result.get("recommendations", [
-            "افزایش ساعات تست‌زنی در دروس محاسباتی",
-            "مرور و خلاصه نویسی فرمول‌های فیزیک",
+            "افزایش ساعات تست‌زنی در دروس محاسباتی با ضریب بالا",
+            "مرور و خلاصه نویسی فرمول‌های فیزیک و شیمی",
         ]),
     }
 
@@ -254,8 +299,8 @@ def submit_manual_report_card(
     db.add(card)
     db.flush()
 
-    profile = db.query(StudentProfile).filter(StudentProfile.user_id == user.id).first()
     if profile:
+        profile.subject_coefficients = user_coeffs
         profile.ai_dossier = {"analytical_dossier": ai_result.get("ai_dossier", "")}
         profile.subject_scores = [{"subject": s["subject"], "score": s["score"]} for s in subjects_list]
         for s in subjects_list:
@@ -277,7 +322,10 @@ def submit_manual_report_card(
         "source": card.source,
         "exam_date": card.exam_date,
         "total_traz": card.total_traz,
+        "weighted_traz": weighted_traz,
+        "weighted_score": weighted_score,
         "overall_rank": card.overall_rank,
+        "file_path": card.file_path,
         "parsed_data": card.parsed_data,
         "ai_insights": card.ai_insights,
         "subjects": card.summary_metrics,
@@ -352,12 +400,11 @@ def export_comprehensive_pdf(
 
     story = []
 
-    story.append(Paragraph("STUDENT ACADEMIC & PERFORMANCE DOSSIER", title_style))
+    story.append(Paragraph("SYNAPSE ACADEMIC & PERFORMANCE DOSSIER", title_style))
     story.append(Spacer(1, 4))
     story.append(Paragraph(f"Generated on {datetime.now().strftime('%Y-%m-%d')} | Platform AI Telemetry", subtitle_style))
     story.append(Spacer(1, 16))
 
-    # Student Bio Table
     mentor_name = (db.query(User).filter(User.id == profile.mentor_id).first().full_name
                    if profile and profile.mentor_id else "AI Mentor Engine")
     student_data = [

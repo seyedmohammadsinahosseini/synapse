@@ -158,6 +158,21 @@ export default function AdminDashboard({ section = 'stats', navigate }) {
     }
   }
 
+  const syncCurriculumQuestions = async () => {
+    setImportMsg('')
+    setError('')
+    try {
+      const res = await api('/api/admin/curriculum/sync-to-bank', { method: 'POST' })
+      if (res.ok) {
+        setImportMsg(`✅ ${res.message}`)
+        load('questions')
+        load('stats')
+      }
+    } catch (e) {
+      setError(e.message)
+    }
+  }
+
   // Curriculum Sources Actions
   const createCurriculumSource = async (form) => {
     setError('')
@@ -428,6 +443,9 @@ export default function AdminDashboard({ section = 'stats', navigate }) {
                     onChange={() => doImport('excel')} />
                   <button className="btn ghost sm" onClick={() => jsonRef.current?.click()}>📥 {t('importJson')}</button>
                   <button className="btn ghost sm" onClick={() => xlsxRef.current?.click()}>📊 {t('importExcel')}</button>
+                  <button className="btn sm" style={{ background: '#059669', color: '#fff' }} onClick={syncCurriculumQuestions}>
+                    🔄 {lang === 'fa' ? 'بروزرسانی از سرفصل‌ها' : 'Sync from Curriculum'}
+                  </button>
                   <button className="btn sm" onClick={() => setQModal('new')}>{t('newQuestion')}</button>
                 </>
               )}

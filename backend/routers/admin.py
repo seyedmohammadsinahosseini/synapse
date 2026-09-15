@@ -617,3 +617,133 @@ def generate_questions_from_source(source_id: int,
         ]
     }
 
+
+@router.post("/curriculum/sync-to-bank")
+def sync_all_curriculum_questions_to_bank(user = Depends(_admin), db: Session = Depends(get_db)):
+    """Extracts all embedded pre-analyzed textbook questions from curriculum knowledge units and inserts non-duplicate items into Question Bank."""
+    sources = db.query(CurriculumSource).all()
+    added_count = 0
+    skipped_count = 0
+
+    for src in sources:
+        c_json = src.content_json or {}
+        q_list = c_json.get("questions") or c_json.get("generated_questions") or c_json.get("mcq_bank") or []
+        for item in q_list:
+            q_text = (item.get("question_text") or item.get("text") or "").strip()
+            if not q_text:
+                continue
+
+            existing = db.query(Question).filter(Question.text == q_text).first()
+            if existing:
+                skipped_count += 1
+                continue
+
+            options = item.get("options") or []
+            if len(options) < 2:
+                continue
+
+            correct_ans = str(item.get("correct_answer") or item.get("correct_option") or item.get("answer") or "1")
+            explanation = item.get("explanation") or f"مرجع کتاب درسی: {src.title} - سرفصل {src.chapter_name}"
+            diff = item.get("difficulty") or 3
+            if isinstance(diff, str):
+                diff = {"easy": 1, "medium": 3, "hard": 4, "very_hard": 5}.get(diff, 3)
+
+            q = Question(
+                subject=src.subject,
+                type="mcq",
+                difficulty=int(diff),
+                text=q_text,
+                options=options,
+                answer=correct_ans,
+                explanation=explanation,
+                created_by=user.id,
+            )
+            db.add(q)
+            added_count += 1
+
+    db.commit()
+    total_bank = db.query(Question).count()
+    return {
+        "ok": True,
+        "added_count": added_count,
+        "skipped_duplicates": skipped_count,
+        "total_questions": total_bank,
+        "message": f"تعداد {added_count} سؤال جدید از سرفصل‌ها به بانک سؤالات اضافه شد ({skipped_count} مورد تکراری نادیده گرفته شد)."
+    }
+
+
+class BatchImportCurriculumIn(BaseModel):
+    batch_json: str
+
+
+@router.post("/curriculum/import-batch-json")
+def import_curriculum_batch_json(data: BatchImportCurriculumIn, user = Depends(_admin), db: Session = Depends(get_db)):
+    """Imports structured curriculum JSON batches containing chapter analysis and questions."""
+    try:
+        payload = json.loads(data.batch_json)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid JSON format: {str(e)}")
+
+    units = payload if isinstance(payload, list) else payload.get("curriculum_units", [payload])
+    imported_sources = 0
+    imported_questions = 0
+
+    for u in units:
+        title = u.get("title") or u.get("book_title") or "سرفصل تحلیلی کتاب درسی"
+        grade = u.get("grade_level") or "دوازدهم"
+        field = u.get("field_of_study") or "علوم تجربی"
+        subject = u.get("subject") or "زیست‌شناسی"
+        chapter = u.get("chapter_name") or u.get("chapter") or ""
+        summary = u.get("summary_text") or u.get("core_concepts") or ""
+
+        src = CurriculumSource(
+            title=title,
+            grade_level=grade,
+            field_of_study=field,
+            subject=subject,
+            chapter_name=chapter,
+            summary_text=summary if isinstance(summary, str) else json.dumps(summary, ensure_ascii=False),
+            content_json=u,
+            created_by=user.id,
+        )
+        db.add(src)
+        imported_sources += 1
+
+        # Also ingest questions if included
+        q_list = u.get("questions") or u.get("generated_questions") or []
+        for q_item in q_list:
+            q_text = (q_item.get("question_text") or q_item.get("text") or "").strip()
+            if not q_text:
+                continue
+            existing = db.query(Question).filter(Question.text == q_text).first()
+            if existing:
+                continue
+            options = q_item.get("options") or []
+            if len(options) < 2:
+                continue
+            correct_ans = str(q_item.get("correct_answer") or q_item.get("correct_option") or "1")
+            expl = q_item.get("explanation") or f"مرجع: {title} - {chapter}"
+            diff = q_item.get("difficulty") or 3
+            if isinstance(diff, str):
+                diff = {"easy": 1, "medium": 3, "hard": 4, "very_hard": 5}.get(diff, 3)
+            q = Question(
+                subject=subject,
+                type="mcq",
+                difficulty=int(diff),
+                text=q_text,
+                options=options,
+                answer=correct_ans,
+                explanation=expl,
+                created_by=user.id,
+            )
+            db.add(q)
+            imported_questions += 1
+
+    db.commit()
+    return {
+        "ok": True,
+        "imported_sources": imported_sources,
+        "imported_questions": imported_questions,
+        "total_questions": db.query(Question).count(),
+    }
+

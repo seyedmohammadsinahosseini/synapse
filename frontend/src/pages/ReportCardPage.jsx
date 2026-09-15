@@ -21,10 +21,10 @@ export default function ReportCardPage({ navigate }) {
   const [overallRank, setOverallRank] = useState(120)
   const [file, setFile] = useState(null)
   const [manualRows, setManualRows] = useState([
-    { subject: 'زیست‌شناسی', percentage: 72, traz: 6800, class_average: 45 },
-    { subject: 'شیمی', percentage: 65, traz: 6400, class_average: 40 },
-    { subject: 'فیزیک', percentage: 55, traz: 5900, class_average: 35 },
-    { subject: 'ریاضی', percentage: 60, traz: 6200, class_average: 38 },
+    { subject: 'زیست‌شناسی', percentage: 72, traz: 6800, class_average: 45, coefficient: 12 },
+    { subject: 'شیمی', percentage: 65, traz: 6400, class_average: 40, coefficient: 9 },
+    { subject: 'فیزیک', percentage: 55, traz: 5900, class_average: 35, coefficient: 7 },
+    { subject: 'ریاضی', percentage: 60, traz: 6200, class_average: 38, coefficient: 7 },
   ])
   const [uploadMode, setUploadMode] = useState('file') // 'file' | 'manual'
   const [submitting, setSubmitting] = useState(false)
@@ -51,7 +51,7 @@ export default function ReportCardPage({ navigate }) {
   }
 
   const addManualRow = () => {
-    setManualRows((prev) => [...prev, { subject: '', percentage: 50, traz: 6000, class_average: 40 }])
+    setManualRows((prev) => [...prev, { subject: '', percentage: 50, traz: 6000, class_average: 40, coefficient: 7 }])
   }
 
   const removeManualRow = (idx) => {
@@ -225,6 +225,9 @@ export default function ReportCardPage({ navigate }) {
                       {selectedCard.total_traz && (
                         <span>{isEn ? 'Total Traz:' : 'تراز کل:'} <b style={{ color: 'var(--primary)' }}>{fa(selectedCard.total_traz)}</b></span>
                       )}
+                      {selectedCard.parsed_data?.weighted_traz && (
+                        <span>{isEn ? 'Weighted Traz:' : 'تراز وزنی (با ضرایب):'} <b style={{ color: '#10b981' }}>{fa(selectedCard.parsed_data.weighted_traz)}</b></span>
+                      )}
                       {selectedCard.overall_rank && (
                         <span>{isEn ? 'Rank:' : 'رتبه آزمون:'} <b>{fa(selectedCard.overall_rank)}</b></span>
                       )}
@@ -310,6 +313,7 @@ export default function ReportCardPage({ navigate }) {
                       <thead>
                         <tr>
                           <th>{isEn ? 'Subject' : 'نام درس'}</th>
+                          <th>{isEn ? 'Coeff' : 'ضریب'}</th>
                           <th>{isEn ? 'Percentage' : 'درصد'}</th>
                           <th>{isEn ? 'Traz' : 'تراز'}</th>
                           <th>{isEn ? 'Class Avg' : 'میانگین'}</th>
@@ -320,10 +324,12 @@ export default function ReportCardPage({ navigate }) {
                         {subjects.map((s, idx) => {
                           const pct = s.percentage ?? s.score ?? 0
                           const avg = s.class_average ?? 35
+                          const coeff = s.coefficient || s.unit || 1
                           const isHigh = pct >= avg
                           return (
                             <tr key={idx}>
                               <td><b>{tSubject(s.subject, lang)}</b></td>
+                              <td><span className="badge" style={{ fontSize: 11 }}>{fa(coeff)}</span></td>
                               <td>{fa(pct)}٪</td>
                               <td><b style={{ color: 'var(--primary)' }}>{fa(s.traz || '—')}</b></td>
                               <td>{fa(avg)}٪</td>
@@ -553,6 +559,15 @@ export default function ReportCardPage({ navigate }) {
                         value={row.subject}
                         onChange={(e) => handleManualRowChange(idx, 'subject', e.target.value)}
                         style={{ flex: 1.5 }}
+                      />
+                      <input
+                        className="input"
+                        type="number"
+                        placeholder={isEn ? 'Coeff' : 'ضریب'}
+                        title={isEn ? 'Course Coefficient' : 'ضریب و واحد درس'}
+                        value={row.coefficient}
+                        onChange={(e) => handleManualRowChange(idx, 'coefficient', parseFloat(e.target.value) || 1)}
+                        style={{ width: 62 }}
                       />
                       <input
                         className="input"

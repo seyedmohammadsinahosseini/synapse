@@ -41,6 +41,7 @@ class StudentProfile(Base):
     goal_type = Column(String(40), nullable=False)        # better_average | specific_subjects | konkur
     goal_subjects = Column(JSON, default=list)            # Targeted subjects
     subject_scores = Column(JSON, default=list)           # [{subject, score}]
+    subject_coefficients = Column(JSON, default=dict)     # {"زیست‌شناسی": 12, "شیمی": 9, ...}
     mentor_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     mentor_connection_status = Column(String(20), default="none") # none | pending | approved | rejected
     pending_mentor_id = Column(Integer, ForeignKey("users.id"), nullable=True)

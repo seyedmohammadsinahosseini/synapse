@@ -27,6 +27,8 @@ def _migrate(db):
             conn.exec_driver_sql("ALTER TABLE student_profiles DROP COLUMN overall_avg")
         if "ai_dossier" not in pcols:
             conn.exec_driver_sql("ALTER TABLE student_profiles ADD COLUMN ai_dossier TEXT DEFAULT ''")
+        if "subject_coefficients" not in pcols:
+            conn.exec_driver_sql("ALTER TABLE student_profiles ADD COLUMN subject_coefficients JSON DEFAULT '{}'")
         if "mentor_connection_status" not in pcols:
             conn.exec_driver_sql("ALTER TABLE student_profiles ADD COLUMN mentor_connection_status VARCHAR(20) DEFAULT 'none'")
         if "pending_mentor_id" not in pcols:
