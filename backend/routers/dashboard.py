@@ -1,4 +1,5 @@
 """Student dashboard router: academic summaries, exam history, study plans, and notifications."""
+import re
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -18,31 +19,37 @@ class MentorCodeIn(BaseModel):
 @router.post("/connect-mentor")
 def connect_mentor(data: MentorCodeIn, user: User = Depends(get_current_user),
                    db: Session = Depends(get_db)):
-    """Bind student profile to a mentor using invite code."""
+    """Sends a student connection request to a mentor using invite code."""
     profile = db.query(StudentProfile).filter(StudentProfile.user_id == user.id).first()
     if not profile:
         raise HTTPException(status_code=403, detail="Student account required")
 
     code = (data.code or "").strip().upper()
-    if not code:
-        raise HTTPException(status_code=400, detail="Please enter a valid mentor code")
+    if not re.match(r"^MNT\d{4}$", code):
+        raise HTTPException(status_code=400, detail="کد مشاور باید با فرمت MNT و ۴ رقم باشد (مانند MNT1001)")
 
     mentor = db.query(User).filter(
         User.role == "mentor", User.code == code, User.is_active == True,
     ).first()
     if not mentor:
-        raise HTTPException(status_code=400, detail="Invalid mentor code")
+        raise HTTPException(status_code=400, detail="کد مشاور نامعتبر است یا مشاور غیرفعال می‌باشد")
 
-    if profile.mentor_id != mentor.id:
-        profile.mentor_id = mentor.id
-        db.add(Notification(
-            user_id=mentor.id,
-            text=f"Student '{user.full_name}' connected to your roster via mentor code.",
-            link=f"/mentor/student/{user.id}",
-        ))
-        db.commit()
+    profile.pending_mentor_id = mentor.id
+    profile.mentor_connection_status = "pending"
+    db.add(Notification(
+        user_id=mentor.id,
+        text=f"درخواست اتصال دانش‌آموز «{user.full_name}» دریافت شد و در انتظار تایید شماست.",
+        link=f"/mentor/students",
+    ))
+    db.commit()
 
-    return {"mentor_name": mentor.full_name, "mentor_code": mentor.code}
+    return {
+        "ok": True,
+        "status": "pending",
+        "mentor_name": mentor.full_name,
+        "mentor_code": mentor.code,
+        "message": f"درخواست اتصال به مشاور «{mentor.full_name}» با موفقیت ارسال شد و پس از تایید مشاور فعال خواهد شد.",
+    }
 
 
 @router.get("/")
@@ -52,6 +59,7 @@ def dashboard(user: User = Depends(get_current_user), db: Session = Depends(get_
         return {"role": user.role}
 
     mentor = db.query(User).filter(User.id == profile.mentor_id).first() if profile.mentor_id else None
+    pending_mentor = db.query(User).filter(User.id == profile.pending_mentor_id).first() if profile.pending_mentor_id else None
     grades = db.query(Grade).filter(Grade.student_id == user.id).order_by(Grade.created_at).all()
     attempts = db.query(ExamAttempt).filter(ExamAttempt.student_id == user.id)\
                  .order_by(ExamAttempt.started_at.desc()).limit(20).all()
@@ -80,6 +88,8 @@ def dashboard(user: User = Depends(get_current_user), db: Session = Depends(get_
             "goal_subjects": profile.goal_subjects or [],
             "mentor_name": mentor.full_name if mentor else None,
             "mentor_code": mentor.code if mentor else None,
+            "mentor_connection_status": profile.mentor_connection_status or ("approved" if mentor else "none"),
+            "pending_mentor_name": pending_mentor.full_name if pending_mentor else None,
         },
         "analysis": profile.analysis or {},
         "reported_subjects": reported,

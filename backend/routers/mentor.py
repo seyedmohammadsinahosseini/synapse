@@ -12,7 +12,7 @@ from sqlalchemy.orm.attributes import flag_modified
 from ..ai_service import ai
 from ..database import get_db
 from ..models import (ConsultationSession, ConsultSlot, DailyCapacityAlert,
-                      ExamAttempt, Grade, PlanProgress, ReportCard,
+                      ExamAttempt, Grade, Notification, PlanProgress, ReportCard,
                       StudentProfile, StudyPlan, SupervisionEntry,
                       User, VideoSuggestion)
 from ..routers.plan import (SUPERVISION_PARTS, iran_weekday,
@@ -59,6 +59,7 @@ def my_students(user: User = Depends(get_current_user), db: Session = Depends(ge
             "field_of_study": p.field_of_study,
             "grade_level": p.grade_level,
             "goal_type": p.goal_type,
+            "last_year_avg": p.last_year_avg,
             "goal_label": p.analysis.get("goal_label") if p.analysis else None,
             "exam_avg": avg,
             "exam_count": len(attempts),
@@ -70,6 +71,75 @@ def my_students(user: User = Depends(get_current_user), db: Session = Depends(ge
             "plan_color": comp["color"],
         })
     return out
+
+
+@router.get("/students/pending-requests")
+def pending_student_requests(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Lists students who submitted the mentor's code and are waiting for mentor confirmation."""
+    _mentor_guard(user)
+    pending_profiles = db.query(StudentProfile).filter(
+        StudentProfile.pending_mentor_id == user.id,
+        StudentProfile.mentor_connection_status == "pending",
+    ).all()
+
+    requests = []
+    for p in pending_profiles:
+        stu = db.query(User).filter(User.id == p.user_id).first()
+        if not stu:
+            continue
+        requests.append({
+            "student_id": stu.id,
+            "full_name": stu.full_name,
+            "email": stu.email,
+            "phone": stu.phone,
+            "grade_level": p.grade_level,
+            "field_of_study": p.field_of_study,
+            "goal_type": p.goal_type,
+            "last_year_avg": p.last_year_avg,
+            "created_at": stu.created_at.isoformat() if stu.created_at else None,
+        })
+    return {"ok": True, "requests": requests}
+
+
+@router.post("/students/{student_id}/approve")
+def approve_student_request(student_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Mentor accepts student into their supervised roster."""
+    _mentor_guard(user)
+    profile = db.query(StudentProfile).filter(StudentProfile.user_id == student_id).first()
+    if not profile or profile.pending_mentor_id != user.id:
+        raise HTTPException(status_code=404, detail="درخواست اتصال برای این دانش‌آموز یافت نشد")
+
+    profile.mentor_id = user.id
+    profile.pending_mentor_id = None
+    profile.mentor_connection_status = "approved"
+
+    db.add(Notification(
+        user_id=student_id,
+        text=f"درخواست اتصال شما توسط مشاور {user.full_name} تایید شد. اکنون برنامه و جلسات شما فعال است.",
+        link="/dashboard",
+    ))
+    db.commit()
+    return {"ok": True, "message": "دانش‌آموز با موفقیت تایید و به لیست شما اضافه شد"}
+
+
+@router.post("/students/{student_id}/reject")
+def reject_student_request(student_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Mentor rejects student connection request."""
+    _mentor_guard(user)
+    profile = db.query(StudentProfile).filter(StudentProfile.user_id == student_id).first()
+    if not profile or profile.pending_mentor_id != user.id:
+        raise HTTPException(status_code=404, detail="درخواست اتصال برای این دانش‌آموز یافت نشد")
+
+    profile.pending_mentor_id = None
+    profile.mentor_connection_status = "rejected"
+
+    db.add(Notification(
+        user_id=student_id,
+        text=f"درخواست اتصال به مشاور {user.full_name} تایید نشد.",
+        link="/dashboard",
+    ))
+    db.commit()
+    return {"ok": True, "message": "درخواست اتصال دانش‌آموز رد شد"}
 
 
 @router.get("/students/{student_id}")
@@ -906,10 +976,15 @@ def export_student_excel(student_id: int, user: User = Depends(get_current_user)
     for row_idx, t in enumerate(tasks, start=2):
         ws4.row_dimensions[row_idx].height = 22
         status_label = "انجام شده" if t.status == "done" else ("انجام نشده" if t.status == "missed" else "در انتظار")
+        if 0 <= t.part < len(SUPERVISION_PARTS):
+            sp = SUPERVISION_PARTS[t.part]
+            part_name = f"پارت {t.part + 1} ({sp['from']} - {sp['to']})"
+        else:
+            part_name = f"پارت {t.part + 1}"
         row_vals = [
             row_idx - 1,
             t.date_str,
-            SUPERVISION_PARTS.get(t.part, f"پارت {t.part + 1}"),
+            part_name,
             t.text or "---",
             status_label,
             t.updated_at.strftime("%Y-%m-%d %H:%M") if t.updated_at else "---",

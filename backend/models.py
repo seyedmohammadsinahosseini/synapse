@@ -42,12 +42,15 @@ class StudentProfile(Base):
     goal_subjects = Column(JSON, default=list)            # Targeted subjects
     subject_scores = Column(JSON, default=list)           # [{subject, score}]
     mentor_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    mentor_connection_status = Column(String(20), default="none") # none | pending | approved | rejected
+    pending_mentor_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     analysis = Column(JSON, nullable=True)                # AI diagnostic payload
     ai_dossier = Column(JSON, default=dict)               # Long-term comprehensive AI student dossier
 
     user = relationship("User", back_populates="profile",
                         foreign_keys=[user_id])
     mentor = relationship("User", foreign_keys=[mentor_id])
+    pending_mentor = relationship("User", foreign_keys=[pending_mentor_id])
 
 
 class Grade(Base):

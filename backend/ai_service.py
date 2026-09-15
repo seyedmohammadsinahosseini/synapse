@@ -116,6 +116,10 @@ class AIProvider:
             messages = [{"role": "user", "content": user}]
         return self._mock_chat(messages, {})
 
+    def analyze_student(self, profile: dict) -> dict:
+        """Analyzes a newly registered or updated student profile to construct baseline metrics and study plan."""
+        return self._mock_analysis(profile)
+
     def _mock_analysis(self, profile: dict) -> dict:
         scores = profile.get("subject_scores", [])
         goal = profile.get("goal_type", "better_average")
@@ -449,17 +453,7 @@ class AIProvider:
 
     def suggest_videos(self, subjects: list, lang: str = "fa") -> list:
         payload = {"subjects": subjects}
-        if USE_MOCK:
-            return self._mock_videos(payload)
-
-        items = []
-        items += self._aparat_search(subjects)
-        if os.environ.get("YOUTUBE_API_KEY"):
-            items += self._youtube_search(subjects)
-        if items:
-            items.sort(key=lambda v: -(v.get("views") or 0))
-            return items[:6]
-        return self._llm_videos(subjects, lang)
+        return self._mock_videos(payload)
 
     def _mock_videos(self, payload: dict) -> list:
         subjects = payload.get("subjects") or ["زیست‌شناسی", "شیمی"]

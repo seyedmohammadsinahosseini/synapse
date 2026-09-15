@@ -1,4 +1,5 @@
 """Authentication endpoints: registration, login, profile, and password management."""
+import re
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -37,11 +38,13 @@ def register_student(data: StudentRegisterRequest, db: Session = Depends(get_db)
     mentor = None
     code = (data.mentor_code or "").strip().upper()
     if code:
+        if not re.match(r"^MNT\d{4}$", code):
+            raise HTTPException(status_code=400, detail="کد مشاور باید با فرمت MNT و ۴ رقم باشد (مانند MNT1001)")
         mentor = db.query(User).filter(
             User.role == "mentor", User.code == code, User.is_active == True,
         ).first()
         if not mentor:
-            raise HTTPException(status_code=400, detail="Invalid mentor code")
+            raise HTTPException(status_code=400, detail="کد مشاور یافت نشد یا غیرفعال است")
 
     user = User(
         role="student",
@@ -67,7 +70,9 @@ def register_student(data: StudentRegisterRequest, db: Session = Depends(get_db)
         goal_type=goal_type,
         goal_subjects=goal_subjects,
         subject_scores=subject_scores,
-        mentor_id=mentor.id if mentor else None,
+        mentor_id=None,
+        pending_mentor_id=mentor.id if mentor else None,
+        mentor_connection_status="pending" if mentor else "none",
     )
     db.add(profile)
 

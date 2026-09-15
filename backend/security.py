@@ -58,9 +58,9 @@ class RateLimiter:
 
 
 # Preconfigured rate limiters
-login_limiter = RateLimiter(max_requests=10, window_seconds=60)
-register_limiter = RateLimiter(max_requests=5, window_seconds=60)
-ai_chat_limiter = RateLimiter(max_requests=30, window_seconds=60)
+login_limiter = RateLimiter(max_requests=30, window_seconds=60)
+register_limiter = RateLimiter(max_requests=30, window_seconds=60)
+ai_chat_limiter = RateLimiter(max_requests=60, window_seconds=60)
 
 
 def get_client_ip(request: Request) -> str:
