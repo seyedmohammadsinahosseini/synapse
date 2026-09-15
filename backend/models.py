@@ -149,9 +149,29 @@ class SupportTicket(Base):
     id = Column(Integer, primary_key=True)
     student_id = Column(Integer, ForeignKey("users.id"), index=True)
     category = Column(String(30), default="support")   # support | bug | feedback
+    subject = Column(String(160), default="")
     content = Column(Text, nullable=False)
+    status = Column(String(20), default="open")        # open | in_progress | resolved
     is_read = Column(Boolean, default=False)
     created_at = Column(DateTime, default=now)
+
+    student = relationship("User", foreign_keys=[student_id])
+    messages = relationship("TicketMessage", back_populates="ticket",
+                            cascade="all, delete-orphan", order_by="TicketMessage.id.asc()")
+
+
+class TicketMessage(Base):
+    """Message thread within a feedback/support ticket."""
+    __tablename__ = "ticket_messages"
+    id = Column(Integer, primary_key=True)
+    ticket_id = Column(Integer, ForeignKey("support_tickets.id"), index=True)
+    sender_id = Column(Integer, ForeignKey("users.id"))
+    sender_role = Column(String(20), default="student") # student | mentor | admin
+    text = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=now)
+
+    ticket = relationship("SupportTicket", back_populates="messages")
+    sender = relationship("User", foreign_keys=[sender_id])
 
 
 class StudyPlan(Base):
@@ -268,3 +288,44 @@ class SupervisionEntry(Base):
         UniqueConstraint("student_id", "date_str", "part",
                          name="uq_supervision_entry"),
     )
+
+
+class ConsultationSession(Base):
+    """Detailed consultation session with audio, AI behavioral/academic insights, and advisor directives."""
+    __tablename__ = "consultation_sessions"
+    id = Column(Integer, primary_key=True)
+    mentor_id = Column(Integer, ForeignKey("users.id"), index=True, nullable=False)
+    student_id = Column(Integer, ForeignKey("users.id"), index=True, nullable=False)
+    slot_id = Column(Integer, ForeignKey("consult_slots.id"), nullable=True)
+    session_date = Column(String(30), nullable=False)      # e.g. ۱۴۰۵/۰۶/۲۴ or 2026-09-15
+    duration_minutes = Column(Integer, default=30)
+    consultation_type = Column(String(30), default="تلفنی") # تلفنی | حضوری | آنلاین
+    student_evaluation = Column(String(40), default="عالی") # عالی | خوب | متوسط | نیازمند انگیزه | بحرانی
+    discussion_topics = Column(Text, default="")
+    advisor_recommendations = Column(Text, default="")
+    next_session_date = Column(String(40), default="")
+    audio_path = Column(String(255), nullable=True)
+    ai_diagnostic_notes = Column(Text, default="")
+    created_at = Column(DateTime, default=now)
+
+    mentor = relationship("User", foreign_keys=[mentor_id])
+    student = relationship("User", foreign_keys=[student_id])
+    slot = relationship("ConsultSlot", foreign_keys=[slot_id])
+
+
+class CurriculumSource(Base):
+    """Textbook curriculum knowledge units for AI analysis and question bank generation."""
+    __tablename__ = "curriculum_sources"
+    id = Column(Integer, primary_key=True)
+    title = Column(String(160), nullable=False)
+    grade_level = Column(String(40), nullable=False)      # دهم | یازدهم | دوازدهم
+    field_of_study = Column(String(80), nullable=False)   # علوم تجربی | ریاضی و فیزیک | علوم انسانی
+    subject = Column(String(80), nullable=False)
+    chapter_name = Column(String(160), default="")
+    content_json = Column(JSON, default=dict)             # JSON structured concepts, lessons, topics
+    summary_text = Column(Text, default="")
+    file_path = Column(String(255), nullable=True)
+    status = Column(String(30), default="processed")      # pending | processed
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime, default=now)
+
