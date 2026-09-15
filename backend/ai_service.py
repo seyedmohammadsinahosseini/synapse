@@ -17,8 +17,9 @@ load_dotenv(dotenv_path=env_path)
 
 AI_PROVIDER_KEY = os.environ.get("AI_API_KEY", "")
 AI_API_BASE_URL = os.environ.get("AI_API_BASE_URL", "https://integrate.api.nvidia.com/v1")
-AI_MODEL = os.environ.get("AI_MODEL", "openai/gpt-oss-120b")
+AI_MODEL = os.environ.get("AI_MODEL", "openai/gpt-oss-20b")
 USE_MOCK = os.environ.get("AI_USE_MOCK", "0") == "1" or not AI_PROVIDER_KEY
+AI_TIMEOUT = int(os.environ.get("AI_TIMEOUT_SECONDS", "120"))
 
 PERSIAN_DIGITS = "۰۱۲۳۴۵۶۷۸۹"
 FA_LATIN = str.maketrans("0123456789", PERSIAN_DIGITS)
@@ -54,31 +55,10 @@ MODEL_LABELS = {
 
 
 class AIProvider:
-    """Unified AI service adapter supporting OpenAI-compatible APIs, circuit-breaker fallback, and deterministic intelligence."""
-
-    def __init__(self):
-        self._circuit_breaker_until = 0
-        self._failure_count = 0
-
-    def _is_circuit_open(self) -> bool:
-        import time
-        return time.time() < self._circuit_breaker_until
-
-    def _record_success(self):
-        self._failure_count = 0
-        self._circuit_breaker_until = 0
-
-    def _record_failure(self, error: Exception):
-        import time
-        self._failure_count += 1
-        # If 2 consecutive failures or HTTP 410/404, open circuit for 60 seconds
-        err_str = str(error)
-        if self._failure_count >= 2 or "410" in err_str or "404" in err_str:
-            self._circuit_breaker_until = time.time() + 60
-        print(f"[ai] Provider call failed ({error}); falling back to offline intelligence.")
+    """Unified AI service adapter supporting OpenAI-compatible APIs, deep diagnostics, and offline fallback."""
 
     def _call_llm(self, system: str, user: str, json_mode: bool = False) -> str:
-        if USE_MOCK or self._is_circuit_open() or not AI_PROVIDER_KEY:
+        if USE_MOCK or not AI_PROVIDER_KEY:
             return self._mock_reply(system, user)
 
         try:
@@ -102,16 +82,15 @@ class AIProvider:
                     "Authorization": f"Bearer {AI_PROVIDER_KEY}",
                 },
             )
-            with urllib.request.urlopen(req, timeout=4) as resp:
+            with urllib.request.urlopen(req, timeout=AI_TIMEOUT) as resp:
                 body = json.loads(resp.read().decode("utf-8"))
                 message = body["choices"][0]["message"]
                 content = message.get("content")
                 if not content:
                     content = message.get("reasoning_content", "")
-                self._record_success()
                 return (content or "").strip()
         except Exception as e:
-            self._record_failure(e)
+            print(f"[ai] Provider call failed ({e}); falling back to offline diagnostic engine.")
             return self._mock_reply(system, user)
 
     def _mock_reply(self, system: str, user: str) -> str:
@@ -507,23 +486,23 @@ class AIProvider:
         return out
 
     def chat(self, messages: list, student_context: dict) -> str:
-        """Interactive educational AI chat with online LLM and rich offline fallback."""
+        """Interactive educational AI chat with online LLM and connection status reporting."""
         lang = (student_context or {}).get("lang", "fa")
         if lang == "en":
             system = (
-                "You are an expert Iranian academic mentor and educational assistant. "
+                "You are Synapse AI, an expert academic mentor and educational assistant. "
                 "Provide helpful, friendly, encouraging, and precise advice. Student details: "
                 + json.dumps(student_context, ensure_ascii=False)
             )
         else:
             system = (
-                "تو مشاور و دستیار هوشمند آموزشی هستی که به دانش‌آموز یا مشاور کمک می‌کنی. "
+                "تو هوش مصنوعی سیناپس (Synapse) و مشاور تحصیلی هوشمند هستی که به دانش‌آموز یا مشاور کمک می‌کنی. "
                 "پاسخ‌هایت باید گرم، دلگرم‌کننده، علمی، کاربردی و به زبان فارسی روان باشد. مشخصات دانش‌آموز: "
                 + json.dumps(student_context, ensure_ascii=False)
             )
 
-        # Attempt online LLM call if not mock
-        if not USE_MOCK and not self._is_circuit_open() and AI_PROVIDER_KEY:
+        # Attempt online LLM call if not explicit mock
+        if not USE_MOCK and AI_PROVIDER_KEY:
             try:
                 llm_msgs = [{"role": "system", "content": system}]
                 for m in messages:
@@ -534,7 +513,7 @@ class AIProvider:
                     "model": AI_MODEL,
                     "messages": llm_msgs,
                     "temperature": 0.4,
-                    "max_tokens": 1500,
+                    "max_tokens": 2048,
                 }
                 req = urllib.request.Request(
                     f"{AI_API_BASE_URL}/chat/completions",
@@ -544,17 +523,24 @@ class AIProvider:
                         "Authorization": f"Bearer {AI_PROVIDER_KEY}",
                     },
                 )
-                with urllib.request.urlopen(req, timeout=4) as resp:
+                with urllib.request.urlopen(req, timeout=AI_TIMEOUT) as resp:
                     body = json.loads(resp.read().decode("utf-8"))
                     msg = body["choices"][0]["message"]
                     content = msg.get("content") or msg.get("reasoning_content")
                     if content and str(content).strip():
-                        self._record_success()
                         return str(content).strip()
             except Exception as e:
-                self._record_failure(e)
+                print(f"[ai] Chat provider call failed ({e}). Returning connection status notice.")
+                if lang == "en":
+                    return "⚠️ Unable to connect to the AI service or the request timed out. Please check your network connection, API key, or server settings."
+                return "⚠️ متأسفانه ارتباط با سرور هوش مصنوعی برقرار نشد یا زمان پاسخگویی به پایان رسید. لطفاً وضعیت اتصال اینترنت، کلید API یا تنظیمات سرور را بررسی کنید."
 
-        return self._mock_chat(messages, student_context)
+        if USE_MOCK:
+            return self._mock_chat(messages, student_context)
+
+        if lang == "en":
+            return "⚠️ AI service is currently unavailable. Please verify API configuration in your environment."
+        return "⚠️ سرویس هوش مصنوعی در دسترس نیست. لطفاً تنظیمات کلید و سرور API را در فایل تنظیمات بررسی کنید."
 
     def _mock_chat(self, messages: list, student_context: dict) -> str:
         """Generates natural, highly empathetic and actionable educational responses for students/mentors."""
