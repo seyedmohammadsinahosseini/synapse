@@ -359,15 +359,19 @@ def assign_plan(student_id: int, data: MentorPlanIn,
 
             topic_val = (t.get("topic") or t.get("custom_title") or t.get("focus") or "").strip()
             notes_val = (t.get("notes") or t.get("description") or "").strip()
+            prio_val = t.get("priority") or "medium"
+            if prio_val not in ("high", "medium", "low", "none"):
+                prio_val = "medium"
 
             sessions.append({
-                "id": t.get("id") or f"sess_{i}_{j}_{int(datetime.utcnow().timestamp())}",
+                "id": t.get("id") or f"sess_{i}_{j}_{int(datetime.now().timestamp())}",
                 "subject": subj,
                 "topic": topic_val,
                 "duration_minutes": dur,
                 "study_method": study_method,
                 "question_count": q_cnt,
                 "notes": notes_val,
+                "priority": prio_val,
             })
         weekly.append({"day": label, "sessions": sessions})
 

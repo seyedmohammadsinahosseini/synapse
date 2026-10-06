@@ -1,43 +1,37 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api, fa, getLang } from '../api.js'
-import { useLang, tDay, tSubject } from '../i18n.jsx'
+import { useLang } from '../i18n.jsx'
 import { Card, Empty } from '../ui.jsx'
-import TickTickCalendar from '../components/TickTickCalendar.jsx'
+import StudyCalendarMatrix from '../components/StudyCalendarMatrix.jsx'
 import PomodoroTimer from '../components/PomodoroTimer.jsx'
-
-const METHOD_LABELS = {
-  test: { label_fa: 'تست‌زنی', label_en: 'Testing / MCQ', icon: '🎯', color: '#6366f1', bg: 'rgba(99, 102, 241, 0.16)' },
-  essay: { label_fa: 'تشریحی', label_en: 'Essay', icon: '✍️', color: '#0ea5e9', bg: 'rgba(14, 165, 233, 0.16)' },
-  study: { label_fa: 'مطالعه مفهومی', label_en: 'Concept Study', icon: '📖', color: '#10b981', bg: 'rgba(16, 185, 129, 0.16)' },
-  review: { label_fa: 'مرور و جمع‌بندی', label_en: 'Review', icon: '🔄', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.16)' },
-}
 
 export default function PlanPage({ navigate }) {
   const { t, lang } = useLang()
   const isEn = getLang() === 'en'
 
-  const [viewMode, setViewMode] = useState('ticktick') // 'ticktick' | 'weekly_table'
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
-  const [selectedTask, setSelectedTask] = useState(null)
+  const [weekOffset, setWeekOffset] = useState(0)
+
+  // Capacity alert modal state
   const [alertModalOpen, setAlertModalOpen] = useState(false)
   const [targetDateStr, setTargetDateStr] = useState('')
   const [alertHours, setAlertHours] = useState(4.0)
   const [alertReason, setAlertReason] = useState('')
   const [savingAlert, setSavingAlert] = useState(false)
-  const [weekOffset, setWeekOffset] = useState(0)
 
-  // Pomodoro focus modal
+  // Pomodoro focus modal state
   const [pomoModalOpen, setPomoModalOpen] = useState(false)
   const [pomoSubject, setPomoSubject] = useState('زیست‌شناسی')
+  const [pomoDuration, setPomoDuration] = useState(90)
 
   const getWeekDates = (offset = 0) => {
     const today = new Date()
     const dayOfWeek = today.getDay()
     const diffToSat = (dayOfWeek + 1) % 7
     const sat = new Date(today)
-    sat.setDate(today.getDate() - diffToSat + (offset * 7))
+    sat.setDate(today.getDate() - diffToSat + offset * 7)
 
     const dates = []
     for (let i = 0; i < 7; i++) {
@@ -48,11 +42,16 @@ export default function PlanPage({ navigate }) {
     return dates
   }
 
-  const load = useCallback((offset = weekOffset) => {
-    const dates = getWeekDates(offset)
-    const satStr = dates[0]
-    api(`/api/plan?week_start=${satStr}`).then(setData).catch((e) => setError(e.message))
-  }, [weekOffset]) // eslint-disable-line react-hooks/exhaustive-deps
+  const load = useCallback(
+    (offset = weekOffset) => {
+      const dates = getWeekDates(offset)
+      const satStr = dates[0]
+      api(`/api/plan?week_start=${satStr}`)
+        .then(setData)
+        .catch((e) => setError(e.message))
+    },
+    [weekOffset]
+  )
 
   useEffect(() => {
     load(weekOffset)
@@ -65,7 +64,7 @@ export default function PlanPage({ navigate }) {
     try {
       await api('/api/plan/task', {
         method: 'POST',
-        body: { day_index: dayIndex, task_index: task.index, status: next, date_str: dateStr },
+        body: { day_index: dayIndex, task_index: task.index ?? 0, status: next, date_str: dateStr },
       })
       load(weekOffset)
     } catch (e) {
@@ -110,6 +109,7 @@ export default function PlanPage({ navigate }) {
     try {
       await api(`/api/plan/capacity-alert/${dateStr}`, { method: 'DELETE' })
       load(weekOffset)
+      setAlertModalOpen(false)
     } catch (e) {
       setError(e.message)
     } finally {
@@ -122,23 +122,14 @@ export default function PlanPage({ navigate }) {
     try {
       const d = new Date(iso + 'T00:00:00')
       return isEn ? d.toLocaleDateString('en-GB') : d.toLocaleDateString('fa-IR')
-    } catch { return iso }
-  }
-
-  const formatCompletedAt = (iso) => {
-    if (!iso) return null
-    try {
-      const d = new Date(iso)
-      return d.toLocaleTimeString(isEn ? 'en-GB' : 'fa-IR', { hour: '2-digit', minute: '2-digit' })
     } catch {
-      return null
+      return iso
     }
   }
 
   if (error) return <div className="empty">⚠️ {error}</div>
-  if (!data) return <div className="empty">…</div>
+  if (!data) return <div className="empty">{t('loadingDash') || '…'}</div>
 
-  const today = data.days?.find((d) => d.is_today) || null
   const week = data.week || {}
   const sourceIsMentor = data.source === 'mentor'
   const color = week.color === 'ok' ? '#22c55e' : week.color === 'mid' ? '#eab308' : week.color === 'low' ? '#ef4444' : '#94a3b8'
@@ -149,20 +140,23 @@ export default function PlanPage({ navigate }) {
 
   return (
     <div className="plan-calendar-page">
-      {/* Hero Card */}
+      {/* Hero Header */}
       <div className="hero plan-hero" style={{ borderRadius: 20, boxShadow: 'var(--shadow)', marginBottom: 20 }}>
         <div className="flex wrap between items-center">
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
               <h2 style={{ margin: 0, fontSize: 24 }}>{t('planDays')}</h2>
               <span className="badge" style={{ fontSize: 13, padding: '4px 12px', borderRadius: 12 }}>
-                {sourceIsMentor ? `🧑‍🏫 ${t('planSourceMentor')} (${data.mentor_name || 'مشاور'})` : `🤖 ${t('planSourceAi')}`}
+                {sourceIsMentor ? `🧑‍🏫 ${t('planSourceMentor')} (${data.mentor_name || (isEn ? 'Mentor' : 'مشاور')})` : `🤖 ${t('planSourceAi')}`}
               </span>
             </div>
             <p style={{ margin: 0, opacity: 0.9 }}>
-              {t('taskLegend')}
+              {isEn
+                ? 'Follow your daily study routine assigned by your mentor. Click any task to see details and start Pomodoro.'
+                : 'برنامه درسی مصوب مشاور شما؛ روی هر پارت کلیک کنید تا جزئیات و منابع را ببینید و جلسه تمرکز را آغاز کنید.'}
             </p>
           </div>
+
           <div className="week-ring-wrap" style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             {pct != null ? (
               <div style={{ textAlign: 'center' }}>
@@ -170,9 +164,13 @@ export default function PlanPage({ navigate }) {
                   className="week-ring"
                   style={{ background: `conic-gradient(${color} ${pct}%, rgba(255,255,255,.25) 0)` }}
                 >
-                  <div className="week-ring-in"><b>{fa(pct)}٪</b></div>
+                  <div className="week-ring-in">
+                    <b>{fa(pct)}٪</b>
+                  </div>
                 </div>
-                <div className="small" style={{ color: 'rgba(255,255,255,.9)', marginTop: 4 }}>{t('weekProgress')}</div>
+                <div className="small" style={{ color: 'rgba(255,255,255,.9)', marginTop: 4 }}>
+                  {t('weekProgress')}
+                </div>
               </div>
             ) : (
               <div className="small" style={{ color: 'rgba(255,255,255,.9)' }}>
@@ -183,589 +181,58 @@ export default function PlanPage({ navigate }) {
         </div>
       </div>
 
-      {/* ── View Mode Switcher (TickTick Matrix vs Weekly Table) ── */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 18, flexWrap: 'wrap' }}>
-        <button
-          type="button"
-          className="btn"
-          style={{
-            borderRadius: 14,
-            padding: '10px 22px',
-            background: viewMode === 'ticktick' ? 'var(--primary)' : 'var(--card)',
-            color: viewMode === 'ticktick' ? '#fff' : 'var(--ink)',
-            border: viewMode === 'ticktick' ? '1px solid var(--primary)' : '1px solid var(--line)',
-            fontWeight: 800,
-            boxShadow: viewMode === 'ticktick' ? '0 4px 14px rgba(79, 70, 229, 0.25)' : 'none',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-          }}
-          onClick={() => setViewMode('ticktick')}
-        >
-          <span>📅</span>
-          <span>{lang === 'fa' ? 'تقویم ستونی هوشمند و اولویت‌دار (TickTick Matrix)' : 'TickTick Calendar Matrix'}</span>
-        </button>
-
-        <button
-          type="button"
-          className="btn"
-          style={{
-            borderRadius: 14,
-            padding: '10px 22px',
-            background: viewMode === 'weekly_table' ? 'var(--primary)' : 'var(--card)',
-            color: viewMode === 'weekly_table' ? '#fff' : 'var(--ink)',
-            border: viewMode === 'weekly_table' ? '1px solid var(--primary)' : '1px solid var(--line)',
-            fontWeight: 800,
-            boxShadow: viewMode === 'weekly_table' ? '0 4px 14px rgba(79, 70, 229, 0.25)' : 'none',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-          }}
-          onClick={() => setViewMode('weekly_table')}
-        >
-          <span>📋</span>
-          <span>{lang === 'fa' ? 'نمای جدول هفتگی و نظارت مربی' : 'Weekly Table & Supervision'}</span>
-        </button>
-      </div>
-
-      {/* ── TICKTICK MATRIX VIEW ── */}
-      {viewMode === 'ticktick' && (
-        <div style={{ marginBottom: 24 }}>
-          <TickTickCalendar
-            onStartPomodoro={(task) => {
-              setPomoSubject(task.subject || 'زیست‌شناسی')
-              setPomoModalOpen(true)
-            }}
-            externalPlanData={data}
-          />
-        </div>
-      )}
-
-      {/* ── WEEKLY TABLE VIEW ── */}
-      {viewMode === 'weekly_table' && (
-        <div>
-          {/* ── WEEK NAVIGATION CONTROLS (هفته قبل / بعد) ── */}
-          <div
-            className="card"
-            style={{
-              borderRadius: 16,
-              padding: '10px 16px',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: 16,
-              flexWrap: 'wrap',
-              gap: 10,
-            }}
-          >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button
-            className="btn ghost sm"
-            style={{ borderRadius: 10, padding: '6px 14px', fontWeight: 800 }}
-            onClick={() => setWeekOffset((w) => w - 1)}
-          >
-            {t('prevWeekBtn')}
-          </button>
-          <button
-            className="btn ghost sm"
-            style={{ borderRadius: 10, padding: '6px 14px', fontWeight: 800 }}
-            onClick={() => setWeekOffset(0)}
-          >
-            {t('currentWeek')}
-          </button>
-          <button
-            className="btn ghost sm"
-            style={{ borderRadius: 10, padding: '6px 14px', fontWeight: 800 }}
-            onClick={() => setWeekOffset((w) => w + 1)}
-          >
-            {t('nextWeekBtn')}
-          </button>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span className="badge" style={{ background: 'var(--tint-fill)', color: 'var(--primary)', fontSize: 13, padding: '4px 12px' }}>
-            🗓️ {weekRangeStr} {weekOffset !== 0 ? `(${weekOffset > 0 ? `+${weekOffset}` : weekOffset})` : ''}
-          </span>
-        </div>
-      </div>
-
+      {/* Empty Plan notice if not yet set for this week */}
       {!data.plan_exists && (
         <div className="card" style={{ textAlign: 'center', padding: '36px 20px', borderRadius: 18, marginBottom: 20 }}>
           <div style={{ fontSize: 34, marginBottom: 8 }}>🗓️</div>
           <b style={{ fontSize: 16, color: 'var(--ink)', display: 'block', marginBottom: 6 }}>
-            {weekOffset === 0 ? t('noPlanYet') : 'برای این هفته برنامه‌ای ثبت نشده است'}
+            {weekOffset === 0 ? t('noPlanYet') : isEn ? 'No study plan scheduled for this week' : 'برای این هفته برنامه‌ای ثبت نشده است'}
           </b>
           <p className="small muted">
-            {weekOffset > 0 ? 'مشاور هنوز برنامه این هفته را ارسال نکرده است.' : 'می‌توانید به هفته جاری بازگردید یا با مشاور گفتگو کنید.'}
+            {weekOffset > 0
+              ? isEn
+                ? 'Your mentor has not yet published the plan for this week.'
+                : 'مشاور هنوز برنامه این هفته را ارسال نکرده است.'
+              : isEn
+              ? 'You can return to the current week or message your mentor.'
+              : 'می‌توانید به هفته جاری بازگردید یا با مشاور خود گفتگو کنید.'}
           </p>
           {weekOffset !== 0 && (
             <button className="btn sm mt" style={{ borderRadius: 10 }} onClick={() => setWeekOffset(0)}>
-              بازگشت به {t('currentWeek')}
+              {isEn ? 'Return to Current Week' : 'بازگشت به هفته جاری'}
             </button>
           )}
         </div>
       )}
 
-      {data.plan_exists && (
-        <>
-          {/* Today's Focus Action Section (only if today belongs to this viewed week) */}
-          {today && (
-            <div style={{ marginBottom: 24 }}>
-              <div className="section-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span>🎯 {t('todayTasks')} ({tDay(today.label, lang)} · {faDateOnly(today.date_str)})</span>
-                <button
-                  className="btn ghost sm"
-                  style={{ borderRadius: 10, fontSize: 12.5 }}
-                  onClick={() => openCapacityModal(today)}
-                >
-                  {t('declareCapacity')}
-                </button>
-              </div>
+      {/* ── UNIFIED STUDY CALENDAR MATRIX (STUDENT VIEW) ── */}
+      <StudyCalendarMatrix
+        mode="student"
+        days={data.days || []}
+        capacityAlerts={data.capacity_alerts || {}}
+        onTickTask={tick}
+        onDeclareCapacity={openCapacityModal}
+        onStartPomodoro={(task) => {
+          setPomoSubject(task.subject || 'زیست‌شناسی')
+          setPomoDuration(task.durationMinutes || 90)
+          setPomoModalOpen(true)
+        }}
+        weekRangeStr={weekRangeStr}
+        onPrevWeek={() => setWeekOffset((w) => w - 1)}
+        onNextWeek={() => setWeekOffset((w) => w + 1)}
+        onCurrentWeek={() => setWeekOffset(0)}
+        weekOffset={weekOffset}
+      />
 
-              {today.is_over_capacity && (
-                <div
-                  className="day-capacity-alert"
-                  style={{
-                    background: 'rgba(245, 158, 11, 0.16)',
-                    border: '1.5px solid #f59e0b',
-                    borderRadius: 14,
-                    padding: '10px 16px',
-                    color: '#b45309',
-                    marginBottom: 14,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 10,
-                  }}
-                >
-                  <span style={{ fontSize: 20 }}>⚠️</span>
-                  <div>
-                    <b>{t('capacityWarning')}</b> {today.capacity_warning}
-                    {today.capacity_limit?.reason && (
-                      <div className="small" style={{ marginTop: 2 }}>دلیل: {today.capacity_limit.reason}</div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              <Card style={{ borderRadius: 18, padding: 16 }}>
-                {today.tasks.length === 0 ? (
-                  <Empty>{t('noTaskToday')}</Empty>
-                ) : (
-                  <div className="task-list" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    {today.tasks.map((task) => {
-                      const methodCfg = METHOD_LABELS[task.study_method] || METHOD_LABELS.study
-                      const mLabel = isEn ? methodCfg.label_en : methodCfg.label_fa
-                      const doneTime = formatCompletedAt(task.completed_at)
-                      const isDone = task.status === 'done'
-                      return (
-                        <div
-                          key={task.index}
-                          className={`task-row ${task.status ? 'has' : ''}`}
-                          style={{
-                            border: isDone ? '1.5px solid var(--ok)' : '1px solid var(--line)',
-                            borderRadius: 12,
-                            padding: '10px 14px',
-                            background: isDone ? 'rgba(34, 197, 94, 0.10)' : 'var(--card)',
-                            color: 'var(--ink)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            boxShadow: '0 1px 4px rgba(0,0,0,0.02)',
-                            cursor: 'pointer',
-                            flexWrap: 'wrap',
-                            gap: 8,
-                          }}
-                          onClick={() => setSelectedTask(task)}
-                          title={t('topicNotesPlaceholder')}
-                        >
-                          {/* Single Line Info */}
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 200, flexWrap: 'wrap' }}>
-                            <b style={{ fontSize: 15, color: 'var(--ink)' }}>{tSubject(task.subject, lang)}</b>
-                            <span
-                              style={{
-                                background: methodCfg.bg,
-                                color: methodCfg.color,
-                                fontSize: 11.5,
-                                padding: '2px 8px',
-                                borderRadius: 6,
-                                fontWeight: 700,
-                              }}
-                            >
-                              {methodCfg.icon} {mLabel}
-                            </span>
-                            <span className="small muted" style={{ background: 'var(--tint-fill)', padding: '2px 8px', borderRadius: 6 }}>
-                              ⏱️ {fa(task.duration_minutes)} {t('durationMin')}
-                            </span>
-                            {task.question_count && (
-                              <span className="small" style={{ background: 'var(--tint-fill)', color: 'var(--primary)', padding: '2px 8px', borderRadius: 6, fontWeight: 700 }}>
-                                📝 {fa(task.question_count)} {t('questionsCount')}
-                              </span>
-                            )}
-                            {doneTime && (
-                              <span className="small" style={{ color: 'var(--ok)', fontWeight: 700 }}>
-                                ⏰ {doneTime}
-                              </span>
-                            )}
-                          </div>
-
-                          {/* Quick Action Buttons */}
-                          <div className="task-actions" style={{ display: 'flex', gap: 6 }} onClick={(e) => e.stopPropagation()}>
-                            <button
-                              className={`task-btn ok ${task.status === 'done' ? 'on' : ''}`}
-                              title={t('taskDone')}
-                              disabled={busy}
-                              style={{ borderRadius: 8, padding: '4px 10px', fontSize: 12 }}
-                              onClick={() => tick(today.index, task, 'done', today.date_str)}
-                            >
-                              ✓ {t('taskDone')}
-                            </button>
-                            <button
-                              className={`task-btn no ${task.status === 'missed' ? 'on' : ''}`}
-                              title={t('taskMissed')}
-                              disabled={busy}
-                              style={{ borderRadius: 8, padding: '4px 10px', fontSize: 12 }}
-                              onClick={() => tick(today.index, task, 'missed', today.date_str)}
-                            >
-                              ✕ {t('taskMissed')}
-                            </button>
-                            {task.status && (
-                              <button
-                                className="task-btn clear"
-                                disabled={busy}
-                                style={{ borderRadius: 8, padding: '4px 8px', fontSize: 11 }}
-                                onClick={() => tick(today.index, task, '', today.date_str)}
-                              >
-                                {t('clearTask')}
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </Card>
-            </div>
-          )}
-
-          {/* Full 7-Day Week Calendar View */}
-          <div
-            className="calendar-week-grid"
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-              gap: 14,
-              width: '100%',
-            }}
-          >
-            {data.days.map((d) => {
-              const hasAlert = d.is_over_capacity
-              return (
-                <div
-                  key={d.index}
-                  className={`calendar-day-col ${hasAlert ? 'day-capacity-alert' : ''}`}
-                  style={{
-                    background: hasAlert ? 'rgba(234, 179, 8, 0.14)' : 'var(--card)',
-                    border: hasAlert ? '2px solid #f59e0b' : d.is_today ? '2px solid var(--primary)' : '1.5px solid var(--line)',
-                    borderRadius: 18,
-                    padding: 14,
-                    boxShadow: 'var(--shadow)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    transition: 'transform 0.2s, box-shadow 0.2s',
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, paddingBottom: 8, borderBottom: '1px solid var(--line)' }}>
-                    <div>
-                      <b style={{ fontSize: 15, color: 'var(--ink)' }}>{tDay(d.label, lang)}</b>
-                      <span className="small muted" style={{ display: 'block', fontSize: 11 }}>{faDateOnly(d.date_str)}</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      {d.is_today && <span className="badge badge-today" style={{ borderRadius: 8, fontSize: 11 }}>{t('today')}</span>}
-                      <button
-                        className="btn ghost sm"
-                        style={{ padding: '2px 6px', fontSize: 11, borderRadius: 6 }}
-                        onClick={() => openCapacityModal(d)}
-                        title={t('declareCapacity')}
-                      >
-                        ⏱️
-                      </button>
-                    </div>
-                  </div>
-
-                  {hasAlert && (
-                    <div
-                      style={{
-                        background: 'rgba(245, 158, 11, 0.18)',
-                        color: '#b45309',
-                        borderRadius: 8,
-                        padding: '6px 10px',
-                        fontSize: 11,
-                        marginBottom: 10,
-                        fontWeight: 700,
-                        border: '1px solid #f59e0b',
-                      }}
-                    >
-                      ⚠️ {t('capacityWarning')} {fa(Math.round(d.total_minutes / 60 * 10) / 10)} {t('hoursUnit')}
-                    </div>
-                  )}
-
-                  {/* Tasks on SINGLE LINE */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
-                    {d.tasks.length === 0 ? (
-                      <div className="small muted" style={{ textAlign: 'center', padding: '16px 0', fontSize: 12 }}>
-                        {t('noTaskToday')}
-                      </div>
-                    ) : (
-                      d.tasks.map((task) => {
-                        const mCfg = METHOD_LABELS[task.study_method] || METHOD_LABELS.study
-                        const mLabel = isEn ? mCfg.label_en : mCfg.label_fa
-                        const isDone = task.status === 'done'
-                        return (
-                          <div
-                            key={task.index}
-                            className="planner-task-card"
-                            style={{
-                              background: isDone ? 'rgba(34, 197, 94, 0.10)' : 'var(--card)',
-                              border: isDone ? '1.5px solid var(--ok)' : '1px solid var(--line)',
-                              borderRadius: 10,
-                              padding: '8px 10px',
-                              cursor: 'pointer',
-                              boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'space-between',
-                              gap: 6,
-                            }}
-                            onClick={() => setSelectedTask(task)}
-                            title={t('topicNotesPlaceholder')}
-                          >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 0, overflow: 'hidden' }}>
-                              <b style={{ fontSize: 13.5, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                {tSubject(task.subject, lang)}
-                              </b>
-                              <span style={{ fontSize: 10.5, background: mCfg.bg, color: mCfg.color, padding: '2px 6px', borderRadius: 6, fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0 }}>
-                                {mCfg.icon} {mLabel}
-                              </span>
-                              <span className="small muted" style={{ fontSize: 10.5, background: 'var(--tint-fill)', padding: '2px 6px', borderRadius: 6, whiteSpace: 'nowrap', flexShrink: 0 }}>
-                                ⏱️ {fa(task.duration_minutes)} {t('durationMin')}
-                              </span>
-                              {task.question_count && (
-                                <span className="small" style={{ fontSize: 10.5, background: 'var(--tint-fill)', color: 'var(--primary)', padding: '2px 6px', borderRadius: 6, fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0 }}>
-                                  📝 {fa(task.question_count)}
-                                </span>
-                              )}
-                            </div>
-
-                            <div className="flex" style={{ gap: 4 }} onClick={(e) => e.stopPropagation()}>
-                              <button
-                                className={`task-btn ok ${task.status === 'done' ? 'on' : ''}`}
-                                style={{ padding: '2px 6px', fontSize: 11, borderRadius: 6 }}
-                                onClick={() => tick(d.index, task, 'done', d.date_str)}
-                              >
-                                ✓
-                              </button>
-                            </div>
-                          </div>
-                        )
-                      })
-                    )}
-                  </div>
-
-                  <div style={{ marginTop: 10, paddingTop: 8, borderTop: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', fontSize: 11.5 }} className="muted">
-                    <span>{t('totalTime')}</span>
-                    <b>{fa(Math.round(d.total_minutes / 60 * 10) / 10)} {t('hoursUnit')} ({fa(d.total_minutes)} {t('minutesUnit')})</b>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </>
-      )}
-
-      {/* Floating Task Detail Popover / Modal */}
-      {selectedTask && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.5)',
-            display: 'grid',
-            placeItems: 'center',
-            zIndex: 1000,
-            padding: 16,
-            backdropFilter: 'blur(4px)',
-          }}
-          onClick={() => setSelectedTask(null)}
-        >
-          <div
-            style={{
-              background: 'var(--card)',
-              color: 'var(--ink)',
-              border: '1.5px solid var(--line)',
-              borderRadius: 20,
-              padding: 24,
-              maxWidth: 480,
-              width: '100%',
-              boxShadow: 'var(--shadow)',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <h3 style={{ margin: 0, fontSize: 18, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span>📖 {t('planOf')}:</span>
-                <span style={{ color: 'var(--primary)' }}>{tSubject(selectedTask.subject, lang)}</span>
-              </h3>
-              <button className="btn ghost sm" style={{ borderRadius: 8 }} onClick={() => setSelectedTask(null)}>✕</button>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div>
-                <span className="small muted">{t('typeShort')}:</span>
-                <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span className="badge" style={{ fontSize: 13, background: (METHOD_LABELS[selectedTask.study_method] || METHOD_LABELS.study).bg, color: (METHOD_LABELS[selectedTask.study_method] || METHOD_LABELS.study).color }}>
-                    {(METHOD_LABELS[selectedTask.study_method] || METHOD_LABELS.study).icon} {isEn ? (METHOD_LABELS[selectedTask.study_method] || METHOD_LABELS.study).label_en : (METHOD_LABELS[selectedTask.study_method] || METHOD_LABELS.study).label_fa}
-                  </span>
-                  <span className="badge" style={{ fontSize: 13, background: 'var(--tint-fill)', color: 'var(--ink)' }}>⏱️ {fa(selectedTask.duration_minutes)} {t('durationMin')}</span>
-                  {selectedTask.question_count && (
-                    <span className="badge" style={{ fontSize: 13, background: 'var(--tint-fill)', color: 'var(--primary)' }}>
-                      📝 {fa(selectedTask.question_count)} {t('questionsCount')}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <span className="small muted">{t('sessionFocus')}:</span>
-                <div style={{ background: 'var(--tint-hover)', padding: 12, borderRadius: 10, marginTop: 4, border: '1px solid var(--line)', fontSize: 14, minHeight: 60, whiteSpace: 'pre-wrap', color: 'var(--ink)' }}>
-                  {selectedTask.topic || '—'}
-                </div>
-              </div>
-
-              {selectedTask.notes && (
-                <div>
-                  <span className="small muted">نکات و توصیه مشاور:</span>
-                  <div style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#b45309', padding: 12, borderRadius: 10, marginTop: 4, fontSize: 13, border: '1px solid #f59e0b', whiteSpace: 'pre-wrap' }}>
-                    💡 {selectedTask.notes}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div style={{ marginTop: 20, textAlign: 'end' }}>
-              <button className="btn" style={{ borderRadius: 10 }} onClick={() => setSelectedTask(null)}>
-                {t('closeWin')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Capacity Alert Modal */}
-      {alertModalOpen && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.5)',
-            display: 'grid',
-            placeItems: 'center',
-            zIndex: 1000,
-            padding: 16,
-            backdropFilter: 'blur(4px)',
-          }}
-          onClick={() => setAlertModalOpen(false)}
-        >
-          <div
-            style={{
-              background: 'var(--card)',
-              color: 'var(--ink)',
-              border: '1.5px solid var(--line)',
-              borderRadius: 20,
-              padding: 24,
-              maxWidth: 440,
-              width: '100%',
-              boxShadow: 'var(--shadow)',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 style={{ margin: '0 0 12px 0', fontSize: 18 }}>⏱️ {t('declareCapacity')}</h3>
-            <p className="small muted" style={{ marginBottom: 16, lineHeight: 1.5 }}>
-              اگر در این روز با محدودیت زمانی مواجهید، حداکثر ساعت مطالعه مجاز خود را وارد کنید:
-            </p>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <div>
-                <label className="small muted">{t('dayDate')}:</label>
-                <input
-                  type="date"
-                  className="input"
-                  value={targetDateStr}
-                  onChange={(e) => setTargetDateStr(e.target.value)}
-                  style={{ marginTop: 4 }}
-                />
-              </div>
-
-              <div>
-                <label className="small muted">حداکثر ساعت مطالعه:</label>
-                <input
-                  type="number"
-                  step="0.5"
-                  min="0.5"
-                  max="16"
-                  className="input"
-                  value={alertHours}
-                  onChange={(e) => setAlertHours(e.target.value)}
-                  style={{ marginTop: 4 }}
-                />
-              </div>
-
-              <div>
-                <label className="small muted">علت محدودیت (اختیاری):</label>
-                <input
-                  type="text"
-                  className="input"
-                  placeholder="مثال: کلاس کنکور یا آزمون مدرسه"
-                  value={alertReason}
-                  onChange={(e) => setAlertReason(e.target.value)}
-                  style={{ marginTop: 4 }}
-                />
-              </div>
-            </div>
-
-            <div style={{ marginTop: 20, display: 'flex', justifyContent: 'space-between' }}>
-              <button
-                className="btn ghost"
-                style={{ borderRadius: 10, color: 'var(--danger)' }}
-                onClick={() => {
-                  deleteCapacityAlert(targetDateStr)
-                  setAlertModalOpen(false)
-                }}
-              >
-                {t('removeSession')}
-              </button>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button className="btn ghost" style={{ borderRadius: 10 }} onClick={() => setAlertModalOpen(false)}>
-                  {t('supportCancel')}
-                </button>
-                <button className="btn" style={{ borderRadius: 10 }} onClick={saveCapacityAlert} disabled={savingAlert}>
-                  {savingAlert ? '…' : t('save')}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-        </div>
-      )}
-
-      {/* Pomodoro Focus Modal launched from TickTick task */}
+      {/* ═══════════════════════════════════════════════════════════════
+          POMODORO FOCUS MODAL (WITH TEACHER'S EXACT DURATION)
+         ═══════════════════════════════════════════════════════════════ */}
       {pomoModalOpen && (
         <div
           style={{
             position: 'fixed',
             inset: 0,
-            background: 'rgba(15, 23, 42, 0.6)',
+            background: 'rgba(15, 23, 42, 0.7)',
             backdropFilter: 'blur(8px)',
             zIndex: 9999,
             display: 'flex',
@@ -778,30 +245,146 @@ export default function PlanPage({ navigate }) {
           <div
             className="card"
             style={{
-              maxWidth: 520,
+              maxWidth: 540,
               width: '100%',
               borderRadius: 24,
               padding: 24,
-              boxShadow: '0 25px 50px rgba(0,0,0,0.3)',
+              boxShadow: '0 25px 60px rgba(0,0,0,0.35)',
             }}
             onClick={(e) => e.stopPropagation()}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ fontSize: 24 }}>⏱️</span>
-                <b style={{ fontSize: 17 }}>{lang === 'fa' ? 'پارت تمرکز عمیق پومودورو' : 'Deep Work Pomodoro Session'}</b>
+                <div>
+                  <b style={{ fontSize: 17, display: 'block' }}>
+                    {isEn ? 'Deep Work Focus Session' : 'پارت تمرکز عمیق پومودورو'}
+                  </b>
+                  <span className="small muted">
+                    {isEn ? 'Subject:' : 'درس:'} <b>{pomoSubject}</b> ({fa(pomoDuration)} {isEn ? 'minutes' : 'دقیقه مصوب استاد'})
+                  </span>
+                </div>
               </div>
               <button type="button" className="btn ghost sm" onClick={() => setPomoModalOpen(false)}>
                 ✕
               </button>
             </div>
-            <PomodoroTimer initialSubject={pomoSubject} onCompleteSession={() => setPomoModalOpen(false)} />
+
+            <PomodoroTimer
+              initialSubject={pomoSubject}
+              onCompleteSession={() => setPomoModalOpen(false)}
+            />
           </div>
         </div>
       )}
 
-      <div className="mt" style={{ marginTop: 30 }}>
-        <button className="btn ghost" onClick={() => navigate('#/dashboard')}>← {t('backToPlan')}</button>
+      {/* ═══════════════════════════════════════════════════════════════
+          CAPACITY / TIME CONSTRAINT DECLARATION MODAL
+         ═══════════════════════════════════════════════════════════════ */}
+      {alertModalOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.6)',
+            display: 'grid',
+            placeItems: 'center',
+            zIndex: 10000,
+            padding: 16,
+            backdropFilter: 'blur(6px)',
+          }}
+          onClick={() => setAlertModalOpen(false)}
+        >
+          <div
+            style={{
+              background: 'var(--card)',
+              color: 'var(--ink)',
+              border: '1.5px solid var(--line)',
+              borderRadius: 22,
+              padding: 24,
+              maxWidth: 460,
+              width: '100%',
+              boxShadow: '0 25px 50px rgba(0,0,0,0.3)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 style={{ margin: '0 0 8px 0', fontSize: 18 }}>⏱️ {isEn ? 'Declare Study Time Constraint' : 'اعلام محدودیت زمانی مطالعه'}</h3>
+            <p className="small muted" style={{ marginBottom: 16, lineHeight: 1.6 }}>
+              {isEn
+                ? 'If you have an exam or class on this day, specify your maximum available study hours so your mentor can adjust your workload:'
+                : 'اگر در این روز با آزمون، کلاس کنکور یا محدودیت زمانی مواجهید، حداکثر ساعت مطالعه مجاز خود را وارد کنید تا به مشاور هشدار داده شود:'}
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <label className="small muted" style={{ fontWeight: 700, display: 'block', marginBottom: 4 }}>
+                  {isEn ? 'Target Date:' : 'تاریخ مورد نظر:'}
+                </label>
+                <input
+                  type="date"
+                  className="input"
+                  value={targetDateStr}
+                  onChange={(e) => setTargetDateStr(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="small muted" style={{ fontWeight: 700, display: 'block', marginBottom: 4 }}>
+                  {isEn ? 'Max Available Study Hours:' : 'حداکثر ساعت مطالعه مجاز در این روز:'}
+                </label>
+                <input
+                  type="number"
+                  step="0.5"
+                  min="0.5"
+                  max="16"
+                  className="input"
+                  value={alertHours}
+                  onChange={(e) => setAlertHours(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="small muted" style={{ fontWeight: 700, display: 'block', marginBottom: 4 }}>
+                  {isEn ? 'Reason / Explanation (Optional):' : 'علت محدودیت (اختیاری):'}
+                </label>
+                <input
+                  type="text"
+                  className="input"
+                  placeholder={isEn ? 'e.g. Mock exam or school test' : 'مثال: آزمون قلم‌چی، کلاس فوق‌العاده ریاضی'}
+                  value={alertReason}
+                  onChange={(e) => setAlertReason(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div style={{ marginTop: 22, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <button
+                type="button"
+                className="btn ghost sm"
+                style={{ color: 'var(--danger)', borderRadius: 10 }}
+                onClick={() => deleteCapacityAlert(targetDateStr)}
+              >
+                {isEn ? 'Remove Constraint' : 'حذف محدودیت'}
+              </button>
+
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button type="button" className="btn ghost" style={{ borderRadius: 10 }} onClick={() => setAlertModalOpen(false)}>
+                  {isEn ? 'Cancel' : 'انصراف'}
+                </button>
+                <button type="button" className="btn primary" style={{ borderRadius: 10 }} onClick={saveCapacityAlert} disabled={savingAlert}>
+                  {savingAlert ? '…' : isEn ? 'Save Alert' : 'ثبت محدودیت'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Back to dashboard */}
+      <div className="mt" style={{ marginTop: 28 }}>
+        <button type="button" className="btn ghost" onClick={() => navigate('#/dashboard')}>
+          ← {isEn ? 'Back to Dashboard' : 'بازگشت به داشبورد'}
+        </button>
       </div>
     </div>
   )
