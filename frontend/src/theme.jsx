@@ -553,9 +553,7 @@ export function setupCanvasEffects(doc, settings) {
 
     const bg = doc.createElement('div')
     bg.className = particlesAllowed ? 'studio-background' : 'rava-ink-stage'
-    if (!particlesAllowed) {
-      bg.style.cssText = 'position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;'
-    }
+    bg.style.cssText = 'position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden;'
     bg.setAttribute('aria-hidden', 'true')
 
     const wallpaper = doc.querySelector('.skin-wallpaper')
@@ -904,9 +902,11 @@ export function ThemeProvider({ children }) {
         closeStudio: () => setStudioOpen(false),
       }}
     >
-      {/* Background wallpaper layer */}
-      <div className="skin-wallpaper" aria-hidden="true" />
-      {children}
+      {/* Background wallpaper layer strictly behind all UI content */}
+      <div className="skin-wallpaper" aria-hidden="true" style={{ position: 'fixed', inset: 0, zIndex: -1, pointerEvents: 'none' }} />
+      <div className="app-content-root" style={{ position: 'relative', zIndex: 1, minHeight: '100vh' }}>
+        {children}
+      </div>
     </ThemeCtx.Provider>
   )
 }

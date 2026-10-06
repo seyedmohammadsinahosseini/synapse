@@ -580,51 +580,167 @@ export default function MentorSupervise({ studentId, navigate }) {
       </Card>
 
       {/* ── Report Card Detail Modal ── */}
-      {selectedReportCard && (
-        <Modal title={`📊 ${selectedReportCard.title}`} onClose={() => setSelectedReportCard(null)}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', background: 'var(--tint-hover)', padding: 12, borderRadius: 10, border: '1px solid var(--line)' }}>
-              <div><b>صادرکننده:</b> {selectedReportCard.provider}</div>
-              <div><b>تاریخ:</b> {fa(selectedReportCard.exam_date || 'نامشخص')}</div>
-              {selectedReportCard.total_traz && <div><b>تراز:</b> {fa(selectedReportCard.total_traz)}</div>}
-              {selectedReportCard.overall_rank && <div><b>رتبه:</b> {fa(selectedReportCard.overall_rank)}</div>}
-            </div>
+      {selectedReportCard && (() => {
+        const parseJsonSafe = (val) => {
+          if (!val) return {}
+          if (typeof val === 'object') return val
+          try {
+            return JSON.parse(val)
+          } catch {
+            return {}
+          }
+        }
 
-            {selectedReportCard.parsed_data?.subjects?.length > 0 && (
-              <div>
-                <b className="small muted">ریز درصدهای آزمون:</b>
-                <table className="table" style={{ marginTop: 6 }}>
-                  <thead>
-                    <tr><th>درس</th><th>درصد (%)</th><th>تراز</th><th>میانگین</th></tr>
-                  </thead>
-                  <tbody>
-                    {selectedReportCard.parsed_data.subjects.map((sub, idx) => (
-                      <tr key={idx}>
-                        <td><b>{sub.subject}</b></td>
-                        <td>{fa(sub.percentage ?? sub.score)}٪</td>
-                        <td>{fa(sub.traz || '—')}</td>
-                        <td>{fa(sub.class_average || '—')}٪</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+        const rcParsed = parseJsonSafe(selectedReportCard.parsed_data)
+        const rcInsights = parseJsonSafe(selectedReportCard.ai_insights)
+        const rcSubjects =
+          rcParsed.subjects ||
+          selectedReportCard.summary_metrics ||
+          selectedReportCard.reported_subjects ||
+          selectedReportCard.subjects ||
+          []
 
-            {selectedReportCard.ai_insights?.diagnostic_summary && (
-              <div style={{ background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: 10, padding: 12 }}>
-                <b style={{ color: 'var(--ok)', display: 'block', marginBottom: 4 }}>💡 تحلیل و جمع‌بندی هوش مصنوعی:</b>
-                <div className="small" style={{ color: 'var(--ink)', lineHeight: 1.6 }}>
-                  {selectedReportCard.ai_insights.diagnostic_summary}
+        return (
+          <Modal
+            wide
+            title={`📊 ${selectedReportCard.title || 'کارنامه آزمون آزمایشی'}`}
+            onClose={() => setSelectedReportCard(null)}
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {/* Meta Summary Header */}
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: 12,
+                  background: 'var(--tint-fill)',
+                  padding: '14px 18px',
+                  borderRadius: 14,
+                  border: '1px solid var(--line)',
+                }}
+              >
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                    <b style={{ fontSize: 16, color: 'var(--ink)' }}>{selectedReportCard.title}</b>
+                    <span className="badge" style={{ background: 'var(--primary)', color: '#fff', fontSize: 11 }}>
+                      {selectedReportCard.provider || 'خیلی سبز'}
+                    </span>
+                  </div>
+                  <div className="small muted" style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                    <span>📅 تاریخ برگزاری: <b>{fa(selectedReportCard.exam_date || 'نامشخص')}</b></span>
+                    {selectedReportCard.total_traz && (
+                      <span>🎯 تراز کل: <b style={{ color: 'var(--primary)' }}>{fa(selectedReportCard.total_traz)}</b></span>
+                    )}
+                    {rcParsed.weighted_traz && (
+                      <span>⚖️ تراز وزنی: <b style={{ color: '#10b981' }}>{fa(rcParsed.weighted_traz)}</b></span>
+                    )}
+                    {selectedReportCard.overall_rank && (
+                      <span>🏆 رتبه در سهمیه/کشور: <b>{fa(selectedReportCard.overall_rank)}</b></span>
+                    )}
+                  </div>
                 </div>
+
+                <a
+                  href={`/api/report-card/pdf/${selectedReportCard.id}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="btn primary sm"
+                  style={{ borderRadius: 10, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700 }}
+                >
+                  📄 دانلود نسخه PDF رسمی
+                </a>
               </div>
-            )}
-          </div>
-          <div style={{ marginTop: 18, textAlign: 'end' }}>
-            <button className="btn sm" onClick={() => setSelectedReportCard(null)}>بستن</button>
-          </div>
-        </Modal>
-      )}
+
+              {/* Subject Breakdown Table */}
+              {rcSubjects.length > 0 ? (
+                <div>
+                  <b style={{ display: 'block', fontSize: 14, marginBottom: 8, color: 'var(--ink)' }}>
+                    📚 ریز درصدهای دروس در آزمون:
+                  </b>
+                  <div style={{ overflowX: 'auto', border: '1px solid var(--line)', borderRadius: 14 }}>
+                    <table className="table" style={{ width: '100%', margin: 0 }}>
+                      <thead>
+                        <tr>
+                          <th>نام درس</th>
+                          <th>درصد کسب‌شده</th>
+                          <th>تراز درس</th>
+                          <th>میانگین تراز</th>
+                          <th>ضریب کنکور</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rcSubjects.map((sub, idx) => {
+                          const pct = sub.percentage ?? sub.score ?? 0
+                          const pColor = pct >= 70 ? '#22c55e' : pct >= 50 ? '#eab308' : '#ef4444'
+                          return (
+                            <tr key={idx}>
+                              <td><b>{sub.subject}</b></td>
+                              <td>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                  <b style={{ color: pColor }}>{fa(pct)}٪</b>
+                                  <div style={{ flex: 1, maxWidth: 80, height: 6, background: 'var(--line)', borderRadius: 999, overflow: 'hidden' }}>
+                                    <div style={{ width: `${Math.min(100, pct)}%`, height: '100%', background: pColor }} />
+                                  </div>
+                                </div>
+                              </td>
+                              <td>{sub.traz ? fa(sub.traz) : '—'}</td>
+                              <td>{sub.class_average ? `${fa(sub.class_average)}٪` : '—'}</td>
+                              <td>{sub.coefficient ? fa(sub.coefficient) : (sub.unit ? fa(sub.unit) : '—')}</td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ padding: 20, textAlign: 'center', color: 'var(--muted)', background: 'var(--bg)', borderRadius: 14 }}>
+                  اطلاعات ریزدرصدی برای این کارنامه ثبت نشده است.
+                </div>
+              )}
+
+              {/* AI Insights & Diagnostic Summary */}
+              {(rcInsights.diagnostic_summary || rcInsights.strengths || rcInsights.focus_recommendations) && (
+                <div
+                  style={{
+                    background: 'rgba(34, 197, 94, 0.08)',
+                    border: '1px solid rgba(34, 197, 94, 0.3)',
+                    borderRadius: 14,
+                    padding: 16,
+                  }}
+                >
+                  <b style={{ color: '#16a34a', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, fontSize: 14 }}>
+                    💡 تحلیل و جمع‌بندی تشخیصی هوش مصنوعی:
+                  </b>
+                  {rcInsights.diagnostic_summary && (
+                    <p style={{ margin: '0 0 8px 0', fontSize: 13, lineHeight: 1.7, color: 'var(--ink)' }}>
+                      {rcInsights.diagnostic_summary}
+                    </p>
+                  )}
+                  {rcInsights.focus_recommendations && (
+                    <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px dashed rgba(34, 197, 94, 0.3)', fontSize: 12.5, color: 'var(--ink)' }}>
+                      <b>🎯 توصیه راهبردی برای برنامه هفتگی:</b> {rcInsights.focus_recommendations}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
+                <button
+                  type="button"
+                  className="btn ghost sm"
+                  style={{ borderRadius: 10, padding: '7px 20px', fontWeight: 700 }}
+                  onClick={() => setSelectedReportCard(null)}
+                >
+                  بستن پنجره
+                </button>
+              </div>
+            </div>
+          </Modal>
+        )
+      })()}
 
       {/* ── profile editor modal ── */}
       {editProf && form && (

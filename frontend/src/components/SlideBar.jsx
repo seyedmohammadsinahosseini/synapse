@@ -145,8 +145,8 @@ export default function SlideBar({ role, route, navigate }) {
         top: 64,
         bottom: 0,
         [isEn ? 'left' : 'right']: 0,
-        width: 72,
-        background: 'color-mix(in srgb, var(--surface) 65%, transparent)',
+        width: 78,
+        background: 'color-mix(in srgb, var(--surface) 75%, transparent)',
         backdropFilter: 'blur(16px) saturate(180%)',
         WebkitBackdropFilter: 'blur(16px) saturate(180%)',
         borderInlineEnd: '1px solid var(--line)',
@@ -154,7 +154,7 @@ export default function SlideBar({ role, route, navigate }) {
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        padding: '16px 6px',
+        padding: '14px 6px',
         gap: 8,
         transition: 'all 0.25s var(--ease-spring)',
       }}
@@ -166,7 +166,7 @@ export default function SlideBar({ role, route, navigate }) {
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          gap: 6,
+          gap: 7,
           flex: 1,
           overflowY: 'auto',
           overflowX: 'hidden',
@@ -183,20 +183,21 @@ export default function SlideBar({ role, route, navigate }) {
               title={it.label}
               onClick={() => navigate(it.route)}
               style={{
-                width: 58,
-                height: 52,
+                width: 66,
+                minHeight: 58,
                 borderRadius: 14,
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: 3,
+                padding: '6px 4px 5px 4px',
+                gap: 4,
                 background: active ? 'var(--tint-fill)' : 'transparent',
                 color: active ? 'var(--primary)' : 'var(--ink)',
-                border: active ? '1px solid var(--line)' : '1px solid transparent',
+                border: active ? '1.5px solid var(--primary)' : '1px solid transparent',
                 cursor: 'pointer',
                 transition: 'all 0.18s var(--ease-spring)',
-                boxShadow: active ? '0 2px 8px rgba(0,0,0,0.04)' : 'none',
+                boxShadow: active ? '0 2px 10px rgba(0,0,0,0.06)' : 'none',
               }}
             >
               <span
@@ -204,7 +205,7 @@ export default function SlideBar({ role, route, navigate }) {
                   display: 'grid',
                   placeItems: 'center',
                   color: active ? 'var(--primary)' : 'var(--ink)',
-                  opacity: active ? 1 : 0.8,
+                  opacity: active ? 1 : 0.82,
                   transition: 'transform 0.18s var(--ease-spring)',
                 }}
               >
@@ -212,14 +213,16 @@ export default function SlideBar({ role, route, navigate }) {
               </span>
               <span
                 style={{
-                  fontSize: 9.5,
+                  fontSize: 10.5,
                   fontWeight: active ? 800 : 600,
-                  color: active ? 'var(--primary)' : 'var(--muted)',
+                  color: active ? 'var(--primary)' : 'var(--ink)',
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
-                  maxWidth: 54,
-                  lineHeight: 1,
+                  maxWidth: 62,
+                  lineHeight: 1.25,
+                  textAlign: 'center',
+                  letterSpacing: '-0.01em',
                 }}
               >
                 {it.label}

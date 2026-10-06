@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useLang } from '../i18n.jsx'
 import { fa } from '../api.js'
 import { soundEngine } from '../utils/audioSynth.js'
@@ -22,6 +22,78 @@ const STANDARD_SUBJECTS = [
   'عربی', 'زبان انگلیسی', 'دین و زندگی', 'هندسه', 'حسابان', 'زمین‌شناسی'
 ]
 
+const PERSIAN_WEEKDAYS = ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنج‌شنبه', 'جمعه']
+const ENGLISH_WEEKDAYS = ['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
+
+/**
+ * Generates 30 continuous calendar days (1 full month horizon)
+ * Integrates external tasks by matching date_str or day index
+ */
+function build30DayHorizon(incomingDays = [], lang = 'fa') {
+  const isEn = lang === 'en'
+  const today = new Date()
+  const todayIso = today.toISOString().slice(0, 10)
+
+  // Start 5 days before today, span 30 days
+  const startDate = new Date(today)
+  startDate.setDate(today.getDate() - 5)
+
+  // Map of tasks by date_str or day label
+  const taskMap = {}
+  incomingDays.forEach((d, idx) => {
+    if (d.date_str) {
+      taskMap[d.date_str] = d.tasks || []
+    }
+  })
+
+  const generated = []
+  for (let i = 0; i < 30; i++) {
+    const cur = new Date(startDate)
+    cur.setDate(startDate.getDate() + i)
+    const iso = cur.toISOString().slice(0, 10)
+    const isToday = iso === todayIso
+
+    // Weekday in Iranian calendar (0 = Saturday, 6 = Friday)
+    const jsDay = cur.getDay() // 0 = Sunday, 6 = Saturday
+    const irDayIdx = (jsDay + 1) % 7 // Saturday -> 0, Sunday -> 1, ...
+
+    let jalaliDateStr = ''
+    try {
+      jalaliDateStr = new Intl.DateTimeFormat(isEn ? 'en-US' : 'fa-IR', {
+        month: 'short',
+        day: 'numeric',
+      }).format(cur)
+    } catch (_) {
+      jalaliDateStr = iso.slice(5)
+    }
+
+    const weekdayLabel = isEn ? ENGLISH_WEEKDAYS[irDayIdx] : PERSIAN_WEEKDAYS[irDayIdx]
+
+    // Find any tasks already assigned for this date or matching day index
+    let dayTasks = taskMap[iso]
+    if (!dayTasks && incomingDays.length > 0) {
+      const matchedIncoming = incomingDays.find((d) => d.date_str === iso)
+      if (matchedIncoming) dayTasks = matchedIncoming.tasks
+      else if (incomingDays.length === 7 && incomingDays[irDayIdx]?.tasks) {
+        // Fallback matching for 7-day cyclical template
+        dayTasks = incomingDays[irDayIdx].tasks
+      }
+    }
+
+    generated.push({
+      date_str: iso,
+      day_index: i,
+      ir_day_index: irDayIdx,
+      label: weekdayLabel,
+      jalali_str: jalaliDateStr,
+      is_today: isToday,
+      tasks: dayTasks || [],
+    })
+  }
+
+  return generated
+}
+
 export default function StudyCalendarMatrix({
   mode = 'student', // 'student' | 'mentor'
   days = [],
@@ -31,30 +103,30 @@ export default function StudyCalendarMatrix({
   onDeclareCapacity,
   onStartPomodoro,
   weekRangeStr = '',
-  onPrevWeek,
-  onNextWeek,
-  onCurrentWeek,
-  weekOffset = 0,
 }) {
   const { lang } = useLang()
   const isEn = lang === 'en'
   const isMentor = mode === 'mentor'
 
-  // Local state for days and tasks (editable if mentor)
-  const [calendarDays, setCalendarDays] = useState(days)
+  // Build 30 continuous days
+  const initial30Days = useMemo(() => build30DayHorizon(days, lang), [days, lang])
+  const [calendarDays, setCalendarDays] = useState(initial30Days)
+
+  useEffect(() => {
+    setCalendarDays(build30DayHorizon(days, lang))
+  }, [days, lang])
+
   const [filterSubject, setFilterSubject] = useState('all')
   const [filterPriority, setFilterPriority] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [autoSortByPriority, setAutoSortByPriority] = useState(true)
 
   // Drag and Drop (Mentor Only)
-  const [draggedItem, setDraggedItem] = useState(null) // { dayIndex, taskIndex, task }
+  const [draggedItem, setDraggedItem] = useState(null)
   const [dragOverDayIndex, setDragOverDayIndex] = useState(null)
 
   // Modals & Popovers
-  // 1. Task Detail Sheet (for Student or Mentor view)
-  const [viewingTask, setViewingTask] = useState(null) // { task, dayLabel, dayDate }
-  // 2. Task Editor / Creator Modal (Mentor Only)
+  const [viewingTask, setViewingTask] = useState(null) // Task Detail Modal (descriptions revealed on click only)
   const [editorState, setEditorState] = useState({
     isOpen: false,
     dayIndex: 0,
@@ -67,14 +139,59 @@ export default function StudyCalendarMatrix({
     priority: 'medium',
     question_count: 30,
   })
-  const [showPriorityPicker, setShowPriorityPicker] = useState(false)
   const [savingPlan, setSavingPlan] = useState(false)
   const [saveSuccessMsg, setSaveSuccessMsg] = useState('')
 
-  // Sync external days when prop changes
+  // ── Smooth Horizontal Drag-to-Scroll Mechanism ──
+  const matrixScrollRef = useRef(null)
+  const isDraggingRef = useRef(false)
+  const startXRef = useRef(0)
+  const scrollLeftRef = useRef(0)
+  const [isGrabbing, setIsGrabbing] = useState(false)
+
+  const handleMouseDown = (e) => {
+    if (e.target.closest('button, input, select, textarea, .no-drag, [draggable="true"]')) return
+    if (!matrixScrollRef.current) return
+    isDraggingRef.current = true
+    setIsGrabbing(true)
+    startXRef.current = e.pageX - matrixScrollRef.current.offsetLeft
+    scrollLeftRef.current = matrixScrollRef.current.scrollLeft
+  }
+
+  const handleMouseMove = (e) => {
+    if (!isDraggingRef.current || !matrixScrollRef.current) return
+    e.preventDefault()
+    const x = e.pageX - matrixScrollRef.current.offsetLeft
+    const walk = (x - startXRef.current) * 1.5
+    matrixScrollRef.current.scrollLeft = scrollLeftRef.current - walk
+  }
+
+  const handleMouseUpOrLeave = () => {
+    isDraggingRef.current = false
+    setIsGrabbing(false)
+  }
+
+  const scrollToToday = () => {
+    if (!matrixScrollRef.current) return
+    const todayCol = matrixScrollRef.current.querySelector('.is-today-col')
+    if (todayCol) {
+      todayCol.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })
+    }
+  }
+
+  const scrollByOffset = (direction) => {
+    if (!matrixScrollRef.current) return
+    const scrollAmount = (direction === 'left' ? -1 : 1) * 320 * 2
+    matrixScrollRef.current.scrollBy({ left: isEn ? scrollAmount : -scrollAmount, behavior: 'smooth' })
+  }
+
+  // Scroll to today on initial mount
   useEffect(() => {
-    setCalendarDays(days)
-  }, [days])
+    const timer = setTimeout(() => {
+      scrollToToday()
+    }, 200)
+    return () => clearTimeout(timer)
+  }, [])
 
   // Drag and drop handlers (mentor only)
   const handleDragStart = (e, dayIndex, taskIndex, task) => {
@@ -124,7 +241,7 @@ export default function StudyCalendarMatrix({
     setDraggedItem(null)
   }
 
-  // Open Task Creator (Mentor)
+  // Open Task Creator (Mentor Only)
   const handleOpenAddModal = (dayIndex) => {
     setEditorState({
       isOpen: true,
@@ -138,10 +255,9 @@ export default function StudyCalendarMatrix({
       priority: 'medium',
       question_count: 30,
     })
-    setShowPriorityPicker(false)
   }
 
-  // Open Task Editor (Mentor)
+  // Open Task Editor (Mentor Only)
   const handleOpenEditModal = (dayIndex, taskIndex, task) => {
     setEditorState({
       isOpen: true,
@@ -155,10 +271,9 @@ export default function StudyCalendarMatrix({
       priority: task.priority || 'medium',
       question_count: task.question_count || 30,
     })
-    setShowPriorityPicker(false)
   }
 
-  // Save Task (Mentor)
+  // Save Task (Mentor Only)
   const handleSaveEditor = (e) => {
     e.preventDefault()
     if (!editorState.topic.trim()) return
@@ -189,7 +304,7 @@ export default function StudyCalendarMatrix({
     setEditorState((prev) => ({ ...prev, isOpen: false }))
   }
 
-  // Delete Task (Mentor)
+  // Delete Task (Mentor Only)
   const handleDeleteTask = (dayIndex, taskIndex, e) => {
     e.stopPropagation()
     const updated = [...calendarDays]
@@ -199,21 +314,20 @@ export default function StudyCalendarMatrix({
     setCalendarDays(updated)
   }
 
-  // Save Full Plan to Backend (Mentor)
+  // Save Plan (Mentor Only)
   const handlePublishPlan = async () => {
     if (!onSavePlan) return
     setSavingPlan(true)
     setSaveSuccessMsg('')
     try {
       await onSavePlan(calendarDays)
-      setSaveSuccessMsg(isEn ? 'Plan saved and published successfully!' : 'برنامه هفتگی با موفقیت ثبت و برای دانش‌آموز ارسال شد!')
+      setSaveSuccessMsg(isEn ? 'Monthly Plan saved and published successfully!' : 'برنامه ۳۰ روزه با موفقیت ثبت و ارسال شد!')
       setTimeout(() => setSaveSuccessMsg(''), 4000)
     } finally {
       setSavingPlan(false)
     }
   }
 
-  // Priority Rank Sorter
   const priorityWeight = { high: 3, medium: 2, low: 1, none: 0 }
 
   const getFilteredTasks = (tasksList = []) => {
@@ -249,100 +363,64 @@ export default function StudyCalendarMatrix({
     })
   }
 
-  const activeEditorPriority = PRIORITIES.find((p) => p.id === editorState.priority) || PRIORITIES[1]
-
   return (
     <div style={{ position: 'relative' }}>
-      {/* ═══════════════════════════════════════════════════════════════
-          CLEAN MODERN TOOLBAR & METRICS STRIP
-         ═══════════════════════════════════════════════════════════════ */}
+      {/* ── Calendar Toolbar & 30-Day Drag Controls ── */}
       <div
         className="card"
         style={{
           borderRadius: 20,
-          padding: '16px 22px',
+          padding: '16px 20px',
           marginBottom: 18,
           boxShadow: '0 4px 20px rgba(0,0,0,0.03)',
         }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 14 }}>
-          {/* Week Navigation */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              {onPrevWeek && (
-                <button
-                  type="button"
-                  className="btn ghost sm"
-                  style={{ borderRadius: 10, padding: '7px 14px', fontWeight: 800 }}
-                  onClick={onPrevWeek}
-                >
-                  ◀ {isEn ? 'Previous Week' : 'هفته قبل'}
-                </button>
-              )}
-              {onCurrentWeek && (
-                <button
-                  type="button"
-                  className="btn primary sm"
-                  style={{ borderRadius: 10, padding: '7px 16px', fontWeight: 800 }}
-                  onClick={onCurrentWeek}
-                >
-                  📍 {isEn ? 'Current Week' : 'هفته جاری'}
-                </button>
-              )}
-              {onNextWeek && (
-                <button
-                  type="button"
-                  className="btn ghost sm"
-                  style={{ borderRadius: 10, padding: '7px 14px', fontWeight: 800 }}
-                  onClick={onNextWeek}
-                >
-                  {isEn ? 'Next Week' : 'هفته بعد'} ▶
-                </button>
-              )}
-            </div>
+          {/* 30-Day Quick Navigation & Scroll Controls */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="btn ghost sm"
+              style={{ borderRadius: 10, padding: '7px 12px', fontWeight: 800 }}
+              onClick={() => scrollByOffset('right')}
+              title={isEn ? 'Scroll earlier days' : 'حرکت به روزهای قبل'}
+            >
+              ◀ {isEn ? 'Earlier' : 'روزهای قبل'}
+            </button>
+            <button
+              type="button"
+              className="btn primary sm"
+              style={{ borderRadius: 10, padding: '7px 16px', fontWeight: 800 }}
+              onClick={scrollToToday}
+            >
+              📍 {isEn ? 'Go to Today' : 'برو به امروز'}
+            </button>
+            <button
+              type="button"
+              className="btn ghost sm"
+              style={{ borderRadius: 10, padding: '7px 12px', fontWeight: 800 }}
+              onClick={() => scrollByOffset('left')}
+              title={isEn ? 'Scroll future days' : 'حرکت به روزهای بعد'}
+            >
+              {isEn ? 'Later' : 'روزهای بعد'} ▶
+            </button>
 
-            {weekRangeStr && (
-              <span className="badge" style={{ background: 'var(--tint-fill)', color: 'var(--primary)', padding: '5px 12px', fontSize: 13, borderRadius: 10 }}>
-                🗓️ {weekRangeStr} {weekOffset !== 0 ? `(${weekOffset > 0 ? `+${weekOffset}` : weekOffset})` : ''}
-              </span>
-            )}
+            <span className="badge" style={{ background: 'var(--tint-fill)', color: 'var(--primary)', padding: '5px 12px', fontSize: 13, borderRadius: 10 }}>
+              📅 {isEn ? '30-Day Continuous Study Horizon (Drag to Scroll)' : 'ماتریس مطالعاتی ۳۰ روزه (قابلیت درگ و اسکرول افقی)'}
+            </span>
           </div>
 
-          {/* Search, Filters & Action Controls */}
+          {/* Search, Filter & Actions */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            {/* Search */}
-            <div style={{ position: 'relative' }}>
-              <input
-                type="text"
-                className="input sm"
-                placeholder={isEn ? '🔍 Search subjects or notes...' : '🔍 جستجو در دروس یا مباحث...'}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                style={{ width: 190, borderRadius: 10, paddingRight: isEn ? 12 : 12 }}
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery('')}
-                  style={{
-                    position: 'absolute',
-                    left: !isEn ? 8 : 'auto',
-                    right: isEn ? 8 : 'auto',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    background: 'none',
-                    border: 'none',
-                    color: 'var(--muted)',
-                    cursor: 'pointer',
-                    fontSize: 12,
-                  }}
-                >
-                  ✕
-                </button>
-              )}
-            </div>
+            <input
+              type="text"
+              className="input sm"
+              placeholder={isEn ? '🔍 Search subjects...' : '🔍 جستجو در دروس...'}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{ width: 170, borderRadius: 10 }}
+            />
 
-            {/* Subject Filter */}
             <select
               className="input sm"
               value={filterSubject}
@@ -355,7 +433,6 @@ export default function StudyCalendarMatrix({
               ))}
             </select>
 
-            {/* Priority Filter */}
             <select
               className="input sm"
               value={filterPriority}
@@ -363,29 +440,11 @@ export default function StudyCalendarMatrix({
               style={{ borderRadius: 10, fontSize: 12.5 }}
             >
               <option value="all">{isEn ? 'All Priorities' : 'همه اولویت‌ها'}</option>
-              <option value="high">🚩 {isEn ? 'High / Critical' : 'مهم و سخت'}</option>
+              <option value="high">🚩 {isEn ? 'High' : 'مهم و سخت'}</option>
               <option value="medium">🚩 {isEn ? 'Medium' : 'معمولی'}</option>
-              <option value="low">🚩 {isEn ? 'Low' : 'ساده و عادی'}</option>
+              <option value="low">🚩 {isEn ? 'Low' : 'ساده'}</option>
             </select>
 
-            {/* Auto Sort by Priority */}
-            <button
-              type="button"
-              className="btn ghost sm"
-              style={{
-                borderRadius: 10,
-                fontSize: 12,
-                fontWeight: 700,
-                color: autoSortByPriority ? 'var(--primary)' : 'var(--muted)',
-                background: autoSortByPriority ? 'var(--tint-fill)' : 'transparent',
-              }}
-              onClick={() => setAutoSortByPriority(!autoSortByPriority)}
-              title={isEn ? 'Float high priority red tasks to the top' : 'شناور کردن برنامه‌های قرمز و سخت در بالای ستون'}
-            >
-              🚩 {isEn ? 'Priority Top' : 'اولویت بالا'}
-            </button>
-
-            {/* Mentor Publish Plan Button */}
             {isMentor && onSavePlan && (
               <button
                 type="button"
@@ -394,7 +453,7 @@ export default function StudyCalendarMatrix({
                 onClick={handlePublishPlan}
                 disabled={savingPlan}
               >
-                {savingPlan ? '…' : '💾 ' + (isEn ? 'Save & Publish Plan' : 'ثبت و ارسال برنامه هفتگی')}
+                {savingPlan ? '…' : '💾 ' + (isEn ? 'Publish 30-Day Plan' : 'ثبت و ارسال برنامه ۳۰ روزه')}
               </button>
             )}
           </div>
@@ -407,17 +466,23 @@ export default function StudyCalendarMatrix({
         )}
       </div>
 
-      {/* ═══════════════════════════════════════════════════════════════
-          CONTINUOUS HORIZONTAL 7-DAY STUDY MATRIX
-         ═══════════════════════════════════════════════════════════════ */}
+      {/* ── 30-DAY CONTINUOUS DRAGGABLE HORIZONTAL MATRIX ── */}
       <div
+        ref={matrixScrollRef}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUpOrLeave}
+        onMouseLeave={handleMouseUpOrLeave}
+        className="study-calendar-matrix-scroll"
         style={{
           display: 'flex',
           gap: 14,
           overflowX: 'auto',
-          paddingBottom: 16,
+          paddingBottom: 18,
           scrollbarWidth: 'thin',
           WebkitOverflowScrolling: 'touch',
+          cursor: isGrabbing ? 'grabbing' : 'grab',
+          userSelect: isGrabbing ? 'none' : 'auto',
         }}
       >
         {calendarDays.map((day, dayIndex) => {
@@ -427,29 +492,28 @@ export default function StudyCalendarMatrix({
           const totalHours = (totalMinutes / 60).toFixed(1)
           const isOverDrag = dragOverDayIndex === dayIndex
 
-          // Capacity constraint alert for this day
-          const alertInfo = capacityAlerts[day.date_str] || day.capacity_limit
-          const hasCapacityAlert = !!alertInfo
-          const isOverCapacity = hasCapacityAlert && totalMinutes > alertInfo.max_hours * 60
+          const alertInfo = capacityAlerts[day.date_str]
+          const isOverCapacity = alertInfo && totalMinutes > alertInfo.max_hours * 60
 
           return (
             <div
               key={day.date_str || dayIndex}
+              className={`calendar-day-column ${day.is_today ? 'is-today-col' : ''}`}
               onDragOver={(e) => handleDragOver(e, dayIndex)}
               onDragLeave={handleDragLeave}
               onDrop={(e) => handleDrop(e, dayIndex)}
               style={{
-                flex: '0 0 300px',
-                minWidth: 280,
-                maxWidth: 330,
+                flex: '0 0 290px',
+                minWidth: 275,
+                maxWidth: 310,
                 background: day.is_today ? 'var(--card)' : isOverDrag ? 'var(--tint-fill)' : 'var(--card)',
                 borderRadius: 20,
                 border: day.is_today
-                  ? '2px solid var(--primary)'
+                  ? '2.5px solid var(--primary)'
                   : isOverDrag
                   ? '2px dashed var(--primary)'
                   : '1px solid var(--line)',
-                boxShadow: day.is_today ? '0 10px 30px rgba(79, 70, 229, 0.12)' : '0 4px 14px rgba(0,0,0,0.03)',
+                boxShadow: day.is_today ? '0 10px 30px rgba(79, 70, 229, 0.14)' : '0 4px 14px rgba(0,0,0,0.03)',
                 display: 'flex',
                 flexDirection: 'column',
                 transition: 'border 0.2s, background 0.2s',
@@ -459,9 +523,9 @@ export default function StudyCalendarMatrix({
               {/* Day Column Header */}
               <div
                 style={{
-                  padding: '14px 16px',
+                  padding: '12px 14px',
                   background: day.is_today
-                    ? 'linear-gradient(135deg, rgba(79, 70, 229, 0.12), rgba(124, 58, 237, 0.08))'
+                    ? 'linear-gradient(135deg, rgba(79, 70, 229, 0.14), rgba(124, 58, 237, 0.09))'
                     : 'var(--bg)',
                   borderBottom: '1px solid var(--line)',
                   display: 'flex',
@@ -471,20 +535,18 @@ export default function StudyCalendarMatrix({
               >
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <b style={{ fontSize: 15, color: day.is_today ? 'var(--primary)' : 'var(--ink)' }}>
+                    <b style={{ fontSize: 14.5, color: day.is_today ? 'var(--primary)' : 'var(--ink)' }}>
                       {day.label}
                     </b>
                     {day.is_today && (
-                      <span className="badge" style={{ background: 'var(--primary)', color: '#fff', fontSize: 10, padding: '2px 6px' }}>
+                      <span className="badge" style={{ background: 'var(--primary)', color: '#fff', fontSize: 10, padding: '2px 7px', borderRadius: 999 }}>
                         {isEn ? 'Today' : 'امروز'}
                       </span>
                     )}
                   </div>
-                  {day.date_str && (
-                    <div className="small muted" style={{ fontSize: 11, marginTop: 2 }}>
-                      {day.date_str}
-                    </div>
-                  )}
+                  <div className="small muted" style={{ fontSize: 11, marginTop: 2 }}>
+                    📅 {day.jalali_str} <span style={{ opacity: 0.65 }}>({day.date_str})</span>
+                  </div>
                 </div>
 
                 <div style={{ textAlign: isEn ? 'right' : 'left' }}>
@@ -492,32 +554,27 @@ export default function StudyCalendarMatrix({
                     ⏱️ {fa(totalHours)} {isEn ? 'h' : 'س'}
                   </div>
                   <div className="small muted" style={{ fontSize: 10.5 }}>
-                    {fa(rawTasks.length)} {isEn ? 'tasks' : 'برنامه'}
+                    {fa(rawTasks.length)} {isEn ? 'tasks' : 'پارت'}
                   </div>
                 </div>
               </div>
 
-              {/* Capacity Alert Warning Banner on Day Column */}
-              {hasCapacityAlert && (
+              {/* Capacity Warning Banner */}
+              {alertInfo && (
                 <div
                   style={{
                     background: isOverCapacity ? 'rgba(239, 68, 68, 0.12)' : 'rgba(245, 158, 11, 0.12)',
                     borderBottom: `1px solid ${isOverCapacity ? '#ef4444' : '#f59e0b'}`,
-                    padding: '8px 12px',
+                    padding: '6px 10px',
                     fontSize: 11,
                     color: isOverCapacity ? '#b91c1c' : '#b45309',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    gap: 6,
                   }}
                 >
                   <div>
-                    <b>⚠️ {isEn ? 'Student Capacity Limit:' : 'محدودیت زمانی دانش‌آموز:'}</b>
-                    <div>
-                      {fa(alertInfo.max_hours)} {isEn ? 'hours max' : 'ساعت مجاز'}
-                      {alertInfo.reason ? ` (${alertInfo.reason})` : ''}
-                    </div>
+                    <b>⚠️ {isEn ? 'Limit:' : 'محدودیت:'}</b> {fa(alertInfo.max_hours)} {isEn ? 'hrs' : 'ساعت'}
                   </div>
                   {!isMentor && onDeclareCapacity && (
                     <button
@@ -534,7 +591,7 @@ export default function StudyCalendarMatrix({
 
               {/* Mentor: Add Task Button */}
               {isMentor && (
-                <div style={{ padding: '8px 12px 4px' }}>
+                <div style={{ padding: '8px 12px 4px' }} className="no-drag">
                   <button
                     type="button"
                     className="btn ghost sm"
@@ -554,14 +611,14 @@ export default function StudyCalendarMatrix({
                     onClick={() => handleOpenAddModal(dayIndex)}
                   >
                     <span>+</span>
-                    <span>{isEn ? 'Add Task' : 'افزودن پارت درسی'}</span>
+                    <span>{isEn ? 'Add Task' : 'افزودن پارت مطالعاتی'}</span>
                   </button>
                 </div>
               )}
 
-              {/* Student: Declare Capacity Button if not set */}
-              {!isMentor && !hasCapacityAlert && onDeclareCapacity && (
-                <div style={{ padding: '6px 12px 2px', textAlign: 'center' }}>
+              {/* Student: Declare Capacity Button */}
+              {!isMentor && !alertInfo && onDeclareCapacity && (
+                <div style={{ padding: '6px 12px 2px', textAlign: 'center' }} className="no-drag">
                   <button
                     type="button"
                     className="btn ghost sm"
@@ -573,15 +630,15 @@ export default function StudyCalendarMatrix({
                 </div>
               )}
 
-              {/* Tasks List */}
+              {/* Tasks List (Notes hidden by default, shown in modal on click) */}
               <div
                 style={{
-                  padding: '8px 12px 14px',
+                  padding: '8px 10px 14px',
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: 10,
+                  gap: 8,
                   flex: 1,
-                  minHeight: 180,
+                  minHeight: 160,
                 }}
               >
                 {filteredTasks.length === 0 ? (
@@ -592,14 +649,14 @@ export default function StudyCalendarMatrix({
                       flexDirection: 'column',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      padding: 24,
+                      padding: 20,
                       textAlign: 'center',
                       color: 'var(--muted)',
                       fontSize: 12,
-                      opacity: 0.65,
+                      opacity: 0.6,
                     }}
                   >
-                    <span style={{ fontSize: 24, marginBottom: 4 }}>☕</span>
+                    <span style={{ fontSize: 22, marginBottom: 2 }}>☕</span>
                     <span>{isEn ? 'No tasks scheduled' : 'برنامه‌ای تنظیم نشده است'}</span>
                   </div>
                 ) : (
@@ -617,8 +674,7 @@ export default function StudyCalendarMatrix({
                           if (isMentor) {
                             handleOpenEditModal(dayIndex, taskIndex, task)
                           } else {
-                            // Student clicks to open full detail modal!
-                            setViewingTask({ task, dayLabel: day.label, dayDate: day.date_str })
+                            setViewingTask({ task, dayLabel: day.label, dayDate: day.date_str, dayJalali: day.jalali_str })
                           }
                         }}
                         style={{
@@ -626,18 +682,16 @@ export default function StudyCalendarMatrix({
                           border: isDone ? '1px solid rgba(34, 197, 94, 0.3)' : '1px solid var(--line)',
                           borderRight: !isEn && prioObj.id !== 'none' ? `4px solid ${prioObj.color}` : undefined,
                           borderLeft: isEn && prioObj.id !== 'none' ? `4px solid ${prioObj.color}` : undefined,
-                          borderRadius: 14,
-                          padding: '12px 14px',
+                          borderRadius: 12,
+                          padding: '10px 12px',
                           cursor: isMentor ? 'grab' : 'pointer',
-                          boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
-                          transition: 'transform 0.18s var(--ease-spring), box-shadow 0.18s var(--ease-spring), border-color 0.15s ease',
-                          position: 'relative',
+                          boxShadow: '0 2px 6px rgba(0,0,0,0.02)',
+                          transition: 'all 0.16s ease',
                         }}
-                        title={isEn ? 'Click to view full details' : 'برای مشاهده توضیحات تکمیلی و شروع پارت کلیک کنید'}
+                        title={isEn ? 'Click to view full notes & launch timer' : 'برای مشاهده جزئیات و شروع تایمر کلیک کنید'}
                       >
-                        {/* Task Card Top Row: Checkbox, Title & Priority Flag (NO DESCRIPTION PREVIEW) */}
-                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-                          {/* Round Checkbox (Student or Mentor) */}
+                        {/* Task Header: Checkbox + Subject/Topic + Priority Flag (NO notes in column view) */}
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
                           <div
                             onClick={(e) => {
                               e.stopPropagation()
@@ -653,8 +707,8 @@ export default function StudyCalendarMatrix({
                               }
                             }}
                             style={{
-                              width: 20,
-                              height: 20,
+                              width: 18,
+                              height: 18,
                               borderRadius: '50%',
                               border: isDone ? '2px solid #22c55e' : '2px solid var(--line)',
                               background: isDone ? '#22c55e' : 'transparent',
@@ -662,98 +716,111 @@ export default function StudyCalendarMatrix({
                               alignItems: 'center',
                               justifyContent: 'center',
                               color: '#fff',
-                              fontSize: 11,
+                              fontSize: 10,
                               fontWeight: 'bold',
                               cursor: 'pointer',
                               flexShrink: 0,
                               marginTop: 2,
-                              transition: 'all 0.15s',
                             }}
-                            title={isDone ? (isEn ? 'Mark incomplete' : 'برداشتن تیک') : (isEn ? 'Mark completed' : 'تیک انجام')}
                           >
                             {isDone && '✓'}
                           </div>
 
-                          {/* Title and Subject */}
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4 }}>
                               <b
                                 style={{
-                                  fontSize: 13.5,
+                                  fontSize: 12.5,
                                   color: 'var(--ink)',
                                   textDecoration: isDone ? 'line-through' : 'none',
                                   opacity: isDone ? 0.65 : 1,
-                                  lineHeight: 1.4,
+                                  lineHeight: 1.35,
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
                                 }}
                               >
-                                {task.subject}: {task.topic || task.title || 'مطالعه'}
+                                {task.subject}: {task.topic || 'مطالعه'}
                               </b>
-
                               {prioObj.id !== 'none' && (
-                                <span style={{ fontSize: 12, color: prioObj.color, flexShrink: 0 }} title={isEn ? prioObj.label_en : prioObj.label_fa}>
+                                <span style={{ fontSize: 11, color: prioObj.color, flexShrink: 0 }}>
                                   {prioObj.flag}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Meta Badges: Duration + Method Icon + Question Count */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
+                              <span
+                                className="badge"
+                                style={{
+                                  background: 'var(--tint-fill)',
+                                  color: 'var(--ink)',
+                                  fontSize: 10.5,
+                                  padding: '2px 6px',
+                                  borderRadius: 6,
+                                  fontWeight: 700,
+                                }}
+                              >
+                                ⏱️ {fa(task.duration_minutes || 90)} {isEn ? 'min' : 'دقیقه'}
+                              </span>
+
+                              <span
+                                style={{
+                                  fontSize: 10.5,
+                                  color: methodObj.color,
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 2,
+                                  fontWeight: 600,
+                                }}
+                              >
+                                <span>{methodObj.icon}</span>
+                                <span>{isEn ? methodObj.label_en : methodObj.label_fa}</span>
+                              </span>
+
+                              {task.question_count && (
+                                <span style={{ fontSize: 10.5, color: 'var(--muted)' }}>
+                                  🎯 {fa(task.question_count)} {isEn ? 'Q' : 'تست'}
                                 </span>
                               )}
                             </div>
                           </div>
                         </div>
 
-                        {/* Task Card Bottom Metadata: Duration & Method (CLEAN & SLEEK) */}
-                        <div
-                          style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            marginTop: 8,
-                            paddingTop: 6,
-                            borderTop: '1px solid var(--line)',
-                            fontSize: 11,
-                          }}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <span className="badge" style={{ fontSize: 10, padding: '2px 6px', background: 'var(--card)', color: methodObj.color, border: '1px solid var(--line)' }}>
-                              {methodObj.icon} {isEn ? methodObj.label_en : methodObj.label_fa}
-                            </span>
-                            <span className="small muted">⏱️ {fa(task.duration_minutes)} {isEn ? 'min' : 'دقیقه'}</span>
-                            {task.question_count && (
-                              <span className="small muted">🎯 {fa(task.question_count)} {isEn ? 'Q' : 'تست'}</span>
-                            )}
-                          </div>
+                        {/* Action Buttons for Task */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, paddingTop: 6, borderTop: '1px solid var(--line)' }} className="no-drag">
+                          <button
+                            type="button"
+                            className="btn ghost sm"
+                            style={{ fontSize: 10.5, padding: '2px 6px', color: 'var(--primary)', fontWeight: 700 }}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setViewingTask({ task, dayLabel: day.label, dayDate: day.date_str, dayJalali: day.jalali_str })
+                            }}
+                          >
+                            👁️ {isEn ? 'Details' : 'جزئیات'}
+                          </button>
 
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                            {/* Focus Button */}
-                            {onStartPomodoro && (
-                              <button
-                                type="button"
-                                className="btn ghost sm"
-                                style={{ padding: '2px 6px', fontSize: 11 }}
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  onStartPomodoro({
-                                    subject: task.subject,
-                                    topic: task.topic,
-                                    durationMinutes: task.duration_minutes || 90,
-                                  })
-                                }}
-                                title={isEn ? 'Start Focus Session' : 'شروع جلسه تمرکز'}
-                              >
-                                ▶️
-                              </button>
-                            )}
-
-                            {/* Mentor Edit & Delete */}
-                            {isMentor && (
-                              <button
-                                type="button"
-                                className="btn ghost sm"
-                                style={{ padding: '2px 6px', fontSize: 11, color: '#ef4444' }}
-                                onClick={(e) => handleDeleteTask(dayIndex, taskIndex, e)}
-                                title={isEn ? 'Delete task' : 'حذف برنامه'}
-                              >
-                                🗑️
-                              </button>
-                            )}
-                          </div>
+                          {onStartPomodoro && (
+                            <button
+                              type="button"
+                              className="btn primary sm"
+                              style={{
+                                fontSize: 10,
+                                padding: '3px 8px',
+                                borderRadius: 6,
+                                fontWeight: 700,
+                              }}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                onStartPomodoro(task.duration_minutes || 90, task.subject, task.topic)
+                              }}
+                              title={isEn ? 'Start Pomodoro Timer with this exact task duration' : 'شروع تایمر پومودورو با مدت زمان دقیق این پارت'}
+                            >
+                              ⏱️ {isEn ? 'Start Focus' : 'شروع پارت'}
+                            </button>
+                          )}
                         </div>
                       </div>
                     )
@@ -765,376 +832,236 @@ export default function StudyCalendarMatrix({
         })}
       </div>
 
-      {/* ═══════════════════════════════════════════════════════════════
-          TASK DETAIL MODAL (STUDENT & MENTOR VIEW ON CLICK)
-         ═══════════════════════════════════════════════════════════════ */}
+      {/* ── Task Detail Modal (reveals full description and notes on click) ── */}
       {viewingTask && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(15, 23, 42, 0.65)',
-            backdropFilter: 'blur(8px)',
-            zIndex: 9999,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 16,
-          }}
-          onClick={() => setViewingTask(null)}
-        >
+        <div className="modal-overlay" onClick={() => setViewingTask(null)}>
           <div
-            className="card"
-            style={{
-              maxWidth: 520,
-              width: '100%',
-              borderRadius: 22,
-              padding: 24,
-              boxShadow: 'var(--shadow-modal)', animation: 'spring-pop 0.35s var(--ease-spring) both',
-            }}
+            className="modal"
+            style={{ maxWidth: 480, padding: 22, borderRadius: 20 }}
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, paddingBottom: 10, borderBottom: '1px solid var(--line)' }}>
               <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                  <span className="badge" style={{ background: 'var(--tint-fill)', color: 'var(--primary)', fontWeight: 800, fontSize: 13 }}>
-                    {viewingTask.task.subject}
-                  </span>
-                  <span className="small muted">
-                    📅 {viewingTask.dayLabel} {viewingTask.dayDate ? `(${viewingTask.dayDate})` : ''}
-                  </span>
-                </div>
+                <span className="badge" style={{ background: 'var(--tint-fill)', color: 'var(--primary)', fontSize: 11, marginBottom: 4 }}>
+                  {viewingTask.dayLabel} · {viewingTask.dayJalali} ({viewingTask.dayDate})
+                </span>
                 <h3 style={{ margin: 0, fontSize: 18, color: 'var(--ink)' }}>
-                  {viewingTask.task.topic || viewingTask.task.title || 'برنامه مطالعاتی'}
+                  📖 {viewingTask.task.subject}: {viewingTask.task.topic || 'مطالعه'}
                 </h3>
               </div>
-
-              <button type="button" className="btn ghost sm" onClick={() => setViewingTask(null)} style={{ fontSize: 16 }}>
+              <button
+                type="button"
+                className="btn ghost sm"
+                style={{ fontSize: 16, padding: '4px 8px' }}
+                onClick={() => setViewingTask(null)}
+              >
                 ✕
               </button>
             </div>
 
-            {/* Metadata Pills */}
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
-              <span className="badge" style={{ background: 'var(--bg)', border: '1px solid var(--line)', padding: '6px 12px' }}>
-                ⏱️ {isEn ? 'Allocated Duration:' : 'زمان اختصاص‌یافته توسط استاد:'} <b>{fa(viewingTask.task.duration_minutes || 90)} {isEn ? 'minutes' : 'دقیقه'}</b>
-              </span>
-              <span className="badge" style={{ background: 'var(--bg)', border: '1px solid var(--line)', padding: '6px 12px' }}>
-                {METHODS.find((m) => m.id === viewingTask.task.study_method)?.icon}{' '}
-                {isEn ? 'Method:' : 'روش:'}{' '}
-                <b>{METHODS.find((m) => m.id === viewingTask.task.study_method)?.label_fa}</b>
-              </span>
-              {viewingTask.task.priority && viewingTask.task.priority !== 'none' && (
-                <span
-                  className="badge"
-                  style={{
-                    background: PRIORITIES.find((p) => p.id === viewingTask.task.priority)?.bg,
-                    color: PRIORITIES.find((p) => p.id === viewingTask.task.priority)?.color,
-                    padding: '6px 12px',
-                    fontWeight: 700,
-                  }}
-                >
-                  🚩 {isEn ? 'Priority:' : 'اولویت:'} {PRIORITIES.find((p) => p.id === viewingTask.task.priority)?.label_fa}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {/* Duration and Method */}
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                <span className="badge" style={{ background: 'var(--tint-fill)', color: 'var(--ink)', padding: '6px 12px', fontSize: 12.5, borderRadius: 10 }}>
+                  ⏱️ {isEn ? 'Assigned Duration:' : 'مدت زمان پارت:'} <b>{fa(viewingTask.task.duration_minutes || 90)} {isEn ? 'min' : 'دقیقه'}</b>
                 </span>
-              )}
-            </div>
+                <span className="badge" style={{ background: 'var(--tint-fill)', color: 'var(--ink)', padding: '6px 12px', fontSize: 12.5, borderRadius: 10 }}>
+                  🎯 {isEn ? 'Method:' : 'روش مطالعه:'} <b>{viewingTask.task.study_method || 'مفهومی'}</b>
+                </span>
+                {viewingTask.task.question_count && (
+                  <span className="badge" style={{ background: 'var(--tint-fill)', color: 'var(--ink)', padding: '6px 12px', fontSize: 12.5, borderRadius: 10 }}>
+                    ✍️ {isEn ? 'Questions Target:' : 'هدف تست/تمرین:'} <b>{fa(viewingTask.task.question_count)}</b>
+                  </span>
+                )}
+              </div>
 
-            {/* Detailed Instructions / Consultant Notes */}
-            <div style={{ marginBottom: 20 }}>
-              <label className="small muted" style={{ display: 'block', marginBottom: 6, fontWeight: 700 }}>
-                💡 {isEn ? 'Detailed Instructions & Teacher Advice:' : 'توضیحات تکمیلی، منابع و نکات استاد:'}
-              </label>
+              {/* Full Task Notes / Description Box */}
               <div
                 style={{
                   background: 'var(--bg)',
                   borderRadius: 14,
-                  padding: '14px 16px',
+                  padding: 14,
                   border: '1px solid var(--line)',
-                  fontSize: 14,
-                  lineHeight: 1.7,
-                  color: 'var(--ink)',
-                  whiteSpace: 'pre-wrap',
-                  minHeight: 80,
                 }}
               >
-                {viewingTask.task.notes || viewingTask.task.description || (isEn ? 'No additional notes provided by mentor.' : 'توضیحات تکمیلی خاصی برای این پارت ثبت نشده است. طبق بودجه‌بندی معمول مطالعه کنید.')}
+                <b style={{ display: 'block', fontSize: 12.5, color: 'var(--muted)', marginBottom: 6 }}>
+                  📝 {isEn ? 'Mentor Instructions & Study Notes:' : 'دستورالعمل و توضیحات مشاور:'}
+                </b>
+                <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.7, color: 'var(--ink)', whiteSpace: 'pre-wrap' }}>
+                  {viewingTask.task.notes || (isEn ? 'No special notes specified. Follow standard textbook curriculum.' : 'توضیحات خاصی ثبت نشده است. مطابق سرفصل استاندارد مطالعه شود.')}
+                </p>
               </div>
-            </div>
 
-            {/* Action Bar */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-              <button
-                type="button"
-                className="btn ghost"
-                style={{ borderRadius: 12 }}
-                onClick={() => setViewingTask(null)}
-              >
-                {isEn ? 'Close' : 'بستن'}
-              </button>
-
-              {onStartPomodoro && (
+              {/* Actions: Start Pomodoro with exact duration */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
                 <button
                   type="button"
-                  className="btn primary"
-                  style={{ borderRadius: 12, padding: '10px 22px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: 8 }}
-                  onClick={() => {
-                    const dur = viewingTask.task.duration_minutes || 90
-                    const subj = viewingTask.task.subject || 'زیست‌شناسی'
-                    setViewingTask(null)
-                    onStartPomodoro({
-                      subject: subj,
-                      topic: viewingTask.task.topic,
-                      durationMinutes: dur,
-                    })
-                  }}
+                  className="btn ghost sm"
+                  onClick={() => setViewingTask(null)}
                 >
-                  <span>▶️</span>
-                  <span>
-                    {isEn
-                      ? `Start Pomodoro Focus (${viewingTask.task.duration_minutes || 90}m)`
-                      : `شروع پارت تمرکز پومودورو (${fa(viewingTask.task.duration_minutes || 90)} دقیقه)`}
-                  </span>
+                  {isEn ? 'Close' : 'بستن'}
                 </button>
-              )}
+
+                {onStartPomodoro && (
+                  <button
+                    type="button"
+                    className="btn primary"
+                    style={{ borderRadius: 12, padding: '9px 20px', fontWeight: 800 }}
+                    onClick={() => {
+                      const dur = viewingTask.task.duration_minutes || 90
+                      onStartPomodoro(dur, viewingTask.task.subject, viewingTask.task.topic)
+                      setViewingTask(null)
+                    }}
+                  >
+                    ⏱️ {isEn ? `Start Focus (${fa(viewingTask.task.duration_minutes || 90)}m)` : `شروع مطالعه و تایمر (${fa(viewingTask.task.duration_minutes || 90)} دقیقه)`}
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* ═══════════════════════════════════════════════════════════════
-          TASK CREATOR & EDITOR MODAL (MENTOR ONLY)
-         ═══════════════════════════════════════════════════════════════ */}
-      {editorState.isOpen && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(15, 23, 42, 0.65)',
-            backdropFilter: 'blur(8px)',
-            zIndex: 9999,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 16,
-          }}
-          onClick={() => setEditorState((prev) => ({ ...prev, isOpen: false }))}
-        >
+      {/* ── Mentor Task Editor Modal (Mentor Only) ── */}
+      {isMentor && editorState.isOpen && (
+        <div className="modal-overlay" onClick={() => setEditorState((prev) => ({ ...prev, isOpen: false }))}>
           <div
-            className="card"
-            style={{
-              maxWidth: 520,
-              width: '100%',
-              borderRadius: 22,
-              padding: 24,
-              boxShadow: '0 25px 60px rgba(0,0,0,0.3)',
-            }}
+            className="modal"
+            style={{ maxWidth: 480, padding: 22, borderRadius: 20 }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <div>
-                <h3 style={{ margin: 0, fontSize: 18 }}>
-                  {editorState.taskIndex != null
-                    ? isEn
-                      ? 'Edit Study Task'
-                      : 'ویرایش پارت مطالعاتی'
-                    : isEn
-                    ? 'Add Study Task'
-                    : 'افزودن پارت مطالعاتی جدید'}
-                </h3>
-                <div className="small muted">
-                  📅 {calendarDays[editorState.dayIndex]?.label}
-                </div>
-              </div>
-
-              {/* Priority Flag Menu */}
-              <div style={{ position: 'relative' }}>
-                <button
-                  type="button"
-                  className="btn sm"
-                  style={{
-                    borderRadius: 12,
-                    background: activeEditorPriority.bg,
-                    border: `1.5px solid ${activeEditorPriority.color}`,
-                    color: activeEditorPriority.color,
-                    fontWeight: 800,
-                    padding: '6px 12px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                  }}
-                  onClick={() => setShowPriorityPicker(!showPriorityPicker)}
-                >
-                  <span>{activeEditorPriority.flag}</span>
-                  <span style={{ fontSize: 12 }}>{isEn ? activeEditorPriority.label_en : activeEditorPriority.label_fa}</span>
-                  <span style={{ fontSize: 10 }}>▼</span>
-                </button>
-
-                {showPriorityPicker && (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      top: '100%',
-                      right: !isEn ? 0 : 'auto',
-                      left: isEn ? 0 : 'auto',
-                      marginTop: 6,
-                      background: 'var(--card)',
-                      border: '1px solid var(--line)',
-                      borderRadius: 14,
-                      boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
-                      padding: 6,
-                      zIndex: 10,
-                      width: 170,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 4,
-                    }}
-                  >
-                    {PRIORITIES.map((p) => (
-                      <button
-                        key={p.id}
-                        type="button"
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 8,
-                          padding: '8px 10px',
-                          borderRadius: 8,
-                          border: 'none',
-                          background: editorState.priority === p.id ? 'var(--tint-fill)' : 'transparent',
-                          color: p.color,
-                          fontWeight: editorState.priority === p.id ? 800 : 500,
-                          cursor: 'pointer',
-                          fontSize: 12,
-                        }}
-                        onClick={() => {
-                          setEditorState((prev) => ({ ...prev, priority: p.id }))
-                          setShowPriorityPicker(false)
-                        }}
-                      >
-                        <span>{p.flag}</span>
-                        <span>{isEn ? p.label_en : p.label_fa}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <h3 style={{ margin: 0, fontSize: 18 }}>
+                {editorState.taskIndex != null
+                  ? (isEn ? 'Edit Study Task' : 'ویرایش پارت مطالعاتی')
+                  : (isEn ? 'Add New Study Task' : 'افزودن پارت مطالعاتی جدید')}
+              </h3>
+              <button
+                type="button"
+                className="btn ghost sm"
+                onClick={() => setEditorState((prev) => ({ ...prev, isOpen: false }))}
+              >
+                ✕
+              </button>
             </div>
 
-            <form onSubmit={handleSaveEditor} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              {/* Subject selector */}
-              <div>
-                <label className="small muted" style={{ display: 'block', marginBottom: 6, fontWeight: 700 }}>
-                  {isEn ? 'Subject:' : 'درس:'}
-                </label>
-                <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 4 }}>
-                  {STANDARD_SUBJECTS.map((s) => {
-                    const active = editorState.subject === s
-                    return (
-                      <button
-                        key={s}
-                        type="button"
-                        style={{
-                          borderRadius: 10,
-                          padding: '4px 10px',
-                          fontSize: 11.5,
-                          border: active ? '1.5px solid var(--primary)' : '1px solid var(--line)',
-                          background: active ? 'var(--tint-fill)' : 'var(--bg)',
-                          color: active ? 'var(--primary)' : 'var(--ink)',
-                          fontWeight: active ? 800 : 500,
-                          cursor: 'pointer',
-                          whiteSpace: 'nowrap',
-                        }}
-                        onClick={() => setEditorState((prev) => ({ ...prev, subject: s }))}
-                      >
-                        {s}
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
+            <form onSubmit={handleSaveEditor} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <label className="field">
+                <span>{isEn ? 'Subject:' : 'عنوان درس:'}</span>
+                <select
+                  className="input"
+                  value={editorState.subject}
+                  onChange={(e) => setEditorState({ ...editorState, subject: e.target.value })}
+                >
+                  {STANDARD_SUBJECTS.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </label>
 
-              {/* Topic / Title */}
-              <div>
-                <label className="small muted" style={{ display: 'block', marginBottom: 4, fontWeight: 700 }}>
-                  {isEn ? 'Topic / Chapter Title:' : 'عنوان مبحث و سرفصل فصل:'}
-                </label>
+              <label className="field">
+                <span>{isEn ? 'Topic / Chapter Title:' : 'مبحث یا فصل مورد نظر:'}</span>
                 <input
                   type="text"
                   className="input"
-                  placeholder={isEn ? 'e.g. 40 Derivative practice questions' : 'مثلاً: حل ۴۰ تست مشتق و کاربرد مشتق'}
                   value={editorState.topic}
-                  onChange={(e) => setEditorState((prev) => ({ ...prev, topic: e.target.value }))}
+                  onChange={(e) => setEditorState({ ...editorState, topic: e.target.value })}
+                  placeholder={isEn ? 'e.g. Genetics Chapter 3' : 'مثال: گفتار ۳ فصل اول ژنتیک'}
                   required
-                  autoFocus
                 />
-              </div>
+              </label>
 
-              {/* Detailed Notes */}
-              <div>
-                <label className="small muted" style={{ display: 'block', marginBottom: 4, fontWeight: 700 }}>
-                  {isEn ? 'Detailed Mentor Instructions (Book pages, marked questions, advice):' : 'توضیحات تکمیلی استاد (منابع، صفحات کتاب، تست‌های مارک‌دار، نکات طلایی):'}
+              <div className="two-col">
+                <label className="field">
+                  <span>{isEn ? 'Duration (Minutes):' : 'مدت زمان (دقیقه):'}</span>
+                  <input
+                    type="number"
+                    className="input"
+                    min="15"
+                    max="360"
+                    step="15"
+                    value={editorState.duration_minutes}
+                    onChange={(e) => setEditorState({ ...editorState, duration_minutes: e.target.value })}
+                  />
                 </label>
-                <textarea
-                  className="input"
-                  rows={3}
-                  placeholder={isEn ? 'Source textbook, page numbers, specific exercises...' : 'مثلاً: کتاب تست خیلی‌سبز ص ۱۲۰ تا ۱۳۵، سوالات زوج و بررسی کامل پاسخ تشریحی...'}
-                  value={editorState.notes}
-                  onChange={(e) => setEditorState((prev) => ({ ...prev, notes: e.target.value }))}
-                />
+                <label className="field">
+                  <span>{isEn ? 'Target Questions:' : 'تعداد تست یا تمرین:'}</span>
+                  <input
+                    type="number"
+                    className="input"
+                    min="0"
+                    max="200"
+                    value={editorState.question_count}
+                    onChange={(e) => setEditorState({ ...editorState, question_count: e.target.value })}
+                  />
+                </label>
               </div>
 
-              {/* Study Method & Duration */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                <div>
-                  <label className="small muted" style={{ display: 'block', marginBottom: 4, fontWeight: 700 }}>
-                    {isEn ? 'Study Method:' : 'روش مطالعه:'}
-                  </label>
+              <div className="two-col">
+                <label className="field">
+                  <span>{isEn ? 'Study Method:' : 'روش مطالعه:'}</span>
                   <select
                     className="input"
                     value={editorState.study_method}
-                    onChange={(e) => setEditorState((prev) => ({ ...prev, study_method: e.target.value }))}
+                    onChange={(e) => setEditorState({ ...editorState, study_method: e.target.value })}
                   >
                     {METHODS.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.icon} {isEn ? m.label_en : m.label_fa}
-                      </option>
+                      <option key={m.id} value={m.id}>{m.icon} {isEn ? m.label_en : m.label_fa}</option>
                     ))}
                   </select>
-                </div>
+                </label>
 
-                <div>
-                  <label className="small muted" style={{ display: 'block', marginBottom: 4, fontWeight: 700 }}>
-                    {isEn ? 'Duration (Minutes):' : 'مدت زمان (دقیقه):'}
-                  </label>
+                <label className="field">
+                  <span>{isEn ? 'Priority Level:' : 'سطح اولویت:'}</span>
                   <select
                     className="input"
-                    value={editorState.duration_minutes}
-                    onChange={(e) => setEditorState((prev) => ({ ...prev, duration_minutes: Number(e.target.value) }))}
+                    value={editorState.priority}
+                    onChange={(e) => setEditorState({ ...editorState, priority: e.target.value })}
                   >
-                    <option value={30}>۳۰ دقیقه</option>
-                    <option value={45}>۴۵ دقیقه</option>
-                    <option value={60}>۶۰ دقیقه (۱ ساعت)</option>
-                    <option value={75}>۷۵ دقیقه (۱:۱۵ ساعت)</option>
-                    <option value={90}>۹۰ دقیقه (۱:۳۰ ساعت)</option>
-                    <option value={105}>۱۰۵ دقیقه (۱:۴۵ ساعت)</option>
-                    <option value={120}>۱۲۰ دقیقه (۲ ساعت)</option>
+                    {PRIORITIES.map((p) => (
+                      <option key={p.id} value={p.id}>{p.flag} {isEn ? p.label_en : p.label_fa}</option>
+                    ))}
                   </select>
-                </div>
+                </label>
               </div>
 
-              {/* Buttons */}
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 8 }}>
-                <button
-                  type="button"
-                  className="btn ghost"
-                  onClick={() => setEditorState((prev) => ({ ...prev, isOpen: false }))}
-                >
-                  {isEn ? 'Cancel' : 'انصراف'}
-                </button>
-                <button type="submit" className="btn primary" style={{ borderRadius: 12, padding: '10px 24px' }}>
-                  {isEn ? 'Save Task' : 'ذخیره در برنامه'}
-                </button>
+              <label className="field">
+                <span>{isEn ? 'Mentor Instructions & Notes:' : 'توضیحات و نکات مشاور:'}</span>
+                <textarea
+                  className="input"
+                  rows="3"
+                  value={editorState.notes}
+                  onChange={(e) => setEditorState({ ...editorState, notes: e.target.value })}
+                  placeholder={isEn ? 'Specific instructions for student...' : 'نکات مهم مطالعه و تست...'}
+                />
+              </label>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
+                {editorState.taskIndex != null ? (
+                  <button
+                    type="button"
+                    className="btn danger sm"
+                    onClick={(e) => {
+                      handleDeleteTask(editorState.dayIndex, editorState.taskIndex, e)
+                      setEditorState((prev) => ({ ...prev, isOpen: false }))
+                    }}
+                  >
+                    🗑️ {isEn ? 'Delete Task' : 'حذف پارت'}
+                  </button>
+                ) : <span />}
+
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    type="button"
+                    className="btn ghost sm"
+                    onClick={() => setEditorState((prev) => ({ ...prev, isOpen: false }))}
+                  >
+                    {isEn ? 'Cancel' : 'انصراف'}
+                  </button>
+                  <button type="submit" className="btn primary sm">
+                    💾 {isEn ? 'Save Task' : 'ذخیره پارت'}
+                  </button>
+                </div>
               </div>
             </form>
           </div>

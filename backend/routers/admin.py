@@ -487,7 +487,17 @@ def ai_nightly_sync(user = Depends(_admin), db: Session = Depends(get_db)):
     two_weeks_ago = now - timedelta(days=14)
 
     for p in profiles:
-        last_refreshed_str = (p.ai_dossier or {}).get("last_refreshed")
+        dossier_data = p.ai_dossier
+        if isinstance(dossier_data, str):
+            try:
+                import json
+                dossier_data = json.loads(dossier_data)
+            except Exception:
+                dossier_data = {}
+        elif not isinstance(dossier_data, dict):
+            dossier_data = {}
+
+        last_refreshed_str = dossier_data.get("last_refreshed")
         needs_refresh = False
         if not last_refreshed_str:
             needs_refresh = True
