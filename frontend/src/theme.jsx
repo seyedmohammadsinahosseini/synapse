@@ -556,12 +556,14 @@ export function setupCanvasEffects(doc, settings) {
     bg.style.cssText = 'position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden;'
     bg.setAttribute('aria-hidden', 'true')
 
-    const wallpaper = doc.querySelector('.skin-wallpaper')
-    if (wallpaper && view.getComputedStyle(wallpaper).display !== 'none') {
-      wallpaper.append(bg)
-    } else {
-      doc.body.prepend(bg)
+    let wallpaper = doc.querySelector('.skin-wallpaper')
+    if (!wallpaper) {
+      wallpaper = doc.createElement('div')
+      wallpaper.className = 'skin-wallpaper'
+      wallpaper.style.cssText = 'position:fixed;inset:0;z-index:-1;pointer-events:none;'
+      doc.body.prepend(wallpaper)
     }
+    wallpaper.append(bg)
 
     if (particlesAllowed && settings.live !== 'off' && settings.particles !== false) {
       for (let i = 0; i < 20; i++) {

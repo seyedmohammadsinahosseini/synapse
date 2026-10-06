@@ -1726,3 +1726,87 @@ html[data-skin="modern"] :is(.card, .glass-card, .stat-card) {
   border: 1px solid var(--line);
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.04);
 }
+
+
+/* =========================================================================
+   BULLETPROOF FIXES: WALLPAPER STACKING, APPEARANCE STUDIO SCROLL & RAIL PADDING
+   ========================================================================= */
+
+/* Wallpaper, canvas, and particles MUST ALWAYS stay strictly behind the UI tree at z-index: -1 */
+.skin-wallpaper,
+.studio-background,
+.rava-ink-stage,
+div[class*="skin-wallpaper"],
+div[class*="studio-background"] {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  z-index: -1 !important;
+  pointer-events: none !important;
+  display: block !important;
+  visibility: visible !important;
+}
+
+/* All application layers and routes MUST have z-index >= 1 and stay 100% visible across theme toggles */
+#root,
+.app-content-root,
+.app-shell,
+.app-frame,
+.app-main,
+.route-page-container,
+.topbar,
+.slide-bar {
+  position: relative;
+  z-index: 10;
+  visibility: visible !important;
+}
+
+.topbar {
+  z-index: 50 !important;
+}
+
+.slide-bar {
+  z-index: 40 !important;
+}
+
+/* Appearance Studio Scroll Fix */
+.studio-overlay {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 10000 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  overflow: hidden !important;
+}
+
+.appearance-studio,
+.theme-preview-dialog {
+  display: flex !important;
+  flex-direction: column !important;
+  max-height: calc(100dvh - 32px) !important;
+  height: min(86vh, 760px) !important;
+  overflow: hidden !important;
+}
+
+.appearance-studio .studio-modal-body {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  overscroll-behavior: contain !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+
+/* Persian Slidebar with rail offset */
+.app-frame.with-rail {
+  padding-inline-start: 106px !important;
+}
+
+@media (max-width: 768px) {
+  .app-frame.with-rail {
+    padding-inline-start: 0 !important;
+    padding-bottom: 74px !important;
+  }
+}
