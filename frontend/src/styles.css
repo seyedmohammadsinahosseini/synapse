@@ -1,3 +1,5 @@
+@import './themeSkins.css';
+
 /* Global Styles: Student and Mentor Educational Platform */
 :root {
   --primary: #4f46e5;
