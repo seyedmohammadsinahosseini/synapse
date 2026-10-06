@@ -7,7 +7,7 @@ import { Card, Stat, Empty } from '../ui.jsx'
 /** Mentor landing dashboard: key numbers of the mentor's work. */
 export default function MentorDashboard({ navigate }) {
   const { user } = useAuth()
-  const { t } = useLang()
+  const { t, lang } = useLang()
   const [st, setSt] = useState(null)
   const [error, setError] = useState('')
 
@@ -19,7 +19,7 @@ export default function MentorDashboard({ navigate }) {
 
   return (
     <div>
-      <div className="hero">
+      <div className="hero" style={{ borderRadius: 24 }}>
         <h2>🏠 {t('mentorPanel')} — {user.full_name}</h2>
         <p>
           {t('yourCode')}{' '}
@@ -33,14 +33,14 @@ export default function MentorDashboard({ navigate }) {
 
       {st && (
         <>
-          <div className="grid cols-3">
+          <div className="grid cols-3 mb">
             <Stat label={t('studentsCount')} value={fa(st.students)} icon="👨‍🎓" color="#eef2ff" />
             <Stat label={t('plansGivenShort')} value={fa(st.plans_given)} icon="📋" color="#dcfce7" />
             <Stat label={t('bookedThisWeek')} value={fa(st.booked_week)} icon="🗓️" color="#fce7f3" />
           </div>
 
           <div className="section-title">🟢🟡🔴 {t('studentStates')}</div>
-          <Card>
+          <Card style={{ borderRadius: 18 }}>
             <div className="flex wrap">
               <span className="plan-dot-badge" style={{ background: '#22c55e' }}>🟢 {t('completionOk')}: {fa(st.color_counts.ok)}</span>
               <span className="plan-dot-badge" style={{ background: '#eab308' }}>🟡 {t('completionMid')}: {fa(st.color_counts.mid)}</span>
@@ -58,6 +58,14 @@ export default function MentorDashboard({ navigate }) {
                 <span className="quick-hub-icon">👨‍🎓</span>
                 <div className="quick-hub-title">{t('navStudents')}</div>
                 <div className="quick-hub-desc">مدیریت برنامه‌ها، تایید درخواست‌ها و پرونده‌های تحصیلی ({fa(st.students)} دانش‌آموز)</div>
+              </div>
+            </div>
+
+            <div className="quick-hub-card" onClick={() => navigate('#/questions')}>
+              <div>
+                <span className="quick-hub-icon">✍️</span>
+                <div className="quick-hub-title">طراحی و بانک سوالات آزمون</div>
+                <div className="quick-hub-desc">ساخت تست‌های هوشمند با هوش مصنوعی و آماده‌سازی بسته‌های تمرینی برای دانش‌آموزان</div>
               </div>
             </div>
 
