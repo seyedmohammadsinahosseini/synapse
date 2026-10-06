@@ -630,7 +630,7 @@ export default function StudyCalendarMatrix({
                           padding: '12px 14px',
                           cursor: isMentor ? 'grab' : 'pointer',
                           boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
-                          transition: 'all 0.15s ease',
+                          transition: 'transform 0.18s var(--ease-spring), box-shadow 0.18s var(--ease-spring), border-color 0.15s ease',
                           position: 'relative',
                         }}
                         title={isEn ? 'Click to view full details' : 'برای مشاهده توضیحات تکمیلی و شروع پارت کلیک کنید'}
@@ -790,7 +790,7 @@ export default function StudyCalendarMatrix({
               width: '100%',
               borderRadius: 22,
               padding: 24,
-              boxShadow: '0 25px 50px rgba(0,0,0,0.3)',
+              boxShadow: 'var(--shadow-modal)', animation: 'spring-pop 0.35s var(--ease-spring) both',
             }}
             onClick={(e) => e.stopPropagation()}
           >
