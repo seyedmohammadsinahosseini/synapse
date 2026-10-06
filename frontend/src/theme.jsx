@@ -470,7 +470,8 @@ function ensureGlassFilter(doc) {
 }
 
 function ravaInkAllowed(doc, settings) {
-  const view = doc.defaultView
+  if (!doc) return false
+  const view = doc.defaultView || window
   if (
     !view ||
     ['neo', 'aero', 'xp', 'y2k'].includes(settings.skin) ||
@@ -479,17 +480,19 @@ function ravaInkAllowed(doc, settings) {
     !settings.motion
   )
     return false
-  if (/Android/i.test(view.navigator.userAgent)) return false
+  if (typeof view.navigator !== 'undefined' && /Android/i.test(view.navigator.userAgent)) return false
   return (
+    view.matchMedia &&
     view.matchMedia('(hover: hover) and (pointer: fine)').matches &&
     !view.matchMedia('(prefers-reduced-motion: reduce)').matches
   )
 }
 
 export function setupLiquidGlassLighting(doc, settings) {
-  const view = doc.defaultView
+  if (!doc) return () => {}
+  const view = doc.defaultView || window
   if (!view) return () => {}
-  const reduced = view.matchMedia('(prefers-reduced-motion: reduce)')
+  const reduced = view.matchMedia ? view.matchMedia('(prefers-reduced-motion: reduce)') : { matches: false }
   let currentTarget = null
   let rafId = 0
   let pointerX = 0
@@ -537,74 +540,41 @@ export function setupLiquidGlassLighting(doc, settings) {
   }
 }
 
-export function setupCanvasEffects(doc, settings) {
-  const view = doc.defaultView
-  if (!view) return () => {}
-  const disposeLighting = setupLiquidGlassLighting(doc, settings)
+/**
+ * Pure Declarative React Background Stage:
+ * Renders Wallpaper, Ambient Floating Particles, and Interactive Ink Canvas
+ * without imperative DOM tree mutations (append/prepend/remove), preventing any React reconciliation crashes.
+ */
+function StudioCanvasStage({ settings }) {
+  const canvasRef = useRef(null)
   const particlesAllowed = isSkinConfigurable(settings)
-  const inkAllowed = ravaInkAllowed(doc, settings)
-  const reduced = view.matchMedia('(prefers-reduced-motion: reduce)')
+  const inkAllowed = ravaInkAllowed(typeof document !== 'undefined' ? document : null, settings)
 
-  let disposeBackground = () => {}
+  useEffect(() => {
+    if (!inkAllowed || !canvasRef.current) return
+    const canvas = canvasRef.current
+    const ctx = canvas.getContext('2d', { alpha: true })
+    if (!ctx) return
 
-  function boot() {
-    disposeBackground()
-    if (reduced.matches || (!settings.motion && settings.skin !== 'liquid')) return
-
-    const bg = doc.createElement('div')
-    bg.className = particlesAllowed ? 'studio-background' : 'rava-ink-stage'
-    bg.style.cssText = 'position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden;'
-    bg.setAttribute('aria-hidden', 'true')
-
-    let wallpaper = doc.querySelector('.skin-wallpaper')
-    if (!wallpaper) {
-      wallpaper = doc.createElement('div')
-      wallpaper.className = 'skin-wallpaper'
-      wallpaper.style.cssText = 'position:fixed;inset:0;z-index:-1;pointer-events:none;'
-      doc.body.prepend(wallpaper)
-    }
-    wallpaper.append(bg)
-
-    if (particlesAllowed && settings.live !== 'off' && settings.particles !== false) {
-      for (let i = 0; i < 20; i++) {
-        const dot = doc.createElement('i')
-        dot.className = 'studio-particle'
-        dot.style.cssText = `width:${75 + ((i * 37) % 115)}px;height:${75 + ((i * 37) % 115)}px;left:${
-          (i * 31 + 7) % 100
-        }%;top:${(i * 43 + 13) % 100}%;animation-duration:${10 + (i % 9)}s;animation-delay:-${i * 0.8}s;`
-        bg.append(dot)
-      }
-    }
-
-    let canvas = null,
-      ctx = null,
-      raf = 0,
-      points = [],
-      lastMove = 0,
-      dpr = 1
-
-    if (inkAllowed) {
-      canvas = doc.createElement('canvas')
-      canvas.className = 'studio-ink rava-ink-ribbons'
-      canvas.setAttribute('aria-hidden', 'true')
-      canvas.style.cssText = 'position:absolute;inset:0;z-index:1;pointer-events:none;display:block;'
-      bg.append(canvas)
-      ctx = canvas.getContext('2d', { alpha: true })
-    }
+    let raf = 0
+    let points = []
+    let lastMove = 0
+    let dpr = 1
 
     function resize() {
       if (!canvas || !ctx) return
-      dpr = Math.min(1.5, view.devicePixelRatio || 1)
-      canvas.width = Math.max(1, Math.round(view.innerWidth * dpr))
-      canvas.height = Math.max(1, Math.round(view.innerHeight * dpr))
-      canvas.style.width = `${view.innerWidth}px`
-      canvas.style.height = `${view.innerHeight}px`
+      dpr = Math.min(1.5, window.devicePixelRatio || 1)
+      canvas.width = Math.max(1, Math.round(window.innerWidth * dpr))
+      canvas.height = Math.max(1, Math.round(window.innerHeight * dpr))
+      canvas.style.width = `${window.innerWidth}px`
+      canvas.style.height = `${window.innerHeight}px`
     }
     resize()
+    window.addEventListener('resize', resize, { passive: true })
 
     function frame(now) {
       raf = 0
-      if (!ctx || !canvas || doc.hidden) return
+      if (!ctx || !canvas || document.hidden) return
       ctx.clearRect(0, 0, canvas.width, canvas.height)
       points = points.filter((p) => now - p.t < 430).slice(-90)
       const fade = Math.max(0, 1 - Math.max(0, now - lastMove - 45) / 330)
@@ -614,8 +584,8 @@ export function setupCanvasEffects(doc, settings) {
       }
       if (points.length < 3) return
 
-      const night = doc.documentElement.dataset.mode === 'night'
-      const css = view.getComputedStyle(doc.documentElement)
+      const night = document.documentElement.dataset.mode === 'night'
+      const css = window.getComputedStyle(document.documentElement)
       const readColor = (name, fallback) => {
         const val = css.getPropertyValue(name).trim()
         return /^#[\da-f]{6}$/i.test(val) ? val : fallback
@@ -677,21 +647,20 @@ export function setupCanvasEffects(doc, settings) {
         ctx.stroke()
       }
       ctx.restore()
-      raf = view.requestAnimationFrame(frame)
+      raf = window.requestAnimationFrame(frame)
     }
 
-    let glow = null
     function move(ev) {
-      if (doc.hidden || ev.pointerType === 'touch') return
+      if (document.hidden || ev.pointerType === 'touch') return
       if (ctx && (ev.pointerType === 'mouse' || ev.pointerType === 'pen')) {
-        const now = view.performance.now(),
+        const now = window.performance.now(),
           x = ev.clientX,
           y = ev.clientY
         const prev = points[points.length - 1]
         if (
           prev &&
           (now - lastMove > 1500 ||
-            Math.hypot(x - prev.x, y - prev.y) > Math.max(view.innerWidth, view.innerHeight) * 0.6)
+            Math.hypot(x - prev.x, y - prev.y) > Math.max(window.innerWidth, window.innerHeight) * 0.6)
         ) {
           points = []
         }
@@ -707,45 +676,64 @@ export function setupCanvasEffects(doc, settings) {
           if (points.length > 90) points.splice(0, points.length - 90)
         }
         lastMove = now
-        if (!raf) raf = view.requestAnimationFrame(frame)
-      }
-
-      if (settings.glow && settings.skin === 'modern') {
-        const el = ev.target?.closest?.('.glow-card')
-        if (glow !== el) {
-          glow?.classList.remove('studio-spot')
-          glow = el
-          glow?.classList.add('studio-spot')
-        }
-        if (glow) {
-          const rect = glow.getBoundingClientRect()
-          glow.style.setProperty('--px', `${ev.clientX - rect.left}px`)
-          glow.style.setProperty('--py', `${ev.clientY - rect.top}px`)
-        }
+        if (!raf) raf = window.requestAnimationFrame(frame)
       }
     }
 
-    doc.addEventListener('pointermove', move, { passive: true })
-    if (canvas) view.addEventListener('resize', resize, { passive: true })
+    document.addEventListener('pointermove', move, { passive: true })
 
-    disposeBackground = () => {
-      doc.removeEventListener('pointermove', move)
-      if (canvas) view.removeEventListener('resize', resize)
-      if (raf) view.cancelAnimationFrame(raf)
-      glow?.classList.remove('studio-spot')
-      canvas?.remove()
-      bg.remove()
+    return () => {
+      document.removeEventListener('pointermove', move)
+      window.removeEventListener('resize', resize)
+      if (raf) window.cancelAnimationFrame(raf)
     }
-  }
+  }, [inkAllowed, settings.mode, settings.skin, settings.duet])
 
-  boot()
-  reduced.addEventListener('change', boot)
+  return (
+    <div
+      className="skin-wallpaper"
+      aria-hidden="true"
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: -1,
+        pointerEvents: 'none',
+        overflow: 'hidden',
+      }}
+    >
+      {/* 1. Ambient Floating Particles */}
+      {particlesAllowed && settings.live !== 'off' && settings.particles !== false && settings.motion && (
+        <div
+          className="studio-background"
+          style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden' }}
+        >
+          {Array.from({ length: 20 }).map((_, i) => (
+            <i
+              key={i}
+              className="studio-particle"
+              style={{
+                width: `${75 + ((i * 37) % 115)}px`,
+                height: `${75 + ((i * 37) % 115)}px`,
+                left: `${(i * 31 + 7) % 100}%`,
+                top: `${(i * 43 + 13) % 100}%`,
+                animationDuration: `${10 + (i % 9)}s`,
+                animationDelay: `-${i * 0.8}s`,
+              }}
+            />
+          ))}
+        </div>
+      )}
 
-  return () => {
-    reduced.removeEventListener('change', boot)
-    disposeBackground()
-    disposeLighting()
-  }
+      {/* 2. Interactive Ribbon Trail Canvas */}
+      {inkAllowed && (
+        <canvas
+          ref={canvasRef}
+          className="studio-ink rava-ink-ribbons"
+          style={{ position: 'absolute', inset: 0, zIndex: 1, pointerEvents: 'none', display: 'block' }}
+        />
+      )}
+    </div>
+  )
 }
 
 const ThemeCtx = createContext({
@@ -819,11 +807,10 @@ export function ThemeProvider({ children }) {
 
   // Apply theme variables & datasets whenever settings change
   useEffect(() => {
-    ensureGlassFilter(document)
     applyTheme(document, settings, rgbHueRef.current)
-    const cleanupEffects = setupCanvasEffects(document, settings)
+    const cleanupLighting = setupLiquidGlassLighting(document, settings)
     return () => {
-      cleanupEffects()
+      if (cleanupLighting) cleanupLighting()
     }
   }, [settings])
 
@@ -904,8 +891,22 @@ export function ThemeProvider({ children }) {
         closeStudio: () => setStudioOpen(false),
       }}
     >
-      {/* Background wallpaper layer strictly behind all UI content */}
-      <div className="skin-wallpaper" aria-hidden="true" style={{ position: 'fixed', inset: 0, zIndex: -1, pointerEvents: 'none' }} />
+      {/* 1. Optical Refraction SVG Filter */}
+      <svg id="rava-glass-refraction-svg" aria-hidden="true" style={{ position: 'fixed', width: 0, height: 0, pointerEvents: 'none' }}>
+        <defs>
+          <filter id="rava-glass-refraction" x="-10%" y="-10%" width="120%" height="120%" colorInterpolationFilters="sRGB">
+            <feTurbulence type="fractalNoise" baseFrequency="0.012 0.025" numOctaves="1" seed="7" result="noise" />
+            <feGaussianBlur in="noise" stdDeviation="2" result="smooth" />
+            <feDisplacementMap in="SourceGraphic" in2="smooth" scale="12" xChannelSelector="R" yChannelSelector="G" />
+            <feGaussianBlur stdDeviation=".7" />
+          </filter>
+        </defs>
+      </svg>
+
+      {/* 2. Declarative Wallpaper, Particles, and Canvas Layer */}
+      <StudioCanvasStage settings={settings} />
+
+      {/* 3. Main Application Tree */}
       <div className="app-content-root" style={{ position: 'relative', zIndex: 1, minHeight: '100vh' }}>
         {children}
       </div>

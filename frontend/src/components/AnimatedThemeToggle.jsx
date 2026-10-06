@@ -7,6 +7,11 @@ import React from 'react'
  * - Night: Midnight-indigo track, twinkling stars, cratered silver moon with crater details.
  */
 export default function AnimatedThemeToggle({ isDark, onToggle, label = '' }) {
+  const handleChange = (e) => {
+    e.stopPropagation()
+    if (onToggle) onToggle()
+  }
+
   return (
     <div className="uiverse-toggle-wrapper" style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
       {label && (
@@ -18,7 +23,7 @@ export default function AnimatedThemeToggle({ isDark, onToggle, label = '' }) {
         <input
           type="checkbox"
           checked={!!isDark}
-          onChange={onToggle}
+          onChange={handleChange}
           aria-label="Toggle Night/Day Mode"
         />
         <span className="uiverse-theme-slider">
