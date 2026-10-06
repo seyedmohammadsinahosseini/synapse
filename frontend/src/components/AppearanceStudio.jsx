@@ -371,26 +371,31 @@ export default function AppearanceStudio({ isOpen, onClose }) {
                     <InfoIcon text={isEn ? 'Picking a single color turns off duet palettes' : 'رنگ کنترل‌ها و سطوح؛ انتخاب رنگ تکی پالت دورنگ را خاموش می‌کند.'} />
                   </label>
                   <div className="color-swatches">
-                    {['#315bc5', '#216b50', '#8844a8', '#ad3858', '#9a641d', '#555b66'].map((hex) => (
-                      <button
-                        key={hex}
-                        type="button"
-                        style={{ background: hex }}
-                        className="swatch"
-                        aria-label={'Color ' + hex}
-                        aria-pressed={!s.rgb && s.colors[s.mode] === hex}
-                        onClick={() =>
-                          updateSettings({
-                            liquidPalette: true,
-                            colors: { ...s.colors, [s.mode]: hex },
-                            rgb: false,
-                            duet: undefined,
-                          })
-                        }
-                      >
-                        {!s.rgb && s.colors[s.mode] === hex && '✓'}
-                      </button>
-                    ))}
+                    {['#315bc5', '#216b50', '#8844a8', '#ad3858', '#9a641d', '#555b66'].map((hex) => {
+                      const curMode = (s.mode || 'day') === 'night' ? 'night' : 'day'
+                      const curColors = s.colors || { day: '#6253ba', night: '#216b50' }
+                      const isSelected = !s.rgb && curColors[curMode] === hex
+                      return (
+                        <button
+                          key={hex}
+                          type="button"
+                          style={{ background: hex }}
+                          className="swatch"
+                          aria-label={'Color ' + hex}
+                          aria-pressed={isSelected}
+                          onClick={() =>
+                            updateSettings({
+                              liquidPalette: true,
+                              colors: { ...curColors, [curMode]: hex },
+                              rgb: false,
+                              duet: undefined,
+                            })
+                          }
+                        >
+                          {isSelected && '✓'}
+                        </button>
+                      )
+                    })}
 
                     <button
                       type="button"
@@ -406,15 +411,20 @@ export default function AppearanceStudio({ isOpen, onClose }) {
                       <input
                         id="custom-accent"
                         type="color"
-                        value={s.colors[s.mode] || '#6253ba'}
-                        onChange={(e) =>
+                        value={
+                          (s.colors && s.colors[(s.mode || 'day') === 'night' ? 'night' : 'day']) ||
+                          (s.mode === 'night' ? '#216b50' : '#6253ba')
+                        }
+                        onChange={(e) => {
+                          const curMode = (s.mode || 'day') === 'night' ? 'night' : 'day'
+                          const curColors = s.colors || { day: '#6253ba', night: '#216b50' }
                           updateSettings({
                             liquidPalette: true,
-                            colors: { ...s.colors, [s.mode]: e.target.value },
+                            colors: { ...curColors, [curMode]: e.target.value },
                             rgb: false,
                             duet: undefined,
                           })
-                        }
+                        }}
                       />
                       <span>{isEn ? 'Custom' : 'دلخواه'}</span>
                     </label>
