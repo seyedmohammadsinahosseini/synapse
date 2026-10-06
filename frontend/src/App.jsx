@@ -361,14 +361,16 @@ function BootGate({ children }) {
 
 export default function App() {
   return (
-    <ThemeProvider>
-      <LangProvider>
-        <AuthProvider>
-          <BootGate>
-            <Routes />
-          </BootGate>
-        </AuthProvider>
-      </LangProvider>
-    </ThemeProvider>
+    <ErrorBoundary>
+      <ThemeProvider>
+        <LangProvider>
+          <AuthProvider>
+            <BootGate>
+              <Routes />
+            </BootGate>
+          </AuthProvider>
+        </LangProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
   )
 }
