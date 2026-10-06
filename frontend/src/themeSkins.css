@@ -1311,3 +1311,418 @@ html[data-skin=liquid] .workspace-frame iframe{
 }
 
 
+
+
+/* =========================================================================
+   ANIMATED SUN / MOON / STARS UIVERSE TOGGLE SWITCH
+   ========================================================================= */
+.uiverse-toggle-wrapper {
+  display: inline-flex;
+  align-items: center;
+}
+
+.uiverse-theme-switch {
+  position: relative;
+  display: inline-block;
+  width: 58px;
+  height: 30px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.uiverse-theme-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+
+.uiverse-theme-slider {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, #38bdf8 0%, #0284c7 100%);
+  border-radius: 999px;
+  transition: all 0.38s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.25), 0 1px 2px rgba(255, 255, 255, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.uiverse-theme-slider .cloud-1,
+.uiverse-theme-slider .cloud-2 {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 999px;
+  transition: all 0.35s ease;
+}
+.uiverse-theme-slider .cloud-1 {
+  bottom: 4px;
+  right: 6px;
+  width: 14px;
+  height: 5px;
+  box-shadow: -4px -3px 0 1px rgba(255, 255, 255, 0.95);
+}
+.uiverse-theme-slider .cloud-2 {
+  bottom: 11px;
+  right: 15px;
+  width: 10px;
+  height: 4px;
+  box-shadow: -3px -2px 0 1px rgba(255, 255, 255, 0.75);
+}
+
+.uiverse-theme-slider .star-1,
+.uiverse-theme-slider .star-2,
+.uiverse-theme-slider .star-3 {
+  position: absolute;
+  background: #ffffff;
+  border-radius: 50%;
+  transition: all 0.35s ease;
+  opacity: 0;
+  transform: translateY(8px) scale(0);
+}
+.uiverse-theme-slider .star-1 {
+  top: 6px;
+  left: 8px;
+  width: 2.5px;
+  height: 2.5px;
+  box-shadow: 0 0 3px #fff;
+}
+.uiverse-theme-slider .star-2 {
+  bottom: 7px;
+  left: 14px;
+  width: 2px;
+  height: 2px;
+  box-shadow: 0 0 2px #fff;
+}
+.uiverse-theme-slider .star-3 {
+  top: 13px;
+  left: 19px;
+  width: 3px;
+  height: 3px;
+  box-shadow: 0 0 4px #fff;
+}
+
+.uiverse-theme-slider .knob {
+  position: absolute;
+  content: "";
+  height: 22px;
+  width: 22px;
+  left: 4px;
+  bottom: 3px;
+  background: radial-gradient(circle at 35% 35%, #fff176 0%, #fbc02d 60%, #f57f17 100%);
+  border-radius: 50%;
+  box-shadow: 0 0 8px rgba(251, 192, 45, 0.8), inset 0 -2px 3px rgba(0, 0, 0, 0.15);
+  transition: all 0.38s cubic-bezier(0.68, -0.3, 0.27, 1.3);
+}
+
+.uiverse-theme-slider .knob .crater-1,
+.uiverse-theme-slider .knob .crater-2 {
+  position: absolute;
+  background: #94a3b8;
+  border-radius: 50%;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.uiverse-theme-slider .knob .crater-1 {
+  width: 4.5px;
+  height: 4.5px;
+  top: 4px;
+  left: 5px;
+  box-shadow: inset 1px 1px 1px rgba(0,0,0,0.25);
+}
+.uiverse-theme-slider .knob .crater-2 {
+  width: 3.5px;
+  height: 3.5px;
+  bottom: 5px;
+  right: 4px;
+  box-shadow: inset 1px 1px 1px rgba(0,0,0,0.25);
+}
+
+/* Night state */
+.uiverse-theme-switch input:checked + .uiverse-theme-slider {
+  background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+  border-color: rgba(99, 102, 241, 0.45);
+}
+
+.uiverse-theme-switch input:checked + .uiverse-theme-slider .knob {
+  transform: translateX(28px);
+  background: radial-gradient(circle at 35% 35%, #ffffff 0%, #cbd5e1 55%, #94a3b8 100%);
+  box-shadow: 0 0 8px rgba(226, 232, 240, 0.65), inset -2px -2px 3px rgba(51, 65, 85, 0.6);
+}
+
+.uiverse-theme-switch input:checked + .uiverse-theme-slider .knob .crater-1,
+.uiverse-theme-switch input:checked + .uiverse-theme-slider .knob .crater-2 {
+  opacity: 0.7;
+}
+
+.uiverse-theme-switch input:checked + .uiverse-theme-slider .cloud-1,
+.uiverse-theme-switch input:checked + .uiverse-theme-slider .cloud-2 {
+  opacity: 0;
+  transform: translateY(10px) scale(0.3);
+}
+
+.uiverse-theme-switch input:checked + .uiverse-theme-slider .star-1,
+.uiverse-theme-switch input:checked + .uiverse-theme-slider .star-2,
+.uiverse-theme-switch input:checked + .uiverse-theme-slider .star-3 {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+/* =========================================================================
+   STRUCTURAL SKIN TRANSFORMATIONS (ALL 6 SKINS)
+   ========================================================================= */
+
+/* ── 1. WINDOWS XP CLASSIC (xp) ────────────────────────────────────────── */
+html[data-skin="xp"] {
+  --radius: 4px;
+  --radius-lg: 6px;
+  --bg: #ece9d8;
+  --card: #ffffff;
+  --ink: #0c1524;
+}
+html[data-skin="xp"] .topbar {
+  background: linear-gradient(180deg, #2b70f0 0%, #1754cc 12%, #0840b5 75%, #1f5edb 100%) !important;
+  color: #ffffff !important;
+  border-bottom: 2px solid #002b80 !important;
+  box-shadow: 0 2px 6px rgba(0, 43, 128, 0.3) !important;
+}
+html[data-skin="xp"] .topbar .brand,
+html[data-skin="xp"] .topbar span,
+html[data-skin="xp"] .topbar b {
+  color: #ffffff !important;
+  text-shadow: 1px 1px 2px #002566;
+}
+html[data-skin="xp"] .topbar .topbar-date-pill {
+  background: rgba(255, 255, 255, 0.2) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.4) !important;
+  text-shadow: 1px 1px #002b80;
+}
+html[data-skin="xp"] .slide-bar {
+  background: #d4d0c8 !important;
+  border-inline-end: 2px solid #808080 !important;
+  box-shadow: inset 1px 1px #ffffff, 2px 0 4px rgba(0,0,0,0.1) !important;
+}
+html[data-skin="xp"] .slide-item {
+  border-radius: 4px !important;
+  border: 1px solid transparent !important;
+}
+html[data-skin="xp"] .slide-item.active {
+  background: #316ac5 !important;
+  color: #ffffff !important;
+  box-shadow: inset 1px 1px #103875 !important;
+}
+html[data-skin="xp"] .slide-item.active * {
+  color: #ffffff !important;
+}
+html[data-skin="xp"] :is(.card, .glass-card, .stat-card) {
+  border-radius: 4px !important;
+  border: 2px outset #ffffff !important;
+  background: #ffffff !important;
+  box-shadow: inset 1px 1px #dfdfdf, 2px 2px 0px rgba(0, 0, 0, 0.15) !important;
+}
+html[data-skin="xp"] :is(.btn.primary, .btn-primary) {
+  background: linear-gradient(180deg, #ffffff 0%, #ece9d8 15%, #d8d4c8 85%, #c8c4b8 100%) !important;
+  color: #0c1524 !important;
+  border: 2px outset #ffffff !important;
+  border-radius: 4px !important;
+  box-shadow: inset 1px 1px #ffffff, 1px 1px 0px #000000 !important;
+  font-weight: 700;
+}
+html[data-skin="xp"] :is(.btn.primary, .btn-primary):active {
+  border-style: inset !important;
+  background: #d8d4c8 !important;
+}
+
+/* ── 2. FRUTIGER AERO (aero) ───────────────────────────────────────────── */
+html[data-skin="aero"] {
+  --radius: 16px;
+  --radius-lg: 20px;
+}
+html[data-skin="aero"] .topbar {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.85) 0%, rgba(200, 235, 250, 0.55) 50%, rgba(160, 215, 245, 0.7) 100%) !important;
+  backdrop-filter: blur(16px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(160%) !important;
+  border-bottom: 1.5px solid rgba(255, 255, 255, 0.9) !important;
+  box-shadow: inset 0 1px 0 #ffffff, 0 4px 20px rgba(8, 124, 165, 0.15) !important;
+  color: #084664 !important;
+}
+html[data-skin="aero"] .slide-bar {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.75) 0%, rgba(210, 240, 255, 0.6) 100%) !important;
+  backdrop-filter: blur(16px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(160%) !important;
+  border-inline-end: 1px solid rgba(255, 255, 255, 0.8) !important;
+  box-shadow: inset 0 0 12px rgba(8, 124, 165, 0.08) !important;
+}
+html[data-skin="aero"] .slide-item.active {
+  background: linear-gradient(180deg, #56cbf2 0%, #087ca5 100%) !important;
+  color: #ffffff !important;
+  border-radius: 16px !important;
+  box-shadow: inset 0 1px 1px #ffffff, 0 4px 12px rgba(8, 124, 165, 0.35) !important;
+}
+html[data-skin="aero"] .slide-item.active * {
+  color: #ffffff !important;
+}
+html[data-skin="aero"] :is(.card, .glass-card, .stat-card) {
+  border-radius: 20px !important;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.9) 0%, rgba(240, 250, 255, 0.75) 100%) !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.9) !important;
+  box-shadow: inset 0 1px 1px #ffffff, 0 10px 30px rgba(8, 124, 165, 0.12) !important;
+  backdrop-filter: blur(14px) saturate(150%) !important;
+}
+html[data-skin="aero"] :is(.btn.primary, .btn-primary) {
+  background: linear-gradient(180deg, #60d5f8 0%, #209fd1 50%, #087ca5 100%) !important;
+  color: #ffffff !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(255, 255, 255, 0.7) !important;
+  box-shadow: inset 0 1px 1px #ffffff, 0 4px 14px rgba(8, 124, 165, 0.35) !important;
+}
+
+/* ── 3. LIQUID GLASS FLOW (liquid) ─────────────────────────────────────── */
+html[data-skin="liquid"] {
+  --radius: 22px;
+  --radius-lg: 26px;
+}
+html[data-skin="liquid"] .topbar {
+  background: var(--lg-glass-fill, rgba(255, 255, 255, 0.65)) !important;
+  backdrop-filter: blur(24px) saturate(170%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(170%) !important;
+  border-bottom: 1px solid var(--lg-edge, rgba(255, 255, 255, 0.4)) !important;
+  box-shadow: var(--lg-glass-shadow, inset 0 1px 1px rgba(255, 255, 255, 0.6)) !important;
+}
+html[data-skin="liquid"] .slide-bar {
+  background: var(--lg-pane-fill, rgba(255, 255, 255, 0.6)) !important;
+  backdrop-filter: blur(24px) saturate(170%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(170%) !important;
+  border-inline-end: 1px solid var(--lg-edge, rgba(255, 255, 255, 0.3)) !important;
+}
+html[data-skin="liquid"] .slide-item.active {
+  background: var(--lg-selection, rgba(255, 255, 255, 0.8)) !important;
+  border-radius: 999px !important;
+  box-shadow: inset 0 1px 1px #ffffff, 0 4px 14px rgba(0, 0, 0, 0.08) !important;
+  color: var(--brand) !important;
+}
+html[data-skin="liquid"] :is(.card, .glass-card, .stat-card) {
+  border-radius: 24px !important;
+  background: var(--lg-content, rgba(255, 255, 255, 0.7)) !important;
+  backdrop-filter: blur(20px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(160%) !important;
+  border: 1px solid var(--lg-edge, rgba(255, 255, 255, 0.45)) !important;
+  border-bottom-color: var(--lg-edge-dark, rgba(0, 0, 0, 0.15)) !important;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.7), 0 12px 35px rgba(0, 0, 0, 0.06) !important;
+}
+html[data-skin="liquid"] :is(.btn.primary, .btn-primary) {
+  border-radius: 999px !important;
+  background: var(--brand) !important;
+  color: #ffffff !important;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.6), 0 4px 14px rgba(0, 0, 0, 0.12) !important;
+}
+
+/* ── 4. NEO RETRO POP (neo) ────────────────────────────────────────────── */
+html[data-skin="neo"] {
+  --radius: 0px;
+  --radius-lg: 4px;
+}
+html[data-skin="neo"] .topbar {
+  background: #fde047 !important;
+  color: #1e1b4b !important;
+  border-bottom: 3px solid #000000 !important;
+  box-shadow: 0 4px 0px #000000 !important;
+}
+html[data-skin="neo"] .topbar .brand,
+html[data-skin="neo"] .topbar span,
+html[data-skin="neo"] .topbar b {
+  color: #000000 !important;
+}
+html[data-skin="neo"] .slide-bar {
+  background: #a7f3d0 !important;
+  border-inline-end: 3px solid #000000 !important;
+  box-shadow: 4px 0 0px #000000 !important;
+}
+html[data-skin="neo"] .slide-item {
+  border-radius: 0px !important;
+  border: 2px solid transparent !important;
+}
+html[data-skin="neo"] .slide-item.active {
+  background: #ff49db !important;
+  color: #ffffff !important;
+  border: 2px solid #000000 !important;
+  box-shadow: 3px 3px 0px #000000 !important;
+}
+html[data-skin="neo"] .slide-item.active * {
+  color: #ffffff !important;
+}
+html[data-skin="neo"] :is(.card, .glass-card, .stat-card) {
+  border-radius: 0px !important;
+  border: 3px solid #000000 !important;
+  background: #ffffff !important;
+  box-shadow: 5px 5px 0px #000000 !important;
+}
+html[data-skin="neo"] :is(.btn.primary, .btn-primary) {
+  background: #ff49db !important;
+  color: #ffffff !important;
+  border: 2.5px solid #000000 !important;
+  border-radius: 0px !important;
+  box-shadow: 4px 4px 0px #000000 !important;
+  font-weight: 800;
+}
+html[data-skin="neo"] :is(.btn.primary, .btn-primary):active {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0px #000000 !important;
+}
+
+/* ── 5. CYBER CHROME Y2K (y2k) ─────────────────────────────────────────── */
+html[data-skin="y2k"] {
+  --radius: 6px;
+  --radius-lg: 10px;
+  --bg: #070c13;
+  --card: #15222e;
+  --ink: #e2f1f8;
+}
+html[data-skin="y2k"] .topbar {
+  background: linear-gradient(180deg, #dfe7ed 0%, #607887 46%, #152733 49%, #495e69 100%) !important;
+  border-bottom: 2px solid #42cae9 !important;
+  box-shadow: 0 0 14px rgba(66, 202, 233, 0.4) !important;
+  color: #ffffff !important;
+}
+html[data-skin="y2k"] .topbar .brand,
+html[data-skin="y2k"] .topbar span,
+html[data-skin="y2k"] .topbar b {
+  color: #ffffff !important;
+  text-shadow: 0 0 6px #42cae9;
+}
+html[data-skin="y2k"] .slide-bar {
+  background: linear-gradient(180deg, #1c2b36 0%, #0d1720 100%) !important;
+  border-inline-end: 1.5px solid #42cae9 !important;
+  box-shadow: 0 0 10px rgba(66, 202, 233, 0.25) !important;
+}
+html[data-skin="y2k"] .slide-item.active {
+  background: linear-gradient(135deg, #1f3647 0%, #0c202d 100%) !important;
+  border: 1.5px solid #42cae9 !important;
+  box-shadow: 0 0 10px rgba(66, 202, 233, 0.5) !important;
+  color: #42cae9 !important;
+}
+html[data-skin="y2k"] .slide-item.active * {
+  color: #42cae9 !important;
+}
+html[data-skin="y2k"] :is(.card, .glass-card, .stat-card) {
+  border-radius: 8px !important;
+  background: linear-gradient(145deg, #192734 0%, #101c27 100%) !important;
+  border: 1.5px solid rgba(66, 202, 233, 0.35) !important;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.1), 0 0 12px rgba(66, 202, 233, 0.15) !important;
+}
+html[data-skin="y2k"] :is(.btn.primary, .btn-primary) {
+  background: linear-gradient(180deg, #e4f5fc 0%, #85d5f2 50%, #42cae9 100%) !important;
+  color: #061720 !important;
+  border-radius: 8px !important;
+  border: 1px solid #e4f5fc !important;
+  box-shadow: 0 0 12px rgba(66, 202, 233, 0.6) !important;
+  font-weight: 800;
+}
+
+/* ── 6. DEFAULT MODERN (modern) ────────────────────────────────────────── */
+html[data-skin="modern"] :is(.card, .glass-card, .stat-card) {
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.04);
+}

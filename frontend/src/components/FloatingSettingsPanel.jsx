@@ -3,6 +3,7 @@ import { useAuth } from '../auth.jsx'
 import { useTheme } from '../theme.jsx'
 import { useLang } from '../i18n.jsx'
 import { clearSession } from '../api.js'
+import AnimatedThemeToggle from './AnimatedThemeToggle.jsx'
 
 export default function FloatingSettingsPanel({ isOpen, onClose, onOpenStudio, navigate }) {
   const { user } = useAuth()
@@ -147,39 +148,27 @@ export default function FloatingSettingsPanel({ isOpen, onClose, onOpenStudio, n
 
       {/* 2. Quick Settings Section */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {/* Day / Night Theme Switch */}
+        {/* Day / Night Theme Switch with Animated Sun/Moon Uiverse Toggle */}
         <div
           style={{
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            padding: '8px 12px',
+            padding: '10px 14px',
             background: 'var(--bg)',
             borderRadius: 14,
             border: '1px solid var(--line)',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 16 }}>{theme === 'dark' ? '🌙' : '☀️'}</span>
             <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>
-              {isEn ? 'Night Mode' : 'حالت شب / تیره'}
+              {isEn ? 'Theme Mode' : 'حالت روز / شب'}
             </span>
           </div>
-          <button
-            type="button"
-            className="btn ghost sm"
-            style={{
-              borderRadius: 10,
-              padding: '4px 12px',
-              fontSize: 12,
-              fontWeight: 800,
-              background: theme === 'dark' ? 'var(--primary)' : 'var(--card)',
-              color: theme === 'dark' ? '#fff' : 'var(--ink)',
-            }}
-            onClick={toggle}
-          >
-            {theme === 'dark' ? (isEn ? 'Dark (ON)' : 'فعال 🌙') : (isEn ? 'Light (OFF)' : 'روشن ☀️')}
-          </button>
+          <AnimatedThemeToggle
+            isDark={theme === 'dark'}
+            onToggle={toggle}
+          />
         </div>
 
         {/* Appearance Studio Trigger */}

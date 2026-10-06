@@ -107,7 +107,7 @@ export default function AppearanceStudio({ isOpen, onClose }) {
         aria-describedby="theme-preview-desc"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
+        {/* 1. Header (Pinned at Top) */}
         <div className="preview-dialog-head">
           <div>
             <h2>{isEn ? 'Appearance & Theme Studio' : 'استودیو طراحی و شخصی‌سازی پوسته'}</h2>
@@ -135,431 +135,434 @@ export default function AppearanceStudio({ isOpen, onClose }) {
           </button>
         </div>
 
-        {/* Skin Catalog Grid */}
-        <div style={{ marginTop: 22, marginBottom: 26 }}>
-          <b style={{ display: 'block', fontSize: 13, marginBottom: 12 }}>
-            {isEn ? 'Visual Skin Catalog:' : 'کاتالوگ پوسته‌های بصری:'}
-          </b>
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(136px, 1fr))',
-              gap: 12,
-            }}
-          >
-            {SKINS.map((sk) => {
-              const active = s.skin === sk.id
-              return (
-                <button
-                  key={sk.id}
-                  type="button"
-                  className={`skin-choice preview-${sk.id}`}
-                  aria-pressed={active}
-                  onClick={() => updateSettings({ skin: sk.id })}
-                >
-                  <div className="mini-window">
-                    <div className="mini-top">
-                      <i />
-                      <i />
-                      <i />
-                    </div>
-                    <div className="mini-body">
-                      <aside />
-                      <main>
+        {/* 2. Scrollable Body Content */}
+        <div className="studio-modal-body" style={{ flex: 1, overflowY: 'auto', padding: '18px 24px' }}>
+          {/* Skin Catalog Grid */}
+          <div style={{ marginBottom: 24 }}>
+            <b style={{ display: 'block', fontSize: 13, marginBottom: 12, color: 'var(--ink)' }}>
+              {isEn ? 'Visual Skin Catalog:' : 'کاتالوگ پوسته‌های بصری سامانه:'}
+            </b>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(136px, 1fr))',
+                gap: 12,
+              }}
+            >
+              {SKINS.map((sk) => {
+                const active = s.skin === sk.id
+                return (
+                  <button
+                    key={sk.id}
+                    type="button"
+                    className={`skin-choice preview-${sk.id}`}
+                    aria-pressed={active}
+                    onClick={() => updateSettings({ skin: sk.id })}
+                  >
+                    <div className="mini-window">
+                      <div className="mini-top">
                         <i />
-                        <div>
-                          <b />
-                          <b />
-                        </div>
-                      </main>
+                        <i />
+                        <i />
+                      </div>
+                      <div className="mini-body">
+                        <aside />
+                        <main>
+                          <i />
+                          <div>
+                            <b />
+                            <b />
+                          </div>
+                        </main>
+                      </div>
+                      {active && <span className="selected-check">✓</span>}
                     </div>
-                    {active && <span className="selected-check">✓</span>}
-                  </div>
-                  <div className="skin-description">
-                    <span>{sk.en}</span>
-                    <strong>{sk.name}</strong>
-                    <small>{sk.desc}</small>
-                  </div>
-                </button>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* Skin Settings Section */}
-        <section className="skin-settings" id="skin-settings">
-          <div className="section-label">
-            <h3>
-              ⚙️ {isEn ? 'Settings for ' : 'تنظیمات '}
-              {SKINS.find((sk) => sk.id === s.skin)?.name}
-            </h3>
-            <small>{isEn ? 'Auto-saved' : 'ذخیره خودکار'}</small>
+                    <div className="skin-description">
+                      <span>{sk.en}</span>
+                      <strong>{sk.name}</strong>
+                      <small>{sk.desc}</small>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
           </div>
 
-          {/* Mode Switch (Modern only) */}
-          {s.skin === 'modern' && (
-            <label className="setting-row">
-              <span>
-                <b>
-                  {isEn ? 'Display Mode' : 'حالت نمایش'}
-                  <InfoIcon text={isEn ? 'Day or Night ambient mode' : 'روشن یا تیره؛ رنگ روز و شب جداگانه ذخیره می‌شود.'} />
-                </b>
-                <small>{isEn ? 'Day & Night modes save independently.' : 'رنگ روز و شب جداگانه ذخیره می‌شود.'}</small>
-              </span>
-              <div style={{ display: 'flex', gap: 6 }}>
-                <button
-                  type="button"
-                  className="btn ghost sm"
-                  style={{
-                    background: s.mode === 'day' ? 'var(--brand)' : 'var(--surface-2)',
-                    color: s.mode === 'day' ? '#fff' : 'var(--text)',
-                    borderRadius: 10,
-                  }}
-                  onClick={() => updateSettings({ mode: 'day' })}
-                >
-                  ☀️ {isEn ? 'Day' : 'روز'}
-                </button>
-                <button
-                  type="button"
-                  className="btn ghost sm"
-                  style={{
-                    background: s.mode === 'night' ? 'var(--brand)' : 'var(--surface-2)',
-                    color: s.mode === 'night' ? '#fff' : 'var(--text)',
-                    borderRadius: 10,
-                  }}
-                  onClick={() => updateSettings({ mode: 'night' })}
-                >
-                  🌙 {isEn ? 'Night' : 'شب'}
-                </button>
-              </div>
-            </label>
-          )}
+          {/* Skin Settings Section */}
+          <section className="skin-settings" id="skin-settings">
+            <div className="section-label">
+              <h3>
+                ⚙️ {isEn ? 'Settings for ' : 'تنظیمات '}
+                {SKINS.find((sk) => sk.id === s.skin)?.name}
+              </h3>
+              <small>{isEn ? 'Auto-saved' : 'ذخیره خودکار'}</small>
+            </div>
 
-          {/* Duet Palettes (Configurable skins: Modern & Liquid) */}
-          {isConfigurable && (
-            <>
-              <div className="palette-pairs">
-                <div className="duet-heading">
-                  <div>
-                    <b>{isEn ? 'Color Duet Pairs' : 'دو رنگ، یک حال‌وهوای کامل'}</b>
-                    <p>
-                      {isEn
-                        ? 'Backgrounds, luminous borders, buttons and particles update harmoniously.'
-                        : 'زمینه، حاشیه‌های نورانی، دکمه‌ها و حباب‌ها با هم تغییر می‌کنند.'}
-                    </p>
+            {/* Mode Switch (Modern only) */}
+            {s.skin === 'modern' && (
+              <label className="setting-row">
+                <span>
+                  <b>
+                    {isEn ? 'Display Mode' : 'حالت نمایش'}
+                    <InfoIcon text={isEn ? 'Day or Night ambient mode' : 'روشن یا تیره؛ رنگ روز و شب جداگانه ذخیره می‌شود.'} />
+                  </b>
+                  <small>{isEn ? 'Day & Night modes save independently.' : 'رنگ روز و شب جداگانه ذخیره می‌شود.'}</small>
+                </span>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button
+                    type="button"
+                    className="btn ghost sm"
+                    style={{
+                      background: s.mode === 'day' ? 'var(--brand)' : 'var(--surface-2)',
+                      color: s.mode === 'day' ? '#fff' : 'var(--text)',
+                      borderRadius: 10,
+                    }}
+                    onClick={() => updateSettings({ mode: 'day' })}
+                  >
+                    ☀️ {isEn ? 'Day' : 'روز'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn ghost sm"
+                    style={{
+                      background: s.mode === 'night' ? 'var(--brand)' : 'var(--surface-2)',
+                      color: s.mode === 'night' ? '#fff' : 'var(--text)',
+                      borderRadius: 10,
+                    }}
+                    onClick={() => updateSettings({ mode: 'night' })}
+                  >
+                    🌙 {isEn ? 'Night' : 'شب'}
+                  </button>
+                </div>
+              </label>
+            )}
+
+            {/* Duet Palettes (Configurable skins: Modern & Liquid) */}
+            {isConfigurable && (
+              <>
+                <div className="palette-pairs">
+                  <div className="duet-heading">
+                    <div>
+                      <b>{isEn ? 'Color Duet Pairs' : 'دو رنگ، یک حال‌وهوای کامل'}</b>
+                      <p>
+                        {isEn
+                          ? 'Backgrounds, luminous borders, buttons and particles update harmoniously.'
+                          : 'زمینه، حاشیه‌های نورانی، دکمه‌ها و حباب‌ها با هم تغییر می‌کنند.'}
+                      </p>
+                    </div>
+                    <InfoIcon
+                      text={
+                        isEn
+                          ? 'Obsidian Neon applies high-contrast midnight black, electric magenta & cyan.'
+                          : 'پالت‌ها با هماهنگی کامل سطوح و نوارها طراحی شده‌اند. آبسیدین در حالت شب همان ترکیب مشکی، صورتی و فیروزه‌ای اصیل است.'
+                      }
+                    />
                   </div>
-                  <InfoIcon
-                    text={
-                      isEn
-                        ? 'Obsidian Neon applies high-contrast midnight black, electric magenta & cyan.'
-                        : 'پالت‌ها با هماهنگی کامل سطوح و نوارها طراحی شده‌اند. آبسیدین در حالت شب همان ترکیب مشکی، صورتی و فیروزه‌ای اصیل است.'
-                    }
-                  />
+
+                  <div className="duet-catalog">
+                    {DUETS.map((d) => {
+                      const isSelected =
+                        s.duet === d.id && !s.rgb && (s.skin !== 'liquid' || s.liquidPalette)
+                      return (
+                        <button
+                          key={d.id}
+                          type="button"
+                          className={`duet-choice ${['obsidian', 'home'].includes(d.id) ? 'duet-featured' : ''}`}
+                          aria-pressed={isSelected}
+                          onClick={() =>
+                            updateSettings({
+                              liquidPalette: true,
+                              duet: d.id,
+                              mode: ['obsidian', 'home'].includes(d.id) ? 'night' : s.mode,
+                              colors: { day: d.colors[0], night: d.colors[0] },
+                              rgb: false,
+                              ...(['obsidian', 'home'].includes(d.id) ? { live: 'combined' } : {}),
+                            })
+                          }
+                          style={{
+                            '--pair-a': d.colors[0],
+                            '--pair-b': d.colors[1],
+                            '--pair-bg': d.bg,
+                            '--pair-panel': d.panel,
+                            '--pair-c': (d.extra || d.colors)[0],
+                            '--pair-d': (d.extra || d.colors)[1],
+                          }}
+                        >
+                          <span className="duet-art" aria-hidden="true">
+                            <span className="duet-orb a" />
+                            <span className="duet-orb b" />
+                            {d.extra && <span className="duet-orb c" />}
+                            {d.extra && <span className="duet-orb d" />}
+                            <span className="duet-mini-top" />
+                            <span className="duet-mini-sidebar" />
+                            <span className="duet-mini-card" />
+                            <span className="duet-mini-cta" />
+                          </span>
+                          <span className="duet-meta">
+                            <b>
+                              {d.name}
+                              {isSelected && <span style={{ marginLeft: 6, color: 'var(--brand)' }}>✓</span>}
+                            </b>
+                            <small>{d.desc}</small>
+                          </span>
+                          {d.id === 'obsidian' && <span className="duet-ref">تم تصویر مرجع</span>}
+                          {d.id === 'home' && <span className="duet-ref">پالت هوم اصلی</span>}
+                        </button>
+                      )
+                    })}
+                  </div>
                 </div>
 
-                <div className="duet-catalog">
-                  {DUETS.map((d) => {
-                    const isSelected =
-                      s.duet === d.id && !s.rgb && (s.skin !== 'liquid' || s.liquidPalette)
-                    return (
+                {/* Individual Accent Color Swatches */}
+                <div className="color-section" style={{ marginTop: 20 }}>
+                  <label htmlFor="custom-accent" style={{ display: 'block', fontSize: 12.5, fontWeight: 600, marginBottom: 8 }}>
+                    {isEn ? 'Primary Accent Color for ' : 'رنگ اصلی حالت '}
+                    {s.mode === 'night' ? (isEn ? 'Night' : 'شب') : (isEn ? 'Day' : 'روز')}
+                    <InfoIcon text={isEn ? 'Picking a single color turns off duet palettes' : 'رنگ کنترل‌ها و سطوح؛ انتخاب رنگ تکی پالت دورنگ را خاموش می‌کند.'} />
+                  </label>
+                  <div className="color-swatches">
+                    {['#315bc5', '#216b50', '#8844a8', '#ad3858', '#9a641d', '#555b66'].map((hex) => (
                       <button
-                        key={d.id}
+                        key={hex}
                         type="button"
-                        className={`duet-choice ${['obsidian', 'home'].includes(d.id) ? 'duet-featured' : ''}`}
-                        aria-pressed={isSelected}
+                        style={{ background: hex }}
+                        className="swatch"
+                        aria-label={'Color ' + hex}
+                        aria-pressed={!s.rgb && s.colors[s.mode] === hex}
                         onClick={() =>
                           updateSettings({
                             liquidPalette: true,
-                            duet: d.id,
-                            mode: ['obsidian', 'home'].includes(d.id) ? 'night' : s.mode,
-                            colors: { day: d.colors[0], night: d.colors[0] },
+                            colors: { ...s.colors, [s.mode]: hex },
                             rgb: false,
-                            ...(['obsidian', 'home'].includes(d.id) ? { live: 'combined' } : {}),
+                            duet: undefined,
                           })
                         }
-                        style={{
-                          '--pair-a': d.colors[0],
-                          '--pair-b': d.colors[1],
-                          '--pair-bg': d.bg,
-                          '--pair-panel': d.panel,
-                          '--pair-c': (d.extra || d.colors)[0],
-                          '--pair-d': (d.extra || d.colors)[1],
-                        }}
                       >
-                        <span className="duet-art" aria-hidden="true">
-                          <span className="duet-orb a" />
-                          <span className="duet-orb b" />
-                          {d.extra && <span className="duet-orb c" />}
-                          {d.extra && <span className="duet-orb d" />}
-                          <span className="duet-mini-top" />
-                          <span className="duet-mini-sidebar" />
-                          <span className="duet-mini-card" />
-                          <span className="duet-mini-cta" />
-                        </span>
-                        <span className="duet-meta">
-                          <b>
-                            {d.name}
-                            {isSelected && <span style={{ marginLeft: 6, color: 'var(--brand)' }}>✓</span>}
-                          </b>
-                          <small>{d.desc}</small>
-                        </span>
-                        {d.id === 'obsidian' && <span className="duet-ref">تم تصویر مرجع</span>}
-                        {d.id === 'home' && <span className="duet-ref">پالت هوم اصلی</span>}
+                        {!s.rgb && s.colors[s.mode] === hex && '✓'}
                       </button>
-                    )
-                  })}
-                </div>
-              </div>
+                    ))}
 
-              {/* Individual Accent Color Swatches */}
-              <div className="color-section" style={{ marginTop: 20 }}>
-                <label htmlFor="custom-accent" style={{ display: 'block', fontSize: 12.5, fontWeight: 600, marginBottom: 8 }}>
-                  {isEn ? 'Primary Accent Color for ' : 'رنگ اصلی حالت '}
-                  {s.mode === 'night' ? (isEn ? 'Night' : 'شب') : (isEn ? 'Day' : 'روز')}
-                  <InfoIcon text={isEn ? 'Picking a single color turns off duet palettes' : 'رنگ کنترل‌ها و سطوح؛ انتخاب رنگ تکی پالت دورنگ را خاموش می‌کند.'} />
-                </label>
-                <div className="color-swatches">
-                  {['#315bc5', '#216b50', '#8844a8', '#ad3858', '#9a641d', '#555b66'].map((hex) => (
                     <button
-                      key={hex}
                       type="button"
-                      style={{ background: hex }}
-                      className="swatch"
-                      aria-label={'Color ' + hex}
-                      aria-pressed={!s.rgb && s.colors[s.mode] === hex}
-                      onClick={() =>
-                        updateSettings({
-                          liquidPalette: true,
-                          colors: { ...s.colors, [s.mode]: hex },
-                          rgb: false,
-                          duet: undefined,
-                        })
-                      }
+                      className="swatch rainbow"
+                      aria-label="RGB Rainbow rotation"
+                      aria-pressed={s.rgb}
+                      onClick={() => updateSettings({ liquidPalette: true, rgb: !s.rgb })}
                     >
-                      {!s.rgb && s.colors[s.mode] === hex && '✓'}
+                      {s.rgb ? '✓' : <span>RGB</span>}
                     </button>
-                  ))}
 
-                  <button
-                    type="button"
-                    className="swatch rainbow"
-                    aria-label="RGB Rainbow rotation"
-                    aria-pressed={s.rgb}
-                    onClick={() => updateSettings({ liquidPalette: true, rgb: !s.rgb })}
-                  >
-                    {s.rgb ? '✓' : <span>RGB</span>}
-                  </button>
-
-                  <label className="custom-color">
-                    <input
-                      id="custom-accent"
-                      type="color"
-                      value={s.colors[s.mode] || '#6253ba'}
-                      onChange={(e) =>
-                        updateSettings({
-                          liquidPalette: true,
-                          colors: { ...s.colors, [s.mode]: e.target.value },
-                          rgb: false,
-                          duet: undefined,
-                        })
-                      }
-                    />
-                    <span>{isEn ? 'Custom' : 'دلخواه'}</span>
-                  </label>
+                    <label className="custom-color">
+                      <input
+                        id="custom-accent"
+                        type="color"
+                        value={s.colors[s.mode] || '#6253ba'}
+                        onChange={(e) =>
+                          updateSettings({
+                            liquidPalette: true,
+                            colors: { ...s.colors, [s.mode]: e.target.value },
+                            rgb: false,
+                            duet: undefined,
+                          })
+                        }
+                      />
+                      <span>{isEn ? 'Custom' : 'دلخواه'}</span>
+                    </label>
+                  </div>
+                  <p className="settings-note" style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)' }}>
+                    {isEn
+                      ? 'Accent affects background tints, borders, and controls with accessible text contrast.'
+                      : 'رنگ به زمینه، سطوح و کنترل‌ها می‌رسد؛ کنتراست متن جداگانه حفظ می‌شود.'}
+                  </p>
                 </div>
-                <p className="settings-note" style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)' }}>
-                  {isEn
-                    ? 'Accent affects background tints, borders, and controls with accessible text contrast.'
-                    : 'رنگ به زمینه، سطوح و کنترل‌ها می‌رسد؛ کنتراست متن جداگانه حفظ می‌شود.'}
-                </p>
-              </div>
-            </>
-          )}
+              </>
+            )}
 
-          {/* Frutiger Aero Options */}
-          {s.skin === 'aero' && (
-            <>
-              <ChoiceSetting
-                label={isEn ? 'Nature Scenery Vibe' : 'حال‌وهوای طبیعت'}
-                value={s.aero || 'sky'}
-                options={[
-                  ['sky', isEn ? 'Blue Sky' : 'آسمان آبی'],
-                  ['ocean', isEn ? 'Aqua Ocean' : 'اقیانوس فیروزه‌ای'],
-                  ['garden', isEn ? 'Green Garden' : 'باغ سبز'],
-                ]}
-                onChange={(v) => updateSettings({ aero: v })}
-                tooltip={isEn ? 'High-gloss sky, water, or garden backgrounds' : 'تصویر مستقل آسمان، آب یا باغ همراه با رنگ کنترل‌ها.'}
-              />
-              <label className="range-setting">
-                <span>
-                  {isEn ? 'Glass Intensity' : 'شدت جلوه شیشه‌ای'}
-                  <InfoIcon text={isEn ? 'Transparency & blur amount' : 'شفافیت و محوشدگی در تم‌های شیشه‌ای.'} />
-                  <b>{s.glass || 55}٪</b>
-                </span>
-                <input
-                  aria-label="Glass Intensity"
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={s.glass || 55}
-                  onChange={(e) => updateSettings({ glass: Number(e.target.value) })}
+            {/* Frutiger Aero Options */}
+            {s.skin === 'aero' && (
+              <>
+                <ChoiceSetting
+                  label={isEn ? 'Nature Scenery Vibe' : 'حال‌وهوای طبیعت'}
+                  value={s.aero || 'sky'}
+                  options={[
+                    ['sky', isEn ? 'Blue Sky' : 'آسمان آبی'],
+                    ['ocean', isEn ? 'Aqua Ocean' : 'اقیانوس فیروزه‌ای'],
+                    ['garden', isEn ? 'Green Garden' : 'باغ سبز'],
+                  ]}
+                  onChange={(v) => updateSettings({ aero: v })}
+                  tooltip={isEn ? 'High-gloss sky, water, or garden backgrounds' : 'تصویر مستقل آسمان، آب یا باغ همراه با رنگ کنترل‌ها.'}
                 />
-                <small>{isEn ? 'Text background retains high legibility.' : 'زمینه متن برای خوانایی کاملاً محو نمی‌شود.'}</small>
-              </label>
-            </>
-          )}
+                <label className="range-setting">
+                  <span>
+                    {isEn ? 'Glass Intensity' : 'شدت جلوه شیشه‌ای'}
+                    <InfoIcon text={isEn ? 'Transparency & blur amount' : 'شفافیت و محوشدگی در تم‌های شیشه‌ای.'} />
+                    <b>{s.glass || 55}٪</b>
+                  </span>
+                  <input
+                    aria-label="Glass Intensity"
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={s.glass || 55}
+                    onChange={(e) => updateSettings({ glass: Number(e.target.value) })}
+                  />
+                  <small>{isEn ? 'Text background retains high legibility.' : 'زمینه متن برای خوانایی کاملاً محو نمی‌شود.'}</small>
+                </label>
+              </>
+            )}
 
-          {/* Windows XP Options */}
-          {s.skin === 'xp' && (
-            <ChoiceSetting
-              label={isEn ? 'XP Window Theme' : 'رنگ پنجره‌های XP'}
-              value={s.xp || 'blue'}
-              options={[
-                ['blue', 'Luna آبی'],
-                ['olive', 'زیتونی Olive'],
-                ['silver', 'نقره‌ای Silver'],
-              ]}
-              onChange={(v) => updateSettings({ xp: v })}
-              tooltip={isEn ? 'Classic Windows XP Luna themes' : 'قاب‌های کلاسیک Luna؛ تصویر Bliss ثابت است.'}
-            />
-          )}
-
-          {/* Y2K Options */}
-          {s.skin === 'y2k' && (
-            <ChoiceSetting
-              label={isEn ? 'Metallic Glow' : 'نور فلز'}
-              value={s.y2k || 'cyan'}
-              options={[
-                ['cyan', isEn ? 'Ice Chrome' : 'یخی / کروم'],
-                ['lime', isEn ? 'Cyber Console Lime' : 'سبز / کنسول'],
-              ]}
-              onChange={(v) => updateSettings({ y2k: v })}
-              tooltip={isEn ? 'Polished metal & neon cyber console' : 'کروم آبی یا سبک کنسولی سبز با تصویر مستقل.'}
-            />
-          )}
-
-          {/* Neo Pop Options */}
-          {s.skin === 'neo' && (
-            <ChoiceSetting
-              label={isEn ? 'Graphic Language' : 'زبان گرافیکی'}
-              value={s.neo || 'pop'}
-              options={[
-                ['pop', isEn ? 'Yellow Pop & Cyan' : 'پاپ زرد و فیروزه‌ای'],
-                ['pink', isEn ? 'Retro Pink Window' : 'پنجره رترو صورتی'],
-              ]}
-              onChange={(v) => updateSettings({ neo: v })}
-              tooltip={isEn ? 'High contrast retro graphic windows' : 'رنگ‌بندی پاپ یا رترو صورتی با کادرهای ضخیم.'}
-            />
-          )}
-
-          {/* Liquid Glass Options */}
-          {s.skin === 'liquid' && (
-            <>
+            {/* Windows XP Options */}
+            {s.skin === 'xp' && (
               <ChoiceSetting
-                label={isEn ? 'Day / Night Mode' : 'حالت روز و شب'}
-                value={s.mode || 'day'}
+                label={isEn ? 'XP Window Theme' : 'رنگ پنجره‌های XP'}
+                value={s.xp || 'blue'}
                 options={[
-                  ['day', isEn ? 'Day' : 'روز'],
-                  ['night', isEn ? 'Night' : 'شب'],
+                  ['blue', 'Luna آبی'],
+                  ['olive', 'زیتونی Olive'],
+                  ['silver', 'نقره‌ای Silver'],
                 ]}
-                onChange={(v) => updateSettings({ mode: v })}
+                onChange={(v) => updateSettings({ xp: v })}
+                tooltip={isEn ? 'Classic Windows XP Luna themes' : 'قاب‌های کلاسیک Luna؛ تصویر Bliss ثابت است.'}
               />
+            )}
 
+            {/* Y2K Options */}
+            {s.skin === 'y2k' && (
               <ChoiceSetting
-                label={isEn ? 'Glass Material' : 'جنس شیشه'}
-                value={s.liquid === 'matte' ? 'matte' : 'clear'}
+                label={isEn ? 'Metallic Glow' : 'نور فلز'}
+                value={s.y2k || 'cyan'}
                 options={[
-                  ['clear', isEn ? 'Crystal Clear' : 'شفاف کریستالی'],
-                  ['matte', isEn ? 'Frosted Matte' : 'مات ژله‌ای'],
+                  ['cyan', isEn ? 'Ice Chrome' : 'یخی / کروم'],
+                  ['lime', isEn ? 'Cyber Console Lime' : 'سبز / کنسول'],
                 ]}
-                onChange={(v) => updateSettings({ liquid: v })}
-                tooltip={isEn ? 'Clear optical glass vs frosted matte' : 'شفاف یا مات؛ شدت شیشه جداگانه تنظیم می‌شود.'}
+                onChange={(v) => updateSettings({ y2k: v })}
+                tooltip={isEn ? 'Polished metal & neon cyber console' : 'کروم آبی یا سبک کنسولی سبز با تصویر مستقل.'}
               />
+            )}
 
-              {/* Interactive Live Glass Preview */}
-              <div
-                ref={livePreviewRef}
-                className="liquid-live-preview"
-                onMouseMove={handleLivePointerMove}
-                onMouseLeave={handleLivePointerLeave}
-              >
-                <div className="lg-preview-bar" data-lg="bar">
-                  <span>💎 {isEn ? 'Interactive Liquid Glass Bar' : 'پیش‌نمایش زندهٔ نوار شیشه‌ای'}</span>
-                  <span>✨</span>
+            {/* Neo Pop Options */}
+            {s.skin === 'neo' && (
+              <ChoiceSetting
+                label={isEn ? 'Graphic Language' : 'زبان گرافیکی'}
+                value={s.neo || 'pop'}
+                options={[
+                  ['pop', isEn ? 'Yellow Pop & Cyan' : 'پاپ زرد و فیروزه‌ای'],
+                  ['pink', isEn ? 'Retro Pink Window' : 'پنجره رترو صورتی'],
+                ]}
+                onChange={(v) => updateSettings({ neo: v })}
+                tooltip={isEn ? 'High contrast retro graphic windows' : 'رنگ‌بندی پاپ یا رترو صورتی با کادرهای ضخیم.'}
+              />
+            )}
+
+            {/* Liquid Glass Options */}
+            {s.skin === 'liquid' && (
+              <>
+                <ChoiceSetting
+                  label={isEn ? 'Day / Night Mode' : 'حالت روز و شب'}
+                  value={s.mode || 'day'}
+                  options={[
+                    ['day', isEn ? 'Day' : 'روز'],
+                    ['night', isEn ? 'Night' : 'شب'],
+                  ]}
+                  onChange={(v) => updateSettings({ mode: v })}
+                />
+
+                <ChoiceSetting
+                  label={isEn ? 'Glass Material' : 'جنس شیشه'}
+                  value={s.liquid === 'matte' ? 'matte' : 'clear'}
+                  options={[
+                    ['clear', isEn ? 'Crystal Clear' : 'شفاف کریستالی'],
+                    ['matte', isEn ? 'Frosted Matte' : 'مات ژله‌ای'],
+                  ]}
+                  onChange={(v) => updateSettings({ liquid: v })}
+                  tooltip={isEn ? 'Clear optical glass vs frosted matte' : 'شفاف یا مات؛ شدت شیشه جداگانه تنظیم می‌شود.'}
+                />
+
+                {/* Interactive Live Glass Preview */}
+                <div
+                  ref={livePreviewRef}
+                  className="liquid-live-preview"
+                  onMouseMove={handleLivePointerMove}
+                  onMouseLeave={handleLivePointerLeave}
+                >
+                  <div className="lg-preview-bar" data-lg="bar">
+                    <span>💎 {isEn ? 'Interactive Liquid Glass Bar' : 'پیش‌نمایش زندهٔ نوار شیشه‌ای'}</span>
+                    <span>✨</span>
+                  </div>
+                  <small>
+                    {isEn
+                      ? 'Hover pointer over the bar to see refraction & lighting'
+                      : 'نشانگر را روی کنترل ببرید؛ سپس شفافیت را تغییر دهید.'}
+                  </small>
                 </div>
-                <small>
-                  {isEn
-                    ? 'Hover pointer over the bar to see refraction & lighting'
-                    : 'نشانگر را روی کنترل ببرید؛ سپس شفافیت را تغییر دهید.'}
-                </small>
-              </div>
 
-              <label className="range-setting">
-                <span>
-                  {isEn ? 'Global Glass Translucency' : 'شفافیت سراسری شیشه'}
-                  <InfoIcon text={isEn ? 'Controls backdrop blur and glass refraction' : 'از پوشیده‌تر تا شفاف‌تر؛ روی پنل‌های اصلی و ناوبری اعمال می‌شود.'} />
-                  <b>{s.glass || 55}٪</b>
-                </span>
-                <input
-                  aria-label="Liquid Glass Opacity"
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={s.glass || 55}
-                  onChange={(e) => updateSettings({ glass: Number(e.target.value) })}
-                />
-                <div className="liquid-range-labels" style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-muted)' }}>
-                  <span>{isEn ? 'Covered / Dense' : 'پوشیده‌تر'}</span>
-                  <span>{isEn ? 'High Transparency' : 'شفاف‌تر'}</span>
-                </div>
-                <small>{isEn ? 'Forms and panels adjust dynamically.' : 'فرم‌ها و پنل‌ها هم‌زمان تغییر می‌کنند؛ متن مستقل از افکت عدسی باقی می‌ماند.'}</small>
-              </label>
-            </>
-          )}
+                <label className="range-setting">
+                  <span>
+                    {isEn ? 'Global Glass Translucency' : 'شفافیت سراسری شیشه'}
+                    <InfoIcon text={isEn ? 'Controls backdrop blur and glass refraction' : 'از پوشیده‌تر تا شفاف‌تر؛ روی پنل‌های اصلی و ناوبری اعمال می‌شود.'} />
+                    <b>{s.glass || 55}٪</b>
+                  </span>
+                  <input
+                    aria-label="Liquid Glass Opacity"
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={s.glass || 55}
+                    onChange={(e) => updateSettings({ glass: Number(e.target.value) })}
+                  />
+                  <div className="liquid-range-labels" style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-muted)' }}>
+                    <span>{isEn ? 'Covered / Dense' : 'پوشیده‌تر'}</span>
+                    <span>{isEn ? 'High Transparency' : 'شفاف‌تر'}</span>
+                  </div>
+                  <small>{isEn ? 'Forms and panels adjust dynamically.' : 'فرم‌ها و پنل‌ها هم‌زمان تغییر می‌کنند؛ متن مستقل از افکت عدسی باقی می‌ماند.'}</small>
+                </label>
+              </>
+            )}
 
-          {/* Animation & Live Toggles */}
-          {isConfigurable && (
-            <>
-              {s.skin !== 'liquid' && (
-                <SwitchRow
-                  label={isEn ? 'Drifting Background Bubbles' : 'حباب‌های شناور پس‌زمینه'}
-                  note={isEn ? 'Soft colored ambient particles in background' : 'حباب‌های شناور رنگی در پس‌زمینه؛ کاهش حرکت دستگاه رعایت می‌شود.'}
-                  checked={s.particles !== false}
-                  onChange={(v) => updateSettings({ particles: v, live: v || s.ink ? 'combined' : 'off' })}
-                />
-              )}
-              {typeof navigator !== 'undefined' &&
-                !/Android/i.test(navigator.userAgent) &&
-                !['neo', 'aero', 'xp', 'y2k'].includes(s.skin) && (
+            {/* Animation & Live Toggles */}
+            {isConfigurable && (
+              <>
+                {s.skin !== 'liquid' && (
                   <SwitchRow
-                    label={isEn ? 'Cursor Ribbon Ink Trails' : 'جوهر دنبال نشانگر موس'}
-                    note={isEn ? 'Flowing ribbon ink responding to cursor speed' : 'ردّ روبانی هماهنگ با رنگ تم؛ کاهش حرکت دستگاه رعایت می‌شود.'}
-                    checked={s.ink !== false}
-                    onChange={(v) => updateSettings({ ink: v, live: v || s.particles ? 'combined' : 'off' })}
+                    label={isEn ? 'Drifting Background Bubbles' : 'حباب‌های شناور پس‌زمینه'}
+                    note={isEn ? 'Soft colored ambient particles in background' : 'حباب‌های شناور رنگی در پس‌زمینه؛ کاهش حرکت دستگاه رعایت می‌شود.'}
+                    checked={s.particles !== false}
+                    onChange={(v) => updateSettings({ particles: v, live: v || s.ink ? 'combined' : 'off' })}
                   />
                 )}
-            </>
-          )}
+                {typeof navigator !== 'undefined' &&
+                  !/Android/i.test(navigator.userAgent) &&
+                  !['neo', 'aero', 'xp', 'y2k'].includes(s.skin) && (
+                    <SwitchRow
+                      label={isEn ? 'Cursor Ribbon Ink Trails' : 'جوهر دنبال نشانگر موس'}
+                      note={isEn ? 'Flowing ribbon ink responding to cursor speed' : 'ردّ روبانی هماهنگ با رنگ تم؛ کاهش حرکت دستگاه رعایت می‌شود.'}
+                      checked={s.ink !== false}
+                      onChange={(v) => updateSettings({ ink: v, live: v || s.particles ? 'combined' : 'off' })}
+                    />
+                  )}
+              </>
+            )}
 
-          {s.skin === 'modern' ? (
+            {s.skin === 'modern' ? (
+              <SwitchRow
+                label={isEn ? 'Card Glow & Micro-animations' : 'حرکت و درخشش کارت‌ها'}
+                note={isEn ? 'Spotlight hover reflection and smooth card transitions' : 'انیمیشن‌ها و درخشش کارت‌ها و دکمه‌ها با هم هماهنگ می‌شوند.'}
+                checked={s.motion}
+                onChange={(v) => updateSettings({ motion: v, glow: v })}
+              />
+            ) : null}
+
             <SwitchRow
-              label={isEn ? 'Card Glow & Micro-animations' : 'حرکت و درخشش کارت‌ها'}
-              note={isEn ? 'Spotlight hover reflection and smooth card transitions' : 'انیمیشن‌ها و درخشش کارت‌ها و دکمه‌ها با هم هماهنگ می‌شوند.'}
-              checked={s.motion}
-              onChange={(v) => updateSettings({ motion: v, glow: v })}
+              label={isEn ? 'Output Color Synchronization' : 'هماهنگی رنگ خروجی‌ها'}
+              note={isEn ? 'Synchronize export accents while keeping document base clean' : 'کاغذ سفید می‌ماند؛ رنگ لحظه ساخت در خروجی ثبت می‌شود.'}
+              checked={s.exportSync !== false}
+              onChange={(v) => updateSettings({ exportSync: v })}
             />
-          ) : null}
+          </section>
+        </div>
 
-          <SwitchRow
-            label={isEn ? 'Output Color Synchronization' : 'هماهنگی رنگ خروجی‌ها'}
-            note={isEn ? 'Synchronize export accents while keeping document base clean' : 'کاغذ سفید می‌ماند؛ رنگ لحظه ساخت در خروجی ثبت می‌شود.'}
-            checked={s.exportSync !== false}
-            onChange={(v) => updateSettings({ exportSync: v })}
-          />
-        </section>
-
-        {/* Modal Footer */}
-        <footer className="studio-modal-foot" style={{ marginTop: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        {/* 3. Footer (Pinned at Bottom) */}
+        <footer className="studio-modal-foot" style={{ padding: '16px 24px', borderTop: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <button
             type="button"
             className="text-button"
@@ -581,9 +584,9 @@ export default function AppearanceStudio({ isOpen, onClose }) {
             type="button"
             className="primary-button btn primary"
             onClick={onClose}
-            style={{ borderRadius: 12, padding: '10px 22px', fontSize: 13.5, fontWeight: 700 }}
+            style={{ borderRadius: 12, padding: '10px 24px', fontSize: 13.5, fontWeight: 700 }}
           >
-            ✓ {isEn ? 'Done, looks great!' : 'تمام، همین خوبه'}
+            ✓ {isEn ? 'Done, looks great!' : 'تمام، ذخیره تغییرات'}
           </button>
         </footer>
       </div>
