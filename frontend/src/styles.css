@@ -852,8 +852,8 @@ html[data-theme='dark'] .pick-back { background: #232f46; }
 html[data-theme='dark'] .slide-bar.rail-open { box-shadow: 14px 0 34px rgba(0,0,0,.4); }
 .slide-bar.rail-closed { width: 64px; }
 /* keep a gutter beside the slim rail so it never covers content/footer */
-.app-frame.with-rail { padding-inline-start: 86px; }
-@media (max-width: 940px) { .app-frame.with-rail { padding-inline-start: 74px; } }
+.app-frame.with-rail { padding-inline-start: 104px; }
+@media (max-width: 940px) { .app-frame.with-rail { padding-inline-start: 96px; } }
 .slide-bar-scroll { display: flex; flex-direction: column; gap: 4px; padding: 12px 8px; overflow-y: auto; }
 .slide-item {
   display: flex; align-items: center; gap: 10px; border: none; background: transparent;
@@ -2592,7 +2592,7 @@ html[data-accent='cyan'] {
 }
 
 .app-frame.with-rail {
-  padding-inline-start: 72px;
+  padding-inline-start: 104px;
 }
 
 @media (max-width: 768px) {

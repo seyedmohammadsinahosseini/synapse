@@ -137,6 +137,11 @@ export default function SlideBar({ role, route, navigate }) {
     }
   }
 
+  const railWidth = isEn ? 82 : 92
+  const btnWidth = isEn ? 72 : 82
+  const btnMinHeight = isEn ? 60 : 66
+  const maxLabelWidth = isEn ? 70 : 80
+
   return (
     <aside
       className="slide-bar slim-permanent-rail"
@@ -145,16 +150,16 @@ export default function SlideBar({ role, route, navigate }) {
         top: 64,
         bottom: 0,
         [isEn ? 'left' : 'right']: 0,
-        width: 78,
-        background: 'color-mix(in srgb, var(--surface) 75%, transparent)',
-        backdropFilter: 'blur(16px) saturate(180%)',
-        WebkitBackdropFilter: 'blur(16px) saturate(180%)',
+        width: railWidth,
+        background: 'color-mix(in srgb, var(--surface) 80%, transparent)',
+        backdropFilter: 'blur(18px) saturate(190%)',
+        WebkitBackdropFilter: 'blur(18px) saturate(190%)',
         borderInlineEnd: '1px solid var(--line)',
         zIndex: 40,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        padding: '14px 6px',
+        padding: '14px 5px',
         gap: 8,
         transition: 'all 0.25s var(--ease-spring)',
       }}
@@ -166,7 +171,7 @@ export default function SlideBar({ role, route, navigate }) {
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          gap: 7,
+          gap: 6,
           flex: 1,
           overflowY: 'auto',
           overflowX: 'hidden',
@@ -183,14 +188,14 @@ export default function SlideBar({ role, route, navigate }) {
               title={it.label}
               onClick={() => navigate(it.route)}
               style={{
-                width: 66,
-                minHeight: 58,
+                width: btnWidth,
+                minHeight: btnMinHeight,
                 borderRadius: 14,
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
-                padding: '6px 4px 5px 4px',
+                padding: '7px 4px 6px 4px',
                 gap: 4,
                 background: active ? 'var(--tint-fill)' : 'transparent',
                 color: active ? 'var(--primary)' : 'var(--ink)',
@@ -205,7 +210,7 @@ export default function SlideBar({ role, route, navigate }) {
                   display: 'grid',
                   placeItems: 'center',
                   color: active ? 'var(--primary)' : 'var(--ink)',
-                  opacity: active ? 1 : 0.82,
+                  opacity: active ? 1 : 0.85,
                   transition: 'transform 0.18s var(--ease-spring)',
                 }}
               >
@@ -213,13 +218,13 @@ export default function SlideBar({ role, route, navigate }) {
               </span>
               <span
                 style={{
-                  fontSize: 10.5,
+                  fontSize: 11,
                   fontWeight: active ? 800 : 600,
                   color: active ? 'var(--primary)' : 'var(--ink)',
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
-                  maxWidth: 62,
+                  maxWidth: maxLabelWidth,
                   lineHeight: 1.25,
                   textAlign: 'center',
                   letterSpacing: '-0.01em',

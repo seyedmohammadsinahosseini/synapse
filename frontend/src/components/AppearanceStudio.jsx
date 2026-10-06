@@ -101,14 +101,53 @@ export default function AppearanceStudio({ isOpen, onClose }) {
   }
 
   return (
-    <div className="studio-overlay" onClick={onClose}>
+    <div
+      className="studio-overlay"
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 10000,
+        background: 'rgba(0, 0, 0, 0.65)',
+        backdropFilter: 'blur(10px)',
+        WebkitBackdropFilter: 'blur(10px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 16,
+      }}
+      onClick={onClose}
+    >
       <div
         className="theme-preview-dialog appearance-studio"
         aria-describedby="theme-preview-desc"
+        style={{
+          width: 'min(780px, calc(100vw - 32px))',
+          height: 'min(86vh, 760px)',
+          maxHeight: 'calc(100dvh - 32px)',
+          display: 'flex',
+          flexDirection: 'column',
+          borderRadius: 24,
+          background: 'var(--card, #ffffff)',
+          color: 'var(--ink, #1f2937)',
+          border: '1px solid var(--line)',
+          boxShadow: '0 25px 70px rgba(0, 0, 0, 0.35)',
+          overflow: 'hidden',
+          position: 'relative',
+        }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* 1. Header (Pinned at Top) */}
-        <div className="preview-dialog-head">
+        <div
+          className="preview-dialog-head"
+          style={{
+            padding: '18px 24px 14px',
+            borderBottom: '1px solid var(--line)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexShrink: 0,
+          }}
+        >
           <div>
             <h2>{isEn ? 'Appearance & Theme Studio' : 'استودیو طراحی و شخصی‌سازی پوسته'}</h2>
             <p id="theme-preview-desc" style={{ margin: '4px 0 0 0', color: 'var(--text-muted)', fontSize: 13 }}>
@@ -136,7 +175,18 @@ export default function AppearanceStudio({ isOpen, onClose }) {
         </div>
 
         {/* 2. Scrollable Body Content */}
-        <div className="studio-modal-body" style={{ flex: 1, overflowY: 'auto', padding: '18px 24px' }}>
+        <div
+          className="studio-modal-body"
+          style={{
+            flex: '1 1 auto',
+            minHeight: 0,
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            padding: '18px 24px',
+            WebkitOverflowScrolling: 'touch',
+            overscrollBehavior: 'contain',
+          }}
+        >
           {/* Skin Catalog Grid */}
           <div style={{ marginBottom: 24 }}>
             <b style={{ display: 'block', fontSize: 13, marginBottom: 12, color: 'var(--ink)' }}>
