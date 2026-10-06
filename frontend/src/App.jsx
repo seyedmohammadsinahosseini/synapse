@@ -23,6 +23,7 @@ import SlideBar from './components/SlideBar.jsx'
 import AdminSupportBell from './components/AdminSupportBell.jsx'
 import FloatingAssistant from './components/FloatingAssistant.jsx'
 import FloatingMentorChat from './components/FloatingMentorChat.jsx'
+import AppearanceStudio from './components/AppearanceStudio.jsx'
 import { Logo } from './ui.jsx'
 
 // ── tiny hash router ───────────────────────────────────────────────────
@@ -74,6 +75,7 @@ function Shell({ children, route, navigate, bare = false, hideFloats = false }) 
   const { user } = useAuth()
   const { t, lang, setLang } = useLang()
   const { theme, toggle } = useTheme()
+  const [showStudio, setShowStudio] = useState(false)
   const role = user?.role
   const showRail = !bare && !!role
   const loggedIn = !!user
@@ -95,6 +97,18 @@ function Shell({ children, route, navigate, bare = false, hideFloats = false }) 
         )}
         <div className="topbar-user">
           {role === 'admin' && <AdminSupportBell />}
+
+          {/* Appearance studio skin button */}
+          <button
+            type="button"
+            className="btn ghost sm icon-btn"
+            style={{ borderRadius: 10, fontSize: 16 }}
+            onClick={() => setShowStudio(true)}
+            title={lang === 'fa' ? 'شخصی‌سازی پوسته و تم' : 'Appearance Studio'}
+          >
+            🎨
+          </button>
+
           <div className="theme-uiverse-wrap" title={t(theme === 'dark' ? 'themeLight' : 'themeDark')}>
             <input
               className="theme-uiverse-input"
@@ -141,6 +155,9 @@ function Shell({ children, route, navigate, bare = false, hideFloats = false }) 
         {/* floating drawer — overlays the page; never resizes it */}
         {showRail && <SlideBar role={role} route={route} navigate={navigate} />}
       </div>
+
+      {/* Appearance Studio Modal */}
+      <AppearanceStudio isOpen={showStudio} onClose={() => setShowStudio(false)} />
 
       {/* the footer text only belongs to the auth screens */}
       {!bare && !loggedIn && <footer className="app-footer">{t('footer')}</footer>}

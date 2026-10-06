@@ -1,12 +1,18 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLang } from '../i18n.jsx'
+import { useTheme } from '../theme.jsx'
 import { fa } from '../api.js'
+import PomodoroTimer from '../components/PomodoroTimer.jsx'
+import LeitnerFlashcards from '../components/LeitnerFlashcards.jsx'
 
 /* ═══════════════════════════════════════════════════════════════════
-   Home / landing page for guests — a heavy-animation showcase that
-   introduces the whole platform (student / mentor / admin).
-   Pure CSS + small rAF/IntersectionObserver hooks. All geometry is
-   theme-agnostic; colors ride the --var palette (light + dark).
+   Home / landing page for guests — an immersive showcase featuring:
+   1. Soft animated glowing aurora background
+   2. Interactive Sandbox Study Planner & AI Assistant
+   3. Live Pomodoro & Ambient Audio Soundscape Demo
+   4. Live Leitner 3D Flashcard Spaced Repetition Box
+   5. Live Theme & Skin Switcher Showcase (Liquid, Cyber, Modern, Warm)
+   6. Real-time Animated Statistics
    ═══════════════════════════════════════════════════════════════════ */
 
 const reduced =
@@ -56,7 +62,7 @@ function Counter({ value, suffix = '', lang }) {
       const dur = 1600
       const tick = (t) => {
         const p = Math.min(1, (t - t0) / dur)
-        const e = 1 - Math.pow(2, -10 * p)          // easeOutExpo
+        const e = 1 - Math.pow(2, -10 * p) // easeOutExpo
         setN(value * e)
         if (p < 1) raf = requestAnimationFrame(tick)
         else setN(value)
@@ -74,17 +80,6 @@ function Counter({ value, suffix = '', lang }) {
   )
 }
 
-/* ── pointer spotlight for cards (CSS var --mx / --my) ──────────── */
-function spotlight(e) {
-  const r = e.currentTarget.getBoundingClientRect()
-  e.currentTarget.style.setProperty('--mx', `${((e.clientX - r.left) / r.width) * 100}%`)
-  e.currentTarget.style.setProperty('--my', `${((e.clientY - r.top) / r.height) * 100}%`)
-}
-function clearSpot(e) {
-  e.currentTarget.style.removeProperty('--mx')
-  e.currentTarget.style.removeProperty('--my')
-}
-
 /* ═══════════════════════════════════════════════════════════════════
    CONTENT (fa / en)
    ═══════════════════════════════════════════════════════════════════ */
@@ -92,201 +87,194 @@ const CONTENT = {
   fa: {
     h1a: 'برنامه‌ریزی، آزمون و مربیِ تو،',
     h1b: 'در یک پلتفرم هوشمند',
-    sub: 'سیناپس (Synapse): پلتفرم هوشمند تحصیلی و مشاوره؛ برنامهٔ مطالعاتی هفتگیِ شخصی‌سازی‌شده با هوش مصنوعی، آزمون آنلاین با تصحیح خودکار، تحلیل جامع کارنامه و همراهیِ واقعی مشاور — از اولین گام تا رتبه برتر.',
-    cta1: 'شروع رایگان',
-    cta2: 'ورود به حساب',
-    trust: ['بدون نیاز به کارت بانکی', 'فعال‌سازی فوری', 'مناسب کنکور و مدرسه'],
-    featuresTitle: 'چرا دانش‌آموزها و مربی‌ها اینجا جمع می‌شوند؟',
-    featuresSub: 'همهٔ ابزارهای لازم برای مطالعهٔ هدفمند، کنار هم و هماهنگ با هم.',
+    sub: 'سیناپس (Synapse): پلتفرم هوشمند تحصیلی و مشاوره؛ برنامهٔ مطالعاتی هفتگیِ شخصی‌سازی‌شده با هوش مصنوعی، آزمون آنلاین با تصحیح خودکار، جعبه لایتنر هوشمند، تایمر تمرکز عمیق با صداهای آرامش‌بخش، تحلیل جامع کارنامه و همراهیِ واقعی مشاور — از اولین گام تا رتبه برتر.',
+    cta1: 'شروع رایگان و ورود به پنل',
+    cta2: 'ورود به حساب کاربری',
+    trust: ['بدون نیاز به کارت بانکی', 'فعال‌سازی آنی و رایگان', 'ویژه کنکور سراسری، نهایی و مدرسه'],
+    interactiveTag: '🎮 تست زنده بدون نیاز به ورود',
+    interactiveTitle: 'اتاق کار تعاملی و ابزارهای هوشمند سیناپس را همین حالا امتحان کنید',
+    interactiveSub: 'تایمر تمرکز پومودورو همراه با صدای باران و امواج، جعبه لایتنر سه‌بعدی و پوسته‌های شیشه‌ای و نئونی مدرن را به صورت زنده تست کنید.',
+    featuresTitle: 'چرا دانش‌آموزها و مشاوران برتر، سیناپس را انتخاب می‌کنند؟',
+    featuresSub: 'همهٔ ابزارهای لازم برای مطالعهٔ رتبه‌ساز، کنار هم و هماهنگ با هم.',
     features: [
-      { i: '🧭', t: 'برنامهٔ هفتگیِ شخصی', d: 'بر اساس رشته، پایه، معدل و هدفت؛ برنامهٔ هر روز را با چک‌لیست کاری آماده می‌گیری.' },
-      { i: '📝', t: 'آزمون آنلاین و تحلیل', d: 'آزمون‌های تستی و تشریحی با تصحیح خودکار، نمرهٔ ۰ تا ۲۰ و گزارش نقاط ضعف و قوت.' },
-      { i: '🤖', t: 'دستیار هوشمند', d: 'هر سؤالی داری بپرس؛ آزمون بساز، برنامه بخواه یا تحلیل بگیر — همیشه پاسخ می‌دهد.' },
-      { i: '🧑‍🏫', t: 'مربیِ آنلاین', d: 'با کد اتصال به مربی وصل شو؛ پیام لحظه‌ای، جلسهٔ مشاوره و نظارت هفتگی روی پیشرفتت.' },
-      { i: '📈', t: 'پیشرفتِ دیده‌شده', d: 'نمودار روند نمره‌ها و بازخورد رنگی هفتگی، انگیزه‌ات را زنده نگه می‌دارد.' },
-      { i: '🛡️', t: 'پنلِ منظم برای همه', d: 'دانش‌آموز، مربی و مدیر هرکدام داشبوردِ تمیز و مختصِ خودشان را دارند.' },
+      { i: '🧭', t: 'برنامهٔ هفتگیِ شخصی‌سازی‌شده', d: 'بر اساس رشته، پایه، معدل و هدفت؛ برنامهٔ هر روز را با پارت‌بندی دقیق و چک‌لیست کاری آماده می‌گیری.' },
+      { i: '⏱️', t: 'تمرکز عمیق و صوت‌های آرامش', d: 'تایمر پومودورو مجهز به موتور صوتی باران، امواج اقیانوس، نویز سفید و امواج آلفا ۴۳۲ هرتز برای جلوگیری از حواس‌پرتی.' },
+      { i: '🗂️', t: 'جعبه لایتنر ۳بعدی فاصله‌دار', d: 'انتقال فرمول‌های فیزیک/ریاضی، لغات زبان و نکات ترکیبی زیست به حافظه بلندمدت با الگوریتم علمی لایتنر ۵ مرحله‌ای.' },
+      { i: '📝', t: 'آزمون آنلاین و تحلیل تراز', d: 'آزمون‌های تستی و تشریحی با تصحیح خودکار، تحلیل کارنامه‌های قلم‌چی و خیلی‌سبز و صدور پروندهٔ عملکرد PDF.' },
+      { i: '🤖', t: 'دستیار مشاور هوش مصنوعی', d: 'هر سؤالی داری بپرس؛ تست اختصاصی بساز، رفع اشکال کن، برنامه بخواه یا تحلیل کارنامه بگیر — ۲۴ ساعته در کنارت.' },
+      { i: '🎨', t: 'استودیو تم و پوسته‌های مدرن', d: 'شخصی‌سازی کامل ظاهر پنل با پوسته‌های شیشه‌ای اکریلیک (Liquid Glass)، دارک نئونی (Cyber) و کاغذی آرام‌بخش (Warm Paper).' },
     ],
-    howTitle: 'در ۴ قدم، شروع کن',
-    howSub: 'نه پیچیدگی، نه سردرگمی — از روز اول مسیرت روشن است.',
+    howTitle: 'در ۴ قدم ساده، مسیر رتبه برتر شدن را آغاز کن',
+    howSub: 'نه پیچیدگی، نه سردرگمی — از روز اول نقشه راهت کاملاً روشن است.',
     how: [
-      { i: '۱', t: 'ثبت‌نام هدفمند', d: 'رشته، پایه، معدل و هدفت را در چند دقیقه می‌گویی.' },
-      { i: '۲', t: 'برنامهٔ هوشمند', d: 'هوش مصنوعی برنامهٔ هفتگی و چک‌لیست روزانه‌ات را می‌سازد.' },
-      { i: '۳', t: 'تمرین و آزمون', d: 'می‌خوانی، آزمون می‌دهی و تحلیلِ نتیجه را می‌گیری.' },
-      { i: '۴', t: 'پیشرفت با مربی', d: 'با مربی در ارتباطی و هر هفته برنامه و روندت را مرور می‌کنید.' },
+      { i: '۱', t: 'ثبت‌نام و تعیین هدف', d: 'رشته، پایه، معدل و رتبه هدفت را در کمتر از ۱ دقیقه وارد می‌کنی.' },
+      { i: '۲', t: 'دریافت برنامه هوشمند', d: 'هوش مصنوعی سیناپس برنامهٔ پارت‌بندی شده و چک‌لیست روزانه‌ات را متناسب با زمانت می‌چیند.' },
+      { i: '۳', t: 'مطالعه متمرکز و لایتنر', d: 'با تایمر پومودورو، صوت‌های تمرکز و جعبه لایتنر با حداکثر بازدهی درس می‌خوانی.' },
+      { i: '۴', t: 'آزمون و ارتقای تراز با مشاور', d: 'آزمون می‌دهی، نقاط ضعفت را با هوش مصنوعی و مربی تحلیل می‌کنی و هر هفته ترازت را بالا می‌بری.' },
     ],
-    rolesTitle: 'یک پلتفرم، برای هر سه نقش',
-    rolesSub: 'هرکس ابزارِ خودش را دارد؛ ولی همه روی یک دادهٔ مشترک و واقعی کار می‌کنند.',
+    rolesTitle: 'یک پلتفرم یکپارچه برای دانش‌آموز، مشاور و مدیر مدرسه',
+    rolesSub: 'هرکس ابزارِ حرفه‌ای خودش را دارد؛ ولی همه روی یک بستر داده هماهنگ و زنده کار می‌کنند.',
     roleStudent: {
       tag: 'برای دانش‌آموز',
-      title: 'برنامه‌ای که دقیقاً برای تو ساخته شده',
+      title: 'داشبورد متمرکز و هوشمند دانش‌آموز',
       bullets: [
-        'ثبت‌نام ۳ دقیقه‌ای با پرسش‌های هدفمند',
-        'برنامهٔ هفتگی + چک‌لیست روزانه با وضعیت رنگی',
-        'آزمون آنلاین، تصحیح خودکار و تحلیل نقاط ضعف',
-        'چت لحظه‌ای، جلسهٔ مشاوره و همراهی مربی',
+        'برنامهٔ مطالعاتی روزانه و هفتگی با تیک انجام و ثبت ساعت',
+        'تایمر تمرکز پومودورو با ۵ حالت صوت محیطی و امواج آلفا',
+        'جعبه لایتنر ۳بعدی برای لغات، فرمول‌ها و نکات طلایی',
+        'سامانه آزمون تستی استاندارد با کارنامه تراز و پاسخ تشریحی',
+        'چت ۲۴ ساعته با هوش مصنوعی مشاور و مشاور واقعی تخصصی',
       ],
     },
     roleMentor: {
-      tag: 'برای مربی',
-      title: 'همهٔ دانش‌آموزهایت، زیر یک سقف',
+      tag: 'برای مشاور و مربی',
+      title: 'پنل نظارت، تحلیل و هدایت تحصیلی',
       bullets: [
-        'کد اتصال اختصاصی برای هر دانش‌آموز',
-        'پیام‌رسان لحظه‌ای و جلسات مشاورهٔ ۴۵ دقیقه‌ای',
-        'نظارت هفتگی روی برنامه‌ها و علامت‌گذاری نتیجه',
-        'کارنامه و گزارش پیشرفتِ هر دانش‌آموز',
+        'مشاهده لحظه‌ای گزارش مطالعه و درصد انجام برنامهٔ هر دانش‌آموز',
+        'ارسال و اصلاح اختصاصی برنامهٔ مطالعاتی هفتگی',
+        'تقویم جلسات مشاوره آنلاین و ثبت تکالیف و نکات هدایتی',
+        'تحلیل آماری کارنامه‌ها و نمودار پیشرفت تراز دانش‌آموزان',
       ],
     },
     roleAdmin: {
-      tag: 'برای مدیر',
-      title: 'دیده‌بانِ کل پلتفرم',
+      tag: 'برای مدیر مدرسه و موسسه',
+      title: 'مدیریت بانک تست و نظارت جامع',
       bullets: [
-        'داشبورد آماری کل کاربران و آزمون‌ها',
-        'مدیریت دانش‌آموزان و مربی‌ها',
-        'بانک سؤال با ایمپورت فایل JSON و Excel',
+        'تولید هوشمند تست‌های کنکور با هوش مصنوعی و ورود دسته‌ای JSON/Excel',
+        'سرفصل‌بندی درسی جامع با بانک سوالات تستی و کلید پاسخ',
+        'گزارش‌گیری سازمانی و پیام‌رسانی به دانش‌آموزان و مربیان',
       ],
     },
-    aiTag: 'دستیار هوشمند',
-    aiTitle: 'یک دستیار که واقعاً کمکت می‌کند',
-    aiSub: 'برنامه بساز، آزمون طراحی کن، سؤال بپرس یا تحلیل بگیر — گفتگو با دستیار هوشمند پلتفرم.',
-    aiChips: ['برنامهٔ این هفته را بساز', 'آزمون ۱۰ سؤالی', 'نقطهٔ ضعفم را بگو', 'انگیزه‌نامه'],
-    aiTurns: [
-      { q: 'سلام! برای کنکور ریاضی، برنامهٔ این هفته را بساز.', a: 'سلام! 👋 با توجه به معدل و هدف کنکورت، این هفته را با ۳ جلسهٔ ریاضی، ۲ جلسهٔ فیزیک و یک مرور هفتگی چیدم. جزئیات هر روز را در «برنامهٔ من» ببین.' },
-      { q: 'از روی ضعف‌هایم یک آزمون ۱۰ سؤالی بساز.', a: 'آزمونت آماده است! 🚀 تمرکز را روی «مشتق و کاربرد آن» گذاشتم — ۱۵ دقیقه وقت داری، در پایان هم تحلیل کامل می‌گیری.' },
-    ],
     stats: [
-      { v: 2500, s: '+', l: 'دانش‌آموز فعال' },
-      { v: 180, s: '+', l: 'مربی همراه' },
-      { v: 9600, s: '+', l: 'آزمون برگزارشده' },
-      { v: 97, s: '٪', l: 'رضایت کاربران' },
+      { v: 18500, s: '+', l: 'ساعت مطالعه عمیق ثبت‌شده' },
+      { v: 4200, s: '+', l: 'تست کنکور با تحلیل هوشمند' },
+      { v: 98, s: '٪', l: 'رضایت دانش‌آموزان و مشاوران' },
+      { v: 24, s: '/۷', l: 'پاسخ‌گویی دستیار هوش مصنوعی' },
     ],
-    ctaTitle: 'آماده‌ای مسیرت را بسازی؟',
-    ctaSub: 'همین امروز ثبت‌نام کن؛ برنامهٔ شخصی‌ات تا چند دقیقه دیگر آماده است.',
-    ctaBtn: 'ساخت حساب رایگان',
-    ctaBtn2: 'ورود به حساب',
-    ctaNote: 'دانش‌آموز هستی؟ کد مربی را هم می‌توانی بعداً اضافه کنی.',
-    marquee: ['برنامهٔ هوشمند', 'آزمون آنلاین', 'دستیار AI', 'مربی آنلاین', 'جلسهٔ مشاوره', 'تحلیل پیشرفت', 'پنل ادمین', 'بانک سؤال'],
+    aiTag: 'دستیار مشاور هوشمند سیناپس',
+    aiTitle: 'در هر ساعتی از شبانه‌روز، مشاور شخصی‌ات پاسخ می‌دهد',
+    aiSub: 'نیاز به تست شبیه‌ساز داری؟ مبحثی را متوجه نشدی؟ کارنامه‌ات افت کرده؟ هوش مصنوعی سیناپس راهکار اختصاصی به تو می‌دهد.',
+    aiChips: ['🧪 تست زیست دوازدهم', '📐 فرمول‌های فیزیک حرکت', '📉 راهکار افزایش تراز شیمی', '⏰ برنامه فشرده ۲ هفته‌ای'],
+    aiTurns: [
+      {
+        q: 'من در فصل ژنتیک زیست دوازدهم درصد آزمونم پایینه، چطور بخونم؟',
+        a: 'تحلیل داده‌های کارنامه‌ات نشون میده در سوالات ترکیبی شجره‌نامه زمان کم میاری. پیشنهاد من: ۳ پارت ۲۵ دقیقه‌ای حل تست طبقه‌بندی شده همراه با مرور نکات کلیدی در جعبه لایتنر سیناپس. برنامه‌اش رو برات به چک‌لیست امروز اضافه کنم؟',
+      },
+      {
+        q: 'یک آزمون ۵ سوالی از مبحث دینامیک فیزیک برام بساز.',
+        a: 'آزمون اختصاصی دینامیک (نیروهای اصطکاک و تکانه) ساخته شد. درجه سختی: متوسط به بالا؛ به همراه پاسخ‌نامه فوق‌تشریحی و نکات رد گزینه آماده برگزاری در پنل آزمون است.',
+      },
+    ],
+    ctaTitle: 'همین امروز مطالعهٔ حرفه‌ای و رتبه‌ساز را آغاز کن',
+    ctaSub: 'عضو جمع دانش‌آموزان و مشاوران پیشتاز سیناپس شو و مسیر موفقیت در کنکور و امتحانات را با جدیدترین تکنولوژی طی کن.',
+    ctaBtn: 'ایجاد حساب کاربری رایگان',
+    ctaBtn2: 'ورود به پنل کاربری',
+    ctaNote: 'رایگان · بدون نیاز به نصب · قابل استفاده در موبایل و لپ‌تاپ',
   },
   en: {
-    h1a: 'Your study plan, tests and mentor,',
-    h1b: 'all in one smart platform',
-    sub: 'Synapse: AI-personalised weekly study plans, online exams with auto-grading, an always-on assistant and real mentor support — from sign-up to success.',
-    cta1: 'Get started free',
-    cta2: 'Log in',
-    trust: ['No credit card needed', 'Instant activation', 'For school & university entrance'],
-    featuresTitle: 'Why students and mentors gather here?',
-    featuresSub: 'Every tool you need for focused studying — together and in sync.',
+    h1a: 'Your Study Plan, Mock Exams & Mentor,',
+    h1b: 'In One Intelligent Platform',
+    sub: 'Synapse: The next-generation academic & coaching ecosystem. AI-personalized weekly study schedules, automatic exam grading, 3D Leitner box, deep work Pomodoro with ambient soundscapes, comprehensive report cards, and real mentor supervision.',
+    cta1: 'Get Started for Free',
+    cta2: 'Sign In to Account',
+    trust: ['No credit card required', 'Instant activation', 'For Entrance Exams & High School'],
+    interactiveTag: '🎮 Live Sandbox Demo',
+    interactiveTitle: 'Try Synapse Interactive Workspaces Right Now Without Login',
+    interactiveSub: 'Test the Deep Work Pomodoro with rain and ocean soundscapes, 3D Leitner flashcards, and live theme skin customizer instantly.',
+    featuresTitle: 'Why Top Students & Mentors Choose Synapse',
+    featuresSub: 'All essential study tools harmonized in one seamless platform.',
     features: [
-      { i: '🧭', t: 'Personal weekly plan', d: 'Based on your field, grade, average and goal — each day comes with a ready task checklist.' },
-      { i: '📝', t: 'Online exams & analytics', d: 'MCQ & essay tests with auto-grading, 0–20 scores and clear weak/strong point reports.' },
-      { i: '🤖', t: 'AI assistant', d: 'Ask anything, generate a test, request a plan or get feedback — it always answers.' },
-      { i: '🧑‍🏫', t: 'Online mentor', d: 'Connect with a mentor by code: instant chat, consultation sessions and weekly supervision.' },
-      { i: '📈', t: 'Visible progress', d: 'Trend charts and colour-coded weekly feedback keep your motivation alive.' },
-      { i: '🛡️', t: 'A clean panel for everyone', d: 'Students, mentors and admins each get their own tidy, focused dashboard.' },
+      { i: '🧭', t: 'Personalized Study Plans', d: 'AI generates daily task checklists tailored to your grade, field, and target rank.' },
+      { i: '⏱️', t: 'Focus Timer & Ambients', d: 'Embedded soundscape player with gentle rain, ocean waves, white noise, and 432Hz alpha beats.' },
+      { i: '🗂️', t: '3D Leitner Spaced Repetition', d: 'Transfer formulas and vocabulary into permanent long-term memory with 5-box scientific intervals.' },
+      { i: '📝', t: 'Online Exams & Percentiles', d: 'Auto-graded tests, report card analyzer, and downloadable performance PDF dossiers.' },
+      { i: '🤖', t: '24/7 AI Academic Assistant', d: 'Ask anything, create custom diagnostic exams, debug concepts, and analyze weak spots anytime.' },
+      { i: '🎨', t: 'Appearance Studio & Skins', d: 'Switch between Liquid Glass, Obsidian Cyber Midnight, Warm Paper, and vibrant accent colors.' },
     ],
-    howTitle: 'Start in 4 steps',
-    howSub: 'No complexity, no confusion — your path is clear from day one.',
+    howTitle: 'Start in 4 Simple Steps',
+    howSub: 'No confusion, no guesswork — your roadmap is clear from day one.',
     how: [
-      { i: '1', t: 'Goal-driven sign-up', d: 'Tell us your field, grade, average and goal in minutes.' },
-      { i: '2', t: 'Smart plan', d: 'AI builds your weekly plan and daily task checklist.' },
-      { i: '3', t: 'Practice & test', d: 'Study, take exams and get result analytics.' },
-      { i: '4', t: 'Grow with a mentor', d: 'Stay in touch with your mentor and review weekly.' },
+      { i: '1', t: 'Sign Up & Set Target', d: 'Enter your grade, field of study, and goal in less than a minute.' },
+      { i: '2', t: 'Get Intelligent Plan', d: 'AI schedules study blocks and daily checklists fitting your weekly routine.' },
+      { i: '3', t: 'Deep Work & Leitner Review', d: 'Study distraction-free with focus ambient sounds and 3D flashcards.' },
+      { i: '4', t: 'Exams & Mentor Coaching', d: 'Take mock tests, analyze weaknesses with AI and mentor, and climb the ranks.' },
     ],
-    rolesTitle: 'One platform for all three roles',
-    rolesSub: 'Everyone has their own tools — all working on one shared, real dataset.',
+    rolesTitle: 'One Unified Platform for Students, Mentors & Admins',
+    rolesSub: 'Each role gets a purpose-built workspace operating on a live shared data pipeline.',
     roleStudent: {
-      tag: 'For students',
-      title: 'A plan built exactly for you',
+      tag: 'For Students',
+      title: 'Smart Student Workspace',
       bullets: [
-        '3-minute goal-driven sign-up',
-        'Weekly plan + daily checklist with status colours',
-        'Online exams, auto-grading and weak-point analysis',
-        'Instant chat, counselling sessions and mentor guidance',
+        'Daily and weekly study schedule with checkboxes and time tracker',
+        'Deep work Pomodoro timer with 5 ambient soundscapes and alpha beats',
+        '3D Leitner flashcard box for vocabulary and formula retention',
+        'Diagnostic online testing with detailed percentiles and answer keys',
+        '24/7 AI academic assistant and direct mentor messaging',
       ],
     },
     roleMentor: {
-      tag: 'For mentors',
-      title: 'All your students under one roof',
+      tag: 'For Mentors',
+      title: 'Mentorship & Supervision Panel',
       bullets: [
-        'Personal connect code for every student',
-        'Instant messenger & 45-minute counselling sessions',
-        'Weekly supervision with clear done/missed marking',
-        'Progress reports for every student',
+        'Real-time student progress tracking and task completion metrics',
+        'Create and customize weekly study plans for individual students',
+        '1-on-1 consultation scheduling calendar and task directives',
+        'Statistical report card analytics and performance trend charts',
       ],
     },
     roleAdmin: {
-      tag: 'For admins',
-      title: 'Watch over the whole platform',
+      tag: 'For School & Admin',
+      title: 'Curriculum & Question Bank Engine',
       bullets: [
-        'Stats dashboard for users & exams',
-        'Manage students and mentors',
-        'Question bank with JSON & Excel import',
+        'AI test question generator and JSON/Excel bulk question importer',
+        'Complete curriculum unit structuring with answers & explanations',
+        'Platform-wide user management, logs, and announcement broadcasts',
       ],
     },
-    aiTag: 'AI assistant',
-    aiTitle: 'An assistant that actually helps',
-    aiSub: 'Build plans, design tests, ask questions or get analytics — talk to the platform AI.',
-    aiChips: ['Build this week’s plan', '10-question test', 'Find my weak spots', 'Motivate me'],
-    aiTurns: [
-      { q: 'Hi! Build this week’s plan for the university entrance exam — maths track.', a: 'Hey! 👋 Based on your average and goal, I scheduled 3 maths sessions, 2 physics and one weekly review. See the details in “My Plan”.' },
-      { q: 'Generate a 10-question test from my weak areas.', a: 'Your test is ready! 🚀 I focused on “derivatives and applications” — you have 15 minutes, and you’ll get full analytics at the end.' },
-    ],
     stats: [
-      { v: 2500, s: '+', l: 'Active students' },
-      { v: 180, s: '+', l: 'Mentors on board' },
-      { v: 9600, s: '+', l: 'Exams taken' },
-      { v: 97, s: '%', l: 'User satisfaction' },
+      { v: 18500, s: '+', l: 'Hours of Deep Work Logged' },
+      { v: 4200, s: '+', l: 'Exam Questions with AI Analysis' },
+      { v: 98, s: '%', l: 'Student & Mentor Satisfaction' },
+      { v: 24, s: '/7', l: 'AI Assistant Availability' },
     ],
-    ctaTitle: 'Ready to build your path?',
-    ctaSub: 'Sign up today — your personal plan is ready in minutes.',
-    ctaBtn: 'Create a free account',
-    ctaBtn2: 'Log in',
-    ctaNote: 'A student? You can add a mentor code later too.',
-    marquee: ['Smart planning', 'Online exams', 'AI assistant', 'Online mentor', 'Counselling', 'Progress analytics', 'Admin panel', 'Question bank'],
+    aiTag: 'Synapse AI Assistant',
+    aiTitle: 'Your Personal Academic Mentor, Anytime, Anywhere',
+    aiSub: 'Need practice questions? Stuck on a physics formula? Synapse AI provides tailored step-by-step guidance.',
+    aiChips: ['🧪 12th Grade Biology Test', '📐 Physics Kinematics Formula', '📉 Improve Chemistry Score', '⏰ 2-Week Sprint Schedule'],
+    aiTurns: [
+      {
+        q: 'How can I improve my genetics test scores in biology?',
+        a: "Your report card shows timing bottlenecks on pedigree chart questions. I recommend 3 focused 25-minute Pomodoro sessions on categorized genetics questions and reviewing key terms in the Leitner box. Shall I add this to today's schedule?",
+      },
+      {
+        q: 'Generate a 5-question test on physics dynamics.',
+        a: 'Custom dynamics exam created (friction forces & momentum). Difficulty: Advanced; complete with detailed step-by-step solutions ready in the testing panel.',
+      },
+    ],
+    ctaTitle: 'Start Your Journey to Academic Excellence Today',
+    ctaSub: 'Join high-achieving students and coaches who use Synapse to master their exams with cutting-edge technology.',
+    ctaBtn: 'Create Free Account',
+    ctaBtn2: 'Sign In to Dashboard',
+    ctaNote: 'Free · No installation required · Works on mobile and desktop',
   },
 }
 
-/* ═══════════════════════════════════════════════════════════════════
-   MAIN COMPONENT
-   ═══════════════════════════════════════════════════════════════════ */
 export default function HomePage({ navigate }) {
   const { lang } = useLang()
+  const { skin, setSkin, accent, setAccent, SKINS, ACCENTS } = useTheme()
   const rootRef = useRef(null)
-  const stageRef = useRef(null)      // hero visual (mouse tilt)
+  const stageRef = useRef(null)
   const aiRef = useRef(null)
-  const [aiStep, setAiStep] = useState(0)
-  const [aiTyping, setAiTyping] = useState(true)
 
-  useReveal(rootRef)
+  const [aiStep, setAiStep] = useState(0)
+  const [aiTyping, setAiTyping] = useState(false)
+  const [activeSandboxTab, setActiveSandboxTab] = useState('pomo')
 
   const S = CONTENT[lang] || CONTENT.fa
   const faNum = lang === 'fa'
 
-  /* hero mouse tilt (rotate a 3D mock towards the cursor) */
-  useEffect(() => {
-    if (reduced) return
-    const stage = stageRef.current
-    if (!stage || !window.matchMedia('(pointer: fine)').matches) return
-    const MAX = 7
-    const onMove = (e) => {
-      const r = stage.getBoundingClientRect()
-      const px = (e.clientX - r.left) / r.width
-      const py = (e.clientY - r.top) / r.height
-      stage.style.setProperty('--ry', `${(px - 0.5) * 2 * MAX}deg`)
-      stage.style.setProperty('--rx', `${(0.5 - py) * 2 * MAX}deg`)
-    }
-    const onLeave = () => {
-      stage.style.setProperty('--ry', '0deg')
-      stage.style.setProperty('--rx', '0deg')
-    }
-    stage.addEventListener('pointermove', onMove)
-    stage.addEventListener('pointerleave', onLeave)
-    return () => {
-      stage.removeEventListener('pointermove', onMove)
-      stage.removeEventListener('pointerleave', onLeave)
-    }
-  }, [])
+  useReveal(rootRef)
 
-  /* scroll progress bar */
+  // Scroll progress bar
   useEffect(() => {
     const bar = document.getElementById('hp-progress')
     if (!bar) return
@@ -294,9 +282,9 @@ export default function HomePage({ navigate }) {
     const onScroll = () => {
       cancelAnimationFrame(raf)
       raf = requestAnimationFrame(() => {
-        const h = document.documentElement
-        const max = h.scrollHeight - window.innerHeight
-        bar.style.transform = `scaleX(${max > 0 ? Math.min(1, window.scrollY / max) : 0})`
+        const h = document.documentElement.scrollHeight - window.innerHeight
+        const p = h > 0 ? (window.scrollY / h) * 100 : 0
+        bar.style.width = `${p}%`
       })
     }
     onScroll()
@@ -309,7 +297,7 @@ export default function HomePage({ navigate }) {
     }
   }, [])
 
-  /* AI chat auto demo */
+  // AI chat loop
   useEffect(() => {
     let to1, to2
     if (reduced) {
@@ -335,13 +323,33 @@ export default function HomePage({ navigate }) {
   const turn = S.aiTurns[aiStep]
 
   return (
-    <div className="hp" ref={rootRef}>
+    <div className="hp" ref={rootRef} style={{ position: 'relative', overflow: 'hidden' }}>
       <div id="hp-progress" className="hp-progress" aria-hidden="true" />
 
-      {/* ═══════════════ HERO ═══════════════ */}
-      <section className="hp-hero">
-        <div className="hp-hero-inner">
+      {/* ═══════════════ HERO WITH AURORA GLOW ═══════════════ */}
+      <section className="hp-hero" style={{ position: 'relative' }}>
+        {/* Glowing Aurora Animated Mesh */}
+        <div className="aurora-hero-bg" aria-hidden="true" />
+
+        <div className="hp-hero-inner" style={{ position: 'relative', zIndex: 1 }}>
           <div className="hp-hero-copy">
+            <div
+              className="badge hp-rv hp-v"
+              style={{
+                alignSelf: 'flex-start',
+                marginBottom: 16,
+                background: 'rgba(99, 102, 241, 0.15)',
+                color: 'var(--primary)',
+                border: '1px solid rgba(99, 102, 241, 0.3)',
+                padding: '6px 14px',
+                borderRadius: 999,
+                fontWeight: 800,
+                fontSize: 12.5,
+              }}
+            >
+              ✨ {faNum ? 'نسخه جدید پلتفرم سیناپس (Synapse 2.0)' : 'Synapse 2.0 Platform Live'}
+            </div>
+
             <h1 className="hp-title">
               <span className="hp-line hp-rv hp-v" style={{ '--d': '220ms' }}>{S.h1a}</span>
               <span className="hp-line hp-rv hp-v" style={{ '--d': '360ms' }}>
@@ -352,7 +360,7 @@ export default function HomePage({ navigate }) {
             <div className="hp-cta hp-rv hp-v" style={{ '--d': '680ms' }}>
               <button className="hp-btn hp-btn-main" onClick={goRegister}>
                 <span>{S.cta1}</span>
-                <span className="hp-btn-arrow">←</span>
+                <span className="hp-btn-arrow">{faNum ? '←' : '→'}</span>
               </button>
               <button className="hp-btn hp-btn-ghost" onClick={goLogin}>{S.cta2}</button>
             </div>
@@ -385,7 +393,7 @@ export default function HomePage({ navigate }) {
                             <circle className="hp-ring-track" cx="22" cy="22" r="19" />
                             <circle className="hp-ring-bar" cx="22" cy="22" r="19" />
                           </svg>
-                          <b>{faNum ? '۷۸' : '78'}<small>٪</small></b>
+                          <b>{faNum ? '۸۸' : '88'}<small>٪</small></b>
                         </span>
                         <div className="hp-mini">
                           <i className="hp-app-line" />
@@ -394,88 +402,228 @@ export default function HomePage({ navigate }) {
                         </div>
                       </div>
                       <div className="hp-todo">
-                        <span className="hp-todo-ic">📘</span>
+                        <span className="hp-todo-ic">🎧</span>
                         <span className="hp-todo-tx"><i className="hp-app-line" /><i className="hp-app-line short" /></span>
                         <span className="hp-todo-check on">✓</span>
                       </div>
                       <div className="hp-todo">
-                        <span className="hp-todo-ic">📐</span>
+                        <span className="hp-todo-ic">🗂️</span>
                         <span className="hp-todo-tx"><i className="hp-app-line" /><i className="hp-app-line short" /></span>
                         <span className="hp-todo-check on">✓</span>
                       </div>
                       <div className="hp-todo">
                         <span className="hp-todo-ic">⚗️</span>
                         <span className="hp-todo-tx"><i className="hp-app-line" /><i className="hp-app-line short" /></span>
-                        <span className="hp-todo-check" />
+                        <span className="hp-todo-check on">✓</span>
                       </div>
                       <div className="hp-bars">
-                        <i style={{ '--h': '46%' }} /><i style={{ '--h': '72%' }} /><i style={{ '--h': '58%' }} /><i style={{ '--h': '92%' }} /><i style={{ '--h': '66%' }} /><i style={{ '--h': '84%' }} /><i style={{ '--h': '74%' }} />
+                        <i style={{ '--h': '66%' }} /><i style={{ '--h': '82%' }} /><i style={{ '--h': '78%' }} /><i style={{ '--h': '95%' }} /><i style={{ '--h': '86%' }} /><i style={{ '--h': '94%' }} /><i style={{ '--h': '89%' }} />
                       </div>
                     </div>
                   </div>
                   <div className="hp-chat-tag">
                     <span className="hp-typing"><i /><i /><i /></span>
-                    <span>{faNum ? 'برنامهٔ امروز آماده است…' : 'Your plan for today is ready…'}</span>
+                    <span>{faNum ? 'پارت تمرکز ۲۵ دقیقه‌ای با صدای باران فعال است…' : '25m Focus session with rain sound active…'}</span>
                   </div>
                 </div>
               </div>
-
-              <div className="hp-float hp-f1 hp-rv hp-scale" style={{ '--d': '900ms' }}>🧠 {faNum ? 'هوش مصنوعی' : 'AI'}</div>
-              <div className="hp-float hp-f2 hp-rv hp-scale" style={{ '--d': '1000ms' }}>📝 {faNum ? 'آزمون آنلاین' : 'Exam'}</div>
-              <div className="hp-float hp-f3 hp-rv hp-scale" style={{ '--d': '1100ms' }}>🗓️ {faNum ? 'جلسه با مربی' : 'Session'}</div>
-              <div className="hp-float hp-f4 hp-rv hp-scale" style={{ '--d': '1200ms' }}>⭐ +{faNum ? fa(78) : 78}٪</div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ═══════════════ MARQUEE ═══════════════ */}
-      <div className="hp-marquee" aria-hidden="true">
-        <div className="hp-marquee-track">
-          {[0, 1].map((k) => (
-            <div className="hp-marquee-half" key={k}>
-              {[...S.marquee, ...S.marquee].map((m, i) => (
-                <span className="hp-marquee-item" key={i}>
-                  <b>{m}</b><em>✦</em>
-                </span>
-              ))}
-            </div>
-          ))}
+      {/* ═══════════════ INTERACTIVE SANDBOX DEMO ═══════════════ */}
+      <section className="hp-sec" style={{ position: 'relative', zIndex: 1 }}>
+        <div className="hp-sec-head hp-rv hp-v">
+          <span className="badge" style={{ background: 'rgba(99, 102, 241, 0.15)', color: 'var(--primary)', marginBottom: 8 }}>
+            {S.interactiveTag}
+          </span>
+          <h2>{S.interactiveTitle}</h2>
+          <p>{S.interactiveSub}</p>
         </div>
-      </div>
+
+        {/* Tab switch for live interactive demo */}
+        <div style={{ maxWidth: 880, margin: '0 auto' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="btn"
+              style={{
+                borderRadius: 14,
+                padding: '10px 22px',
+                background: activeSandboxTab === 'pomo' ? 'var(--primary)' : 'var(--card)',
+                color: activeSandboxTab === 'pomo' ? '#fff' : 'var(--ink)',
+                border: activeSandboxTab === 'pomo' ? '1px solid var(--primary)' : '1px solid var(--line)',
+                fontWeight: 700,
+                boxShadow: activeSandboxTab === 'pomo' ? '0 6px 20px rgba(79, 70, 229, 0.3)' : 'none',
+              }}
+              onClick={() => setActiveSandboxTab('pomo')}
+            >
+              ⏱️ {faNum ? 'تایمر تمرکز پومودورو با صداهای آرامش‌بخش' : 'Focus Pomodoro & Ambient Soundscape'}
+            </button>
+
+            <button
+              type="button"
+              className="btn"
+              style={{
+                borderRadius: 14,
+                padding: '10px 22px',
+                background: activeSandboxTab === 'leitner' ? 'var(--primary)' : 'var(--card)',
+                color: activeSandboxTab === 'leitner' ? '#fff' : 'var(--ink)',
+                border: activeSandboxTab === 'leitner' ? '1px solid var(--primary)' : '1px solid var(--line)',
+                fontWeight: 700,
+                boxShadow: activeSandboxTab === 'leitner' ? '0 6px 20px rgba(79, 70, 229, 0.3)' : 'none',
+              }}
+              onClick={() => setActiveSandboxTab('leitner')}
+            >
+              🗂️ {faNum ? 'جعبه لایتنر ۳بعدی و مرور فاصله‌دار' : 'Leitner 3D Flashcard Box'}
+            </button>
+
+            <button
+              type="button"
+              className="btn"
+              style={{
+                borderRadius: 14,
+                padding: '10px 22px',
+                background: activeSandboxTab === 'skins' ? 'var(--primary)' : 'var(--card)',
+                color: activeSandboxTab === 'skins' ? '#fff' : 'var(--ink)',
+                border: activeSandboxTab === 'skins' ? '1px solid var(--primary)' : '1px solid var(--line)',
+                fontWeight: 700,
+                boxShadow: activeSandboxTab === 'skins' ? '0 6px 20px rgba(79, 70, 229, 0.3)' : 'none',
+              }}
+              onClick={() => setActiveSandboxTab('skins')}
+            >
+              🎨 {faNum ? 'استودیو پوسته و تم زنده' : 'Live Skin & Appearance Studio'}
+            </button>
+          </div>
+
+          {/* Sandbox Content Container */}
+          <div className="card hp-rv hp-scale" style={{ padding: 24, borderRadius: 24, boxShadow: '0 20px 45px rgba(0,0,0,0.06)' }}>
+            {activeSandboxTab === 'pomo' && (
+              <div>
+                <div style={{ textAlign: 'center', marginBottom: 14 }}>
+                  <span className="badge" style={{ background: '#dcfce7', color: '#16a34a', fontWeight: 700 }}>
+                    ● {faNum ? 'موتور صوتی Web Audio فعال است — صدا را پلی کنید و لذت ببرید' : 'Web Audio synth active — click play to listen'}
+                  </span>
+                </div>
+                <PomodoroTimer initialSubject="زیست‌شناسی کنکور" />
+              </div>
+            )}
+
+            {activeSandboxTab === 'leitner' && (
+              <div>
+                <LeitnerFlashcards />
+              </div>
+            )}
+
+            {activeSandboxTab === 'skins' && (
+              <div>
+                <div style={{ textAlign: 'center', marginBottom: 20 }}>
+                  <h3 style={{ margin: '0 0 6px 0' }}>{faNum ? 'پیش‌نمایش زنده تم‌ها و پوسته‌های بصری' : 'Live Theme & Skin Showcase'}</h3>
+                  <p className="small muted">
+                    {faNum ? 'روی هر پوسته یا رنگ هایلایت کلیک کنید تا تمام اجزای صفحه بلافاصله تغییر چهره دهند!' : 'Click any skin or accent color below to see the entire UI transform instantly!'}
+                  </p>
+                </div>
+
+                {/* Skins grid */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14, marginBottom: 24 }}>
+                  {SKINS.map((s) => {
+                    const active = skin === s.id
+                    return (
+                      <div
+                        key={s.id}
+                        style={{
+                          background: active ? 'var(--tint-fill)' : 'var(--bg)',
+                          border: active ? '2px solid var(--primary)' : '1px solid var(--line)',
+                          borderRadius: 16,
+                          padding: 18,
+                          textAlign: 'center',
+                          cursor: 'pointer',
+                          boxShadow: active ? '0 10px 25px rgba(79, 70, 229, 0.15)' : 'none',
+                          transition: 'all 0.2s',
+                        }}
+                        onClick={() => setSkin(s.id)}
+                      >
+                        <div style={{ fontSize: 32, marginBottom: 8 }}>{s.icon}</div>
+                        <b style={{ display: 'block', fontSize: 15, color: active ? 'var(--primary)' : 'var(--ink)' }}>
+                          {faNum ? s.name_fa : s.name_en}
+                        </b>
+                        <div className="small muted" style={{ marginTop: 4, fontSize: 12 }}>
+                          {faNum ? s.desc_fa : s.desc_en}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                {/* Accent selector */}
+                <div style={{ background: 'var(--bg)', borderRadius: 16, padding: 16, border: '1px solid var(--line)', textAlign: 'center' }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>
+                    {faNum ? 'انتخاب پالت رنگی هایلایت (Accent Palette):' : 'Select Highlight Accent Palette:'}
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'center', gap: 12, flexWrap: 'wrap' }}>
+                    {ACCENTS.map((a) => {
+                      const active = accent === a.id
+                      return (
+                        <button
+                          key={a.id}
+                          type="button"
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 8,
+                            padding: '8px 16px',
+                            borderRadius: 12,
+                            background: active ? 'var(--tint-fill)' : 'var(--card)',
+                            border: active ? `2px solid ${a.hex}` : '1px solid var(--line)',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s',
+                          }}
+                          onClick={() => setAccent(a.id)}
+                        >
+                          <div style={{ width: 18, height: 18, borderRadius: '50%', background: a.hex }} />
+                          <span style={{ fontSize: 13, fontWeight: active ? 800 : 500, color: 'var(--ink)' }}>
+                            {faNum ? a.label_fa : a.label_en}
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
 
       {/* ═══════════════ FEATURES ═══════════════ */}
-      <section className="hp-sec" id="hp-features">
+      <section className="hp-sec" id="hp-feat">
         <div className="hp-sec-head hp-rv hp-v">
           <h2>{S.featuresTitle}</h2>
           <p>{S.featuresSub}</p>
         </div>
         <div className="hp-feat-grid">
           {S.features.map((f, i) => (
-            <article
+            <div
+              className="hp-feat-card hp-rv hp-v"
+              style={{ '--d': `${i * 90}ms` }}
               key={f.t}
-              className="hp-fcard hp-rv hp-v"
-              style={{ '--d': `${(i % 3) * 90}ms` }}
-              onPointerMove={spotlight}
-              onPointerLeave={clearSpot}
             >
-              <div className="hp-fcard-ico">{f.i}</div>
+              <div className="hp-feat-icon">{f.i}</div>
               <h3>{f.t}</h3>
               <p>{f.d}</p>
-              <span className="hp-fcard-go" />
-            </article>
+            </div>
           ))}
         </div>
       </section>
 
       {/* ═══════════════ HOW IT WORKS ═══════════════ */}
-      <section className="hp-sec hp-sec-plain" id="hp-how">
+      <section className="hp-sec" id="hp-how">
         <div className="hp-sec-head hp-rv hp-v">
           <h2>{S.howTitle}</h2>
           <p>{S.howSub}</p>
         </div>
-        <div className="hp-how">
-          <div className="hp-how-line hp-rv hp-x" />
+        <div className="hp-how-steps">
           {S.how.map((st, i) => (
             <div className="hp-how-step hp-rv hp-v" style={{ '--d': `${i * 130}ms` }} key={st.t}>
               <span className="hp-how-num">{st.i}</span>
@@ -498,15 +646,15 @@ export default function HomePage({ navigate }) {
           <div className="hp-role-media hp-rv hp-l">
             <div className="hp-phone">
               <div className="hp-phone-notch" />
-              <div className="hp-phone-head"><span className="hp-avatar">{faNum ? 'ز' : 'S'}</span><div><i className="hp-app-line" /><i className="hp-app-line short" /></div><span className="hp-pill-dot" /></div>
+              <div className="hp-phone-head"><span className="hp-avatar">{faNum ? 'س' : 'S'}</span><div><i className="hp-app-line" /><i className="hp-app-line short" /></div><span className="hp-pill-dot" /></div>
               <div className="hp-phone-stat">
-                <span className="hp-ring small"><svg viewBox="0 0 44 44"><circle className="hp-ring-track" cx="22" cy="22" r="19" /><circle className="hp-ring-bar g" cx="22" cy="22" r="19" /></svg><b>{faNum ? '۸۵' : '85'}</b></span>
+                <span className="hp-ring small"><svg viewBox="0 0 44 44"><circle className="hp-ring-track" cx="22" cy="22" r="19" /><circle className="hp-ring-bar g" cx="22" cy="22" r="19" /></svg><b>{faNum ? '۹۲' : '92'}</b></span>
                 <p><i className="hp-app-line" /><i className="hp-app-line short" /></p>
               </div>
               <ul className="hp-ph-tasks">
-                <li className="done"><span>📘</span><em>{faNum ? 'ریاضی — فصل ۵' : 'Maths — ch. 5'}</em><b>✓</b></li>
-                <li className="done"><span>📐</span><em>{faNum ? 'فیزیک — حرکت' : 'Physics'}</em><b>✓</b></li>
-                <li><span>📚</span><em>{faNum ? 'ادبیات — آرایه‌ها' : 'Persian lit'}</em><i className="hp-live" /></li>
+                <li className="done"><span>🎧</span><em>{faNum ? 'پارت تمرکز زیست — پومودورو' : 'Biology Focus Pomodoro'}</em><b>✓</b></li>
+                <li className="done"><span>🗂️</span><em>{faNum ? 'مرور فرمول‌های فیزیک لایتنر' : 'Physics Leitner Flashcards'}</em><b>✓</b></li>
+                <li><span>📚</span><em>{faNum ? 'تحلیل آزمون تستی شیمی' : 'Chemistry Mock Exam'}</em><i className="hp-live" /></li>
               </ul>
             </div>
           </div>
@@ -557,9 +705,9 @@ export default function HomePage({ navigate }) {
               </ul>
             </div>
             <div className="hp-admin-vis" aria-hidden="true">
-              <div className="hp-admin-row"><span>{faNum ? 'سؤال بانک' : 'Q-bank'}</span><b>{faNum ? fa(320) : '320'}</b><i className="hp-spark"><s /><s /><s /><s /><s /><s /></i></div>
-              <div className="hp-admin-row"><span>{faNum ? 'آزمون فعال' : 'Live exams'}</span><b>{faNum ? fa(42) : '42'}</b><i className="hp-spark" style={{ '--c': '#16a34a' }}><s /><s /><s /><s /><s /><s /></i></div>
-              <div className="hp-admin-import"><span>📥</span><em>JSON · Excel</em></div>
+              <div className="hp-admin-row"><span>{faNum ? 'سؤال بانک' : 'Q-bank'}</span><b>{faNum ? fa(4200) : '4200'}</b><i className="hp-spark"><s /><s /><s /><s /><s /><s /></i></div>
+              <div className="hp-admin-row"><span>{faNum ? 'آزمون فعال' : 'Live exams'}</span><b>{faNum ? fa(54) : '54'}</b><i className="hp-spark" style={{ '--c': '#16a34a' }}><s /><s /><s /><s /><s /><s /></i></div>
+              <div className="hp-admin-import"><span>📥</span><em>JSON · Excel · AI Generation</em></div>
             </div>
           </div>
         </div>

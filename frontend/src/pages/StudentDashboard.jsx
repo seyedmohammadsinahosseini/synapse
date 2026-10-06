@@ -2,6 +2,11 @@ import { useEffect, useState } from 'react'
 import { api, fa, faCompact, faDate } from '../api.js'
 import { useLang } from '../i18n.jsx'
 import { Card, Stat, Badge, Empty } from '../ui.jsx'
+import PomodoroTimer from '../components/PomodoroTimer.jsx'
+import HabitStreakTracker from '../components/HabitStreakTracker.jsx'
+import LeitnerFlashcards from '../components/LeitnerFlashcards.jsx'
+import GamificationHub from '../components/GamificationHub.jsx'
+import AppearanceStudio from '../components/AppearanceStudio.jsx'
 
 const GOAL_ICONS = { better_average: '📈', specific_subjects: '🎯', konkur: '🏆' }
 const PRE_UNI_GRADES = ['پیش‌دانشگاهی / کنکوری', 'Pre-University / Konkur']
@@ -13,6 +18,8 @@ export default function StudentDashboard({ navigate }) {
   const [mentorCode, setMentorCode] = useState('')
   const [connecting, setConnecting] = useState(false)
   const [connectMsg, setConnectMsg] = useState('')
+  const [activeStudyTool, setActiveStudyTool] = useState('pomo')
+  const [showAppearanceStudio, setShowAppearanceStudio] = useState(false)
 
   useEffect(() => {
     api('/api/dashboard/')
@@ -21,13 +28,19 @@ export default function StudentDashboard({ navigate }) {
   }, [])
 
   const connectMentor = async () => {
-    setConnecting(true); setConnectMsg('')
+    setConnecting(true)
+    setConnectMsg('')
     try {
       await api('/api/dashboard/connect-mentor', { method: 'POST', body: { code: mentorCode } })
       const fresh = await api('/api/dashboard/')
-      setD(fresh); setMentorCode('')
+      setD(fresh)
+      setMentorCode('')
       setConnectMsg('✅ ' + t('connectedMsg'))
-    } catch (e) { setConnectMsg('⚠️ ' + e.message) } finally { setConnecting(false) }
+    } catch (e) {
+      setConnectMsg('⚠️ ' + e.message)
+    } finally {
+      setConnecting(false)
+    }
   }
 
   if (error) return <div className="empty">⚠️ {error}</div>
@@ -42,12 +55,27 @@ export default function StudentDashboard({ navigate }) {
 
   return (
     <div>
-      <div className="hero">
-        <h2>{t('hello', { name: p.full_name })}</h2>
-        <p>
-          {GOAL_ICONS[goalKey]} {t('yourGoal')}: <b>{t('goal_' + goalKey) || goalKey}</b>
-          {p.goal_subjects?.length > 0 && ` — ${p.goal_subjects.join('، ')}`}
-        </p>
+      {/* Top Hero Banner */}
+      <div className="hero" style={{ position: 'relative' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
+          <div>
+            <h2>{t('hello', { name: p.full_name })}</h2>
+            <p>
+              {GOAL_ICONS[goalKey]} {t('yourGoal')}: <b>{t('goal_' + goalKey) || goalKey}</b>
+              {p.goal_subjects?.length > 0 && ` — ${p.goal_subjects.join('، ')}`}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            className="btn ghost sm"
+            style={{ borderRadius: 12, background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(4px)' }}
+            onClick={() => setShowAppearanceStudio(true)}
+          >
+            🎨 {lang === 'fa' ? 'شخصی‌سازی پوسته و تم' : 'Appearance Studio'}
+          </button>
+        </div>
+
         <div className="flex mt wrap">
           <span className="badge">{t('fieldBadge')}: {p.field_of_study}</span>
           <span className="badge">{t('gradeBadge')}: {p.grade_level}</span>
@@ -68,9 +96,14 @@ export default function StudentDashboard({ navigate }) {
           <div className="flex wrap" style={{ justifyContent: 'space-between' }}>
             <div className="small muted">{t('noMentorYet')}</div>
             <div className="flex">
-              <input className="input" style={{ width: 180 }} placeholder={t('mentorCodePlaceholder')}
-                value={mentorCode} onChange={(e) => setMentorCode(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && connectMentor()} />
+              <input
+                className="input"
+                style={{ width: 180 }}
+                placeholder={t('mentorCodePlaceholder')}
+                value={mentorCode}
+                onChange={(e) => setMentorCode(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && connectMentor()}
+              />
               <button className="btn sm" disabled={connecting} onClick={connectMentor}>
                 {connecting ? t('connecting') : t('connectBtn')}
               </button>
@@ -81,13 +114,19 @@ export default function StudentDashboard({ navigate }) {
       )}
 
       {/* Quick Access Action Hub */}
-      <div className="section-title" style={{ marginTop: 24, fontSize: 16 }}>⚡ {lang === 'fa' ? 'دسترسی سریع به پنل‌ها و بخش‌های کلیدی' : 'Quick Access Hub'}</div>
+      <div className="section-title" style={{ marginTop: 24, fontSize: 16 }}>
+        ⚡ {lang === 'fa' ? 'دسترسی سریع به پنل‌ها و بخش‌های کلیدی' : 'Quick Access Hub'}
+      </div>
       <div className="quick-hub-grid">
         <div className="quick-hub-card" onClick={() => navigate('#/plan')}>
           <div>
             <span className="quick-hub-icon">📋</span>
             <div className="quick-hub-title">{lang === 'fa' ? 'برنامه درسی و هفتگی' : 'Weekly Study Plan'}</div>
-            <div className="quick-hub-desc">{lang === 'fa' ? 'مشاهده و زمان‌بندی باکس‌های مطالعه، ثبت ساعت و تیک انجام' : 'View study calendar, track task completion and log hours'}</div>
+            <div className="quick-hub-desc">
+              {lang === 'fa'
+                ? 'مشاهده و زمان‌بندی باکس‌های مطالعه، ثبت ساعت و تیک انجام'
+                : 'View study calendar, track task completion and log hours'}
+            </div>
           </div>
         </div>
 
@@ -95,7 +134,11 @@ export default function StudentDashboard({ navigate }) {
           <div>
             <span className="quick-hub-icon">📊</span>
             <div className="quick-hub-title">{lang === 'fa' ? 'کارنامه‌ها و تراز آزمون' : 'Exam Report Cards'}</div>
-            <div className="quick-hub-desc">{lang === 'fa' ? 'ثبت کارنامه آزمون آزمایشی، تحلیل هوشمند و خروجی پرونده PDF' : 'Upload mock exams, view rank & scores, download PDF dossier'}</div>
+            <div className="quick-hub-desc">
+              {lang === 'fa'
+                ? 'ثبت کارنامه آزمون آزمایشی، تحلیل هوشمند و خروجی پرونده PDF'
+                : 'Upload mock exams, view rank & scores, download PDF dossier'}
+            </div>
           </div>
         </div>
 
@@ -103,7 +146,11 @@ export default function StudentDashboard({ navigate }) {
           <div>
             <span className="quick-hub-icon">💬</span>
             <div className="quick-hub-title">{lang === 'fa' ? 'گفت‌وگو با مشاور و AI' : 'Consultant & AI Chat'}</div>
-            <div className="quick-hub-desc">{lang === 'fa' ? 'ارتباط زنده با مشاور تخصصی و دستیار هوشمند سیناپس' : 'Direct live chat with your mentor and AI academic assistant'}</div>
+            <div className="quick-hub-desc">
+              {lang === 'fa'
+                ? 'ارتباط زنده با مشاور تخصصی و دستیار هوشمند سیناپس'
+                : 'Direct live chat with your mentor and AI academic assistant'}
+            </div>
           </div>
         </div>
 
@@ -111,15 +158,75 @@ export default function StudentDashboard({ navigate }) {
           <div>
             <span className="quick-hub-icon">🗓️</span>
             <div className="quick-hub-title">{lang === 'fa' ? 'رزرو و تکالیف مشاوره' : 'Bookings & Directives'}</div>
-            <div className="quick-hub-desc">{lang === 'fa' ? 'هماهنگی جلسات آنلاین/تلفنی، ثبت گزارش و تکالیف هفتگی' : 'Schedule 1-on-1 calls, mentor assignments and action items'}</div>
+            <div className="quick-hub-desc">
+              {lang === 'fa'
+                ? 'هماهنگی جلسات آنلاین/تلفنی، ثبت گزارش و تکالیف هفتگی'
+                : 'Schedule 1-on-1 calls, mentor assignments and action items'}
+            </div>
           </div>
         </div>
       </div>
 
+      {/* Top Stats */}
       <div className="grid cols-3 mb">
         <Stat label={isPreUni ? t('diplomaAvg') : t('lastYearAvg')} value={fa(p.last_year_avg)} icon="🎓" color="#eef2ff" />
         <Stat label={t('examsTaken')} value={fa(d.exam_count)} icon="📝" color="#dcfce7" />
         <Stat label={t('latestExamAvg')} value={d.latest_exam_avg != null ? fa(d.latest_exam_avg) : '—'} icon="🧠" color="#fce7f3" />
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════════════
+          STUDY WORKSPACE & FOCUS SUITE (Pomodoro, Habits, Leitner, XP)
+         ═══════════════════════════════════════════════════════════════ */}
+      <div className="section-title" style={{ marginTop: 28, fontSize: 16 }}>
+        🚀 {lang === 'fa' ? 'میز کار هوشمند مطالعه و تمرکز عمیق (Superpower Suite)' : 'Smart Focus & Memory Suite'}
+      </div>
+
+      {/* Tool Selector Tabs */}
+      <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 6, marginBottom: 14 }}>
+        {[
+          { id: 'pomo', icon: '⏱️', label_fa: 'پومودورو و صوت‌های آرامش', label_en: 'Focus Pomodoro & Ambients' },
+          { id: 'habits', icon: '🔥', label_fa: 'ماتریس استمرار و عادات', label_en: 'Habits & Streak Matrix' },
+          { id: 'leitner', icon: '🗂️', label_fa: 'جعبه لایتنر هوشمند ۳D', label_en: '3D Leitner Box' },
+          { id: 'xp', icon: '⚡', label_fa: 'سطح و مدال‌های افتخار', label_en: 'XP & Level Progress' },
+        ].map((tool) => {
+          const active = activeStudyTool === tool.id
+          return (
+            <button
+              key={tool.id}
+              type="button"
+              className="btn sm"
+              style={{
+                borderRadius: 12,
+                padding: '8px 16px',
+                fontWeight: active ? 800 : 600,
+                background: active ? 'var(--primary)' : 'var(--card)',
+                color: active ? '#fff' : 'var(--ink)',
+                border: active ? '1px solid var(--primary)' : '1px solid var(--line)',
+                boxShadow: active ? '0 4px 14px rgba(79, 70, 229, 0.25)' : 'none',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                whiteSpace: 'nowrap',
+              }}
+              onClick={() => setActiveStudyTool(tool.id)}
+            >
+              <span>{tool.icon}</span>
+              <span>{lang === 'fa' ? tool.label_fa : tool.label_en}</span>
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Active Tool Rendering */}
+      <div className="mb" style={{ marginBottom: 28 }}>
+        {activeStudyTool === 'pomo' && (
+          <Card style={{ padding: 20 }}>
+            <PomodoroTimer initialSubject="زیست‌شناسی" />
+          </Card>
+        )}
+        {activeStudyTool === 'habits' && <HabitStreakTracker />}
+        {activeStudyTool === 'leitner' && <LeitnerFlashcards />}
+        {activeStudyTool === 'xp' && <GamificationHub />}
       </div>
 
       {/* Report Cards Quick Banner */}
@@ -128,13 +235,14 @@ export default function StudentDashboard({ navigate }) {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
               <span style={{ fontSize: 20 }}>📊</span>
-              <b style={{ fontSize: 16 }}>{lang === 'fa' ? 'کارنامه‌ها و تحلیل آزمون‌های آزمایشی (خیلی سبز / قلم‌چی)' : 'Mock Exam Report Cards & Performance Analysis'}</b>
+              <b style={{ fontSize: 16 }}>
+                {lang === 'fa' ? 'کارنامه‌ها و تحلیل آزمون‌های آزمایشی (خیلی سبز / قلم‌چی)' : 'Mock Exam Report Cards & Performance Analysis'}
+              </b>
             </div>
             <p className="small muted" style={{ margin: 0 }}>
               {lang === 'fa'
                 ? 'کارنامه خود را بارگذاری کنید تا نمودارهای تراز، مقایسه با میانگین و پرونده عملکرد PDF استخراج شود.'
-                : 'Upload your report card to generate score percentiles, comparison charts, and a comprehensive PDF dossier.'
-              }
+                : 'Upload your report card to generate score percentiles, comparison charts, and a comprehensive PDF dossier.'}
             </p>
           </div>
           <button className="btn" style={{ borderRadius: 12 }} onClick={() => navigate('#/report-cards')}>
@@ -155,11 +263,17 @@ export default function StudentDashboard({ navigate }) {
                 ) : (
                   <span className="badge" style={{ background: '#eef2ff', color: '#4f46e5' }}>🤖 {t('planSourceAi')}</span>
                 )}
-                {d.plan_mentor_name && <span className="badge" style={{ background: '#f0fdf4', color: '#15803d' }}>{t('planByMentor')}: {d.plan_mentor_name}</span>}
+                {d.plan_mentor_name && (
+                  <span className="badge" style={{ background: '#f0fdf4', color: '#15803d' }}>
+                    {t('planByMentor')}: {d.plan_mentor_name}
+                  </span>
+                )}
               </div>
               {plan.summary && <p className="small muted mt">{plan.summary}</p>}
             </div>
-            <button className="btn" onClick={() => navigate('#/plan')}>📋 {t('openPlan')}</button>
+            <button className="btn" onClick={() => navigate('#/plan')}>
+              📋 {t('openPlan')}
+            </button>
           </div>
         ) : (
           <Empty>{t('noPlan')} <b>/plan</b></Empty>
@@ -237,6 +351,9 @@ export default function StudentDashboard({ navigate }) {
           </Card>
         </>
       )}
+
+      {/* Appearance Studio Modal */}
+      <AppearanceStudio isOpen={showAppearanceStudio} onClose={() => setShowAppearanceStudio(false)} />
     </div>
   )
 }
