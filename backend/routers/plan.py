@@ -132,7 +132,7 @@ def normalize_weekly_days(weekly):
             if dur is None:
                 dur = round(float(s.get("hours", 1.5)) * 60)
             tasks.append({
-                "id": s.get("id") or f"task_{j}_{int(datetime.utcnow().timestamp())}",
+                "id": s.get("id") or f"task_{j}_{int(datetime.now().timestamp())}",
                 "index": j,
                 "subject": s.get("subject", ""),
                 "topic": s.get("topic") or s.get("focus") or "",
@@ -141,6 +141,7 @@ def normalize_weekly_days(weekly):
                 "study_method": s.get("study_method") or "study",
                 "question_count": s.get("question_count"),
                 "notes": s.get("notes") or "",
+                "priority": s.get("priority") or "medium",
             })
         out.append({"label": label, "tasks": tasks, "weekday": weekday_of_label(label)})
     return out
