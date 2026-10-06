@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { api, fa, getLang } from '../api.js'
 import { useLang, tDay, tSubject } from '../i18n.jsx'
 import { Card, Empty } from '../ui.jsx'
+import TickTickCalendar from '../components/TickTickCalendar.jsx'
+import PomodoroTimer from '../components/PomodoroTimer.jsx'
 
 const METHOD_LABELS = {
   test: { label_fa: 'تست‌زنی', label_en: 'Testing / MCQ', icon: '🎯', color: '#6366f1', bg: 'rgba(99, 102, 241, 0.16)' },
@@ -14,6 +16,7 @@ export default function PlanPage({ navigate }) {
   const { t, lang } = useLang()
   const isEn = getLang() === 'en'
 
+  const [viewMode, setViewMode] = useState('ticktick') // 'ticktick' | 'weekly_table'
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -24,6 +27,10 @@ export default function PlanPage({ navigate }) {
   const [alertReason, setAlertReason] = useState('')
   const [savingAlert, setSavingAlert] = useState(false)
   const [weekOffset, setWeekOffset] = useState(0)
+
+  // Pomodoro focus modal
+  const [pomoModalOpen, setPomoModalOpen] = useState(false)
+  const [pomoSubject, setPomoSubject] = useState('زیست‌شناسی')
 
   const getWeekDates = (offset = 0) => {
     const today = new Date()
@@ -176,20 +183,81 @@ export default function PlanPage({ navigate }) {
         </div>
       </div>
 
-      {/* ── WEEK NAVIGATION CONTROLS (هفته قبل / بعد) ── */}
-      <div
-        className="card"
-        style={{
-          borderRadius: 16,
-          padding: '10px 16px',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: 16,
-          flexWrap: 'wrap',
-          gap: 10,
-        }}
-      >
+      {/* ── View Mode Switcher (TickTick Matrix vs Weekly Table) ── */}
+      <div style={{ display: 'flex', gap: 10, marginBottom: 18, flexWrap: 'wrap' }}>
+        <button
+          type="button"
+          className="btn"
+          style={{
+            borderRadius: 14,
+            padding: '10px 22px',
+            background: viewMode === 'ticktick' ? 'var(--primary)' : 'var(--card)',
+            color: viewMode === 'ticktick' ? '#fff' : 'var(--ink)',
+            border: viewMode === 'ticktick' ? '1px solid var(--primary)' : '1px solid var(--line)',
+            fontWeight: 800,
+            boxShadow: viewMode === 'ticktick' ? '0 4px 14px rgba(79, 70, 229, 0.25)' : 'none',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+          }}
+          onClick={() => setViewMode('ticktick')}
+        >
+          <span>📅</span>
+          <span>{lang === 'fa' ? 'تقویم ستونی هوشمند و اولویت‌دار (TickTick Matrix)' : 'TickTick Calendar Matrix'}</span>
+        </button>
+
+        <button
+          type="button"
+          className="btn"
+          style={{
+            borderRadius: 14,
+            padding: '10px 22px',
+            background: viewMode === 'weekly_table' ? 'var(--primary)' : 'var(--card)',
+            color: viewMode === 'weekly_table' ? '#fff' : 'var(--ink)',
+            border: viewMode === 'weekly_table' ? '1px solid var(--primary)' : '1px solid var(--line)',
+            fontWeight: 800,
+            boxShadow: viewMode === 'weekly_table' ? '0 4px 14px rgba(79, 70, 229, 0.25)' : 'none',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+          }}
+          onClick={() => setViewMode('weekly_table')}
+        >
+          <span>📋</span>
+          <span>{lang === 'fa' ? 'نمای جدول هفتگی و نظارت مربی' : 'Weekly Table & Supervision'}</span>
+        </button>
+      </div>
+
+      {/* ── TICKTICK MATRIX VIEW ── */}
+      {viewMode === 'ticktick' && (
+        <div style={{ marginBottom: 24 }}>
+          <TickTickCalendar
+            onStartPomodoro={(task) => {
+              setPomoSubject(task.subject || 'زیست‌شناسی')
+              setPomoModalOpen(true)
+            }}
+            externalPlanData={data}
+          />
+        </div>
+      )}
+
+      {/* ── WEEKLY TABLE VIEW ── */}
+      {viewMode === 'weekly_table' && (
+        <div>
+          {/* ── WEEK NAVIGATION CONTROLS (هفته قبل / بعد) ── */}
+          <div
+            className="card"
+            style={{
+              borderRadius: 16,
+              padding: '10px 16px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: 16,
+              flexWrap: 'wrap',
+              gap: 10,
+            }}
+          >
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <button
             className="btn ghost sm"
@@ -685,6 +753,49 @@ export default function PlanPage({ navigate }) {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+        </div>
+      )}
+
+      {/* Pomodoro Focus Modal launched from TickTick task */}
+      {pomoModalOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.6)',
+            backdropFilter: 'blur(8px)',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16,
+          }}
+          onClick={() => setPomoModalOpen(false)}
+        >
+          <div
+            className="card"
+            style={{
+              maxWidth: 520,
+              width: '100%',
+              borderRadius: 24,
+              padding: 24,
+              boxShadow: '0 25px 50px rgba(0,0,0,0.3)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 24 }}>⏱️</span>
+                <b style={{ fontSize: 17 }}>{lang === 'fa' ? 'پارت تمرکز عمیق پومودورو' : 'Deep Work Pomodoro Session'}</b>
+              </div>
+              <button type="button" className="btn ghost sm" onClick={() => setPomoModalOpen(false)}>
+                ✕
+              </button>
+            </div>
+            <PomodoroTimer initialSubject={pomoSubject} onCompleteSession={() => setPomoModalOpen(false)} />
           </div>
         </div>
       )}
