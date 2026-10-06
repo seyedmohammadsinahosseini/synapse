@@ -512,7 +512,7 @@ export function setupLiquidGlassLighting(doc, settings) {
 
   const move = (ev) => {
     if (doc.hidden || reduced.matches || ev.pointerType === 'touch') return
-    const el = ev.target?.closest?.('[data-lg="bar"], [data-lg="surface"], button, .btn, .card')
+    const el = ev.target?.closest?.('[data-lg="bar"], [data-lg="surface"], .lg-preview-bar')
     if (currentTarget !== el) {
       clear()
       currentTarget = el || null
@@ -711,7 +711,7 @@ export function setupCanvasEffects(doc, settings) {
       }
 
       if (settings.glow && settings.skin === 'modern') {
-        const el = ev.target?.closest?.('button, .card, .btn, .glow-card, .dash-card')
+        const el = ev.target?.closest?.('.glow-card')
         if (glow !== el) {
           glow?.classList.remove('studio-spot')
           glow = el

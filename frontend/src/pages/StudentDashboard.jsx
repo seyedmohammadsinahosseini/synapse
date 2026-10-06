@@ -56,11 +56,11 @@ export default function StudentDashboard({ navigate }) {
   return (
     <div>
       {/* Top Hero Banner */}
-      <div className="hero" style={{ position: 'relative' }}>
+      <div className="hero" style={{ position: 'relative', borderRadius: 24, overflow: 'hidden' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
           <div>
-            <h2>{t('hello', { name: p.full_name })}</h2>
-            <p>
+            <h2 style={{ fontSize: 24, fontWeight: 900 }}>{t('hello', { name: p.full_name })}</h2>
+            <p style={{ fontSize: 14 }}>
               {GOAL_ICONS[goalKey]} {t('yourGoal')}: <b>{t('goal_' + goalKey) || goalKey}</b>
               {p.goal_subjects?.length > 0 && ` — ${p.goal_subjects.join('، ')}`}
             </p>
@@ -69,7 +69,7 @@ export default function StudentDashboard({ navigate }) {
           <button
             type="button"
             className="btn ghost sm"
-            style={{ borderRadius: 12, background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(4px)' }}
+            style={{ borderRadius: 12, background: 'rgba(255,255,255,0.18)', backdropFilter: 'blur(8px)', color: '#fff', border: '1px solid rgba(255,255,255,0.3)' }}
             onClick={() => setShowAppearanceStudio(true)}
           >
             🎨 {lang === 'fa' ? 'شخصی‌سازی پوسته و تم' : 'Appearance Studio'}
@@ -77,22 +77,22 @@ export default function StudentDashboard({ navigate }) {
         </div>
 
         <div className="flex mt wrap">
-          <span className="badge">{t('fieldBadge')}: {p.field_of_study}</span>
-          <span className="badge">{t('gradeBadge')}: {p.grade_level}</span>
+          <span className="badge" style={{ background: 'rgba(255,255,255,0.18)', color: '#fff' }}>{t('fieldBadge')}: {p.field_of_study}</span>
+          <span className="badge" style={{ background: 'rgba(255,255,255,0.18)', color: '#fff' }}>{t('gradeBadge')}: {p.grade_level}</span>
           {hasMentor ? (
-            <span className="badge">🧑‍🏫 {t('mentorLabel')}: {p.mentor_name}</span>
+            <span className="badge" style={{ background: 'rgba(255,255,255,0.18)', color: '#fff' }}>🧑‍🏫 {t('mentorLabel')}: {p.mentor_name}</span>
           ) : (
-            <span className="badge">🤖 {t('mentorLabel')}: {t('aiMentor')}</span>
+            <span className="badge" style={{ background: 'rgba(255,255,255,0.18)', color: '#fff' }}>🤖 {t('mentorLabel')}: {t('aiMentor')}</span>
           )}
           {d.analysis?.analyzed_at && (
-            <span className="badge">{t('aiAnalysis')}: {faDate(d.analysis.analyzed_at)}</span>
+            <span className="badge" style={{ background: 'rgba(255,255,255,0.18)', color: '#fff' }}>{t('aiAnalysis')}: {faDate(d.analysis.analyzed_at)}</span>
           )}
         </div>
       </div>
 
       {/* attach mentor (only shown while mentorless — a single compact line) */}
       {!hasMentor && (
-        <Card className="mb" style={{ padding: 12 }}>
+        <Card className="mb" style={{ padding: 14, borderRadius: 18 }}>
           <div className="flex wrap" style={{ justifyContent: 'space-between' }}>
             <div className="small muted">{t('noMentorYet')}</div>
             <div className="flex">
@@ -126,6 +126,18 @@ export default function StudentDashboard({ navigate }) {
               {lang === 'fa'
                 ? 'مشاهده و زمان‌بندی باکس‌های مطالعه، ثبت ساعت و تیک انجام'
                 : 'View study calendar, track task completion and log hours'}
+            </div>
+          </div>
+        </div>
+
+        <div className="quick-hub-card" onClick={() => navigate('#/questions')}>
+          <div>
+            <span className="quick-hub-icon">✍️</span>
+            <div className="quick-hub-title">{lang === 'fa' ? 'طراحی و بانک سوالات' : 'Question Generator'}</div>
+            <div className="quick-hub-desc">
+              {lang === 'fa'
+                ? 'ساخت تست‌های تالیفی با هوش مصنوعی و حل سوالات طبقه‌بندی‌شده'
+                : 'Generate tailored AI questions and practice topic tests'}
             </div>
           </div>
         </div>
@@ -334,22 +346,6 @@ export default function StudentDashboard({ navigate }) {
         </div>
       ) : (
         <Empty>{t('noVideos')}</Empty>
-      )}
-
-      {/* notifications strip */}
-      {d.notifications?.length > 0 && (
-        <>
-          <div className="section-title">🔔 {t('notifications')}</div>
-          <Card>
-            {d.notifications.map((n) => (
-              <div key={n.id} className="list-item">
-                <span>🔔</span>
-                <span className="small">{n.text}</span>
-                <span className="muted small">{faDate(n.created_at)}</span>
-              </div>
-            ))}
-          </Card>
-        </>
       )}
 
       {/* Appearance Studio Modal */}

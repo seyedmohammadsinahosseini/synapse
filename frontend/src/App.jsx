@@ -19,11 +19,14 @@ import MentorSupervise from './pages/MentorSupervise.jsx'
 import MentorSchedule from './pages/MentorSchedule.jsx'
 import AdminDashboard from './pages/AdminDashboard.jsx'
 import ExamPanel from './pages/ExamPanel.jsx'
+import QuestionGenerator from './pages/QuestionGenerator.jsx'
 import SlideBar from './components/SlideBar.jsx'
 import AdminSupportBell from './components/AdminSupportBell.jsx'
 import FloatingAssistant from './components/FloatingAssistant.jsx'
 import FloatingMentorChat from './components/FloatingMentorChat.jsx'
 import AppearanceStudio from './components/AppearanceStudio.jsx'
+import FloatingSettingsPanel from './components/FloatingSettingsPanel.jsx'
+import { getTodayDisplayDate } from './utils/dateUtils.js'
 import { Logo } from './ui.jsx'
 
 // ── tiny hash router ───────────────────────────────────────────────────
@@ -74,8 +77,8 @@ class ErrorBoundary extends Component {
 function Shell({ children, route, navigate, bare = false, hideFloats = false }) {
   const { user } = useAuth()
   const { t, lang, setLang } = useLang()
-  const { theme, toggle } = useTheme()
   const [showStudio, setShowStudio] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
   const role = user?.role
   const showRail = !bare && !!role
   const loggedIn = !!user
@@ -83,88 +86,94 @@ function Shell({ children, route, navigate, bare = false, hideFloats = false }) 
   const cls = ['app-shell']
   if (role === 'student' && !bare) cls.push('dual-fabs')
   if (lang === 'en') cls.push('lang-en')
+  if (showRail) cls.push('has-permanent-rail')
+
+  const todayStr = getTodayDisplayDate(lang)
 
   return (
     <div className={cls.join(' ')}>
       <header className="topbar">
-        {!showRail ? (
-          <a className="brand" href="#/">
-            <Logo size={34} />
-            <span>{t('appName')}</span>
-          </a>
-        ) : (
-          <div className="topbar-space" style={{ width: 10 }}></div>
-        )}
-        <div className="topbar-user">
+        {/* Brand Header: Logo + Name Always Visible */}
+        <a className="brand" href="#/" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <Logo size={32} />
+          <span style={{ fontWeight: 900, fontSize: 17.5, color: 'var(--ink)' }}>{t('appName')}</span>
+        </a>
+
+        {/* Center: Persian / Gregorian Date Display */}
+        <div className="topbar-center-date" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <span
+            className="badge topbar-date-pill"
+            style={{
+              background: 'var(--tint-fill)',
+              color: 'var(--ink)',
+              border: '1px solid var(--line)',
+              padding: '5px 14px',
+              borderRadius: 999,
+              fontSize: 12.5,
+              fontWeight: 700,
+              letterSpacing: '-0.01em',
+            }}
+          >
+            🗓️ {todayStr}
+          </span>
+        </div>
+
+        {/* User / Settings / Bell Actions */}
+        <div className="topbar-user" style={{ position: 'relative' }}>
           {role === 'admin' && <AdminSupportBell />}
 
-          {/* Appearance studio skin button */}
+          {/* Minimalist Monochrome Outline Settings Button */}
           <button
             type="button"
-            className="btn ghost sm icon-btn"
-            style={{ borderRadius: 10, fontSize: 16 }}
-            onClick={() => setShowStudio(true)}
-            title={lang === 'fa' ? 'شخصی‌سازی پوسته و تم' : 'Appearance Studio'}
+            className="btn ghost sm icon-btn topbar-settings-btn"
+            onClick={() => setShowSettings((v) => !v)}
+            title={lang === 'fa' ? 'تنظیمات و حساب کاربری' : 'Settings & Profile'}
+            style={{
+              width: 38,
+              height: 38,
+              borderRadius: 12,
+              padding: 0,
+              display: 'grid',
+              placeItems: 'center',
+              border: showSettings ? '1.5px solid var(--primary)' : '1px solid var(--line)',
+              background: showSettings ? 'var(--tint-fill)' : 'transparent',
+              color: 'var(--ink)',
+              transition: 'all 0.18s var(--ease-spring)',
+            }}
           >
-            🎨
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3" />
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+            </svg>
           </button>
 
-          <div className="theme-uiverse-wrap" title={t(theme === 'dark' ? 'themeLight' : 'themeDark')}>
-            <input
-              className="theme-uiverse-input"
-              id="theme-dn-toggle"
-              type="checkbox"
-              checked={theme === 'dark'}
-              onChange={toggle}
-              aria-label="Toggle dark/light theme"
-            />
-            <label className="theme-uiverse-toggle" htmlFor="theme-dn-toggle">
-              <span className="toggle__handler">
-                <span className="crater crater--1" />
-                <span className="crater crater--2" />
-                <span className="crater crater--3" />
-              </span>
-              <span className="star star--1" />
-              <span className="star star--2" />
-              <span className="star star--3" />
-              <span className="star star--4" />
-              <span className="star star--5" />
-              <span className="star star--6" />
-            </label>
-          </div>
-          {/* language toggle lives in Profile — shown in the top bar only on
-              the login/register pages so guests can still switch */}
-          {!loggedIn && (
-            <button
-              className="btn ghost sm lang-btn"
-              onClick={() => setLang(lang === 'fa' ? 'en' : 'fa')}
-            >
-              {lang === 'fa' ? 'EN' : 'FA'}
-            </button>
-          )}
-          {loggedIn && (
-            <span className="chip">{user.full_name}</span>
-          )}
+          {/* Floating Settings Popover */}
+          <FloatingSettingsPanel
+            isOpen={showSettings}
+            onClose={() => setShowSettings(false)}
+            onOpenStudio={() => setShowStudio(true)}
+            navigate={navigate}
+          />
         </div>
       </header>
 
       <div className={`app-frame ${showRail ? 'with-rail' : ''}`}>
         <main className={`app-main${route === '#/chat' ? ' chat-main' : ''}`}>
-          <ErrorBoundary key={route}>{children}</ErrorBoundary>
+          <div className="route-page-container" key={route}>
+            <ErrorBoundary key={route}>{children}</ErrorBoundary>
+          </div>
         </main>
-        {/* floating drawer — overlays the page; never resizes it */}
+        {/* Permanent slim rail */}
         {showRail && <SlideBar role={role} route={route} navigate={navigate} />}
       </div>
 
       {/* Appearance Studio Modal */}
       <AppearanceStudio isOpen={showStudio} onClose={() => setShowStudio(false)} />
 
-      {/* the footer text only belongs to the auth screens */}
+      {/* Footer only on auth pages */}
       {!bare && !loggedIn && <footer className="app-footer">{t('footer')}</footer>}
 
-      {/* floating chats — on the inline-end edge (left in fa / right in en),
-          opposite the slide-bar; hidden inside the full messenger page and
-          while taking an exam */}
+      {/* Floating assistants */}
       {!bare && !hideFloats && role === 'student' && (
         <FloatingAssistant navigate={navigate} />
       )}
@@ -213,11 +222,20 @@ function Routes() {
     )
   }
 
-  // profile — available to every role from the slide-bar
+  // profile — accessible from top settings menu
   if (route === '#/profile') {
     return (
       <Shell route={route} navigate={navigate}>
         <ProfilePage {...params} />
+      </Shell>
+    )
+  }
+
+  // Question Generator & Assessment Studio
+  if (route === '#/questions' || route === '#/questions/generate' || route === '#/question-generator') {
+    return (
+      <Shell route={route} navigate={navigate}>
+        <QuestionGenerator {...params} />
       </Shell>
     )
   }
@@ -321,8 +339,6 @@ function Routes() {
   )
 }
 
-// Validate a stored token once at boot — ALWAYS, even if a user object is
-// cached. A stale token would otherwise load the panel and 401 on every call.
 function useBootCheck() {
   const [checked, setChecked] = useState(false)
   useEffect(() => {
@@ -333,7 +349,7 @@ function useBootCheck() {
     api('/api/auth/me')
       .catch(() => clearSession())
       .finally(() => setChecked(true))
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])
   return checked
 }
 
