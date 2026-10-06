@@ -172,12 +172,21 @@ export function relativeLuminance(hex) {
     .reduce((acc, curr, idx) => acc + curr * [0.2126, 0.7152, 0.0722][idx], 0)
 }
 
-export function computeThemeVars(settings, rgbHue = 260) {
+export function computeThemeVars(incomingSettings, rgbHue = 260) {
+  const settings = {
+    ...DEFAULT_SETTINGS,
+    ...(incomingSettings || {}),
+    colors: {
+      ...DEFAULT_SETTINGS.colors,
+      ...((incomingSettings && incomingSettings.colors) || {}),
+    },
+  }
   let isNight = settings.mode === 'night'
+  const currentMode = isNight ? 'night' : 'day'
   let skinColor =
     settings.rgb && isSkinConfigurable(settings)
       ? rainbowColor(rgbHue)
-      : settings.colors[settings.mode] || (isNight ? '#216b50' : '#6253ba')
+      : (settings.colors && settings.colors[currentMode]) || (isNight ? '#216b50' : '#6253ba')
 
   if (settings.skin === 'aero') {
     isNight = false
@@ -767,7 +776,14 @@ function loadInitialSettings() {
     const raw = localStorage.getItem('rava-studio-v3')
     if (raw) {
       const parsed = JSON.parse(raw)
-      return { ...DEFAULT_SETTINGS, ...parsed, colors: { ...DEFAULT_SETTINGS.colors, ...(parsed.colors || {}) } }
+      return {
+        ...DEFAULT_SETTINGS,
+        ...parsed,
+        colors: {
+          ...DEFAULT_SETTINGS.colors,
+          ...(parsed && typeof parsed.colors === 'object' ? parsed.colors : {}),
+        },
+      }
     }
   } catch (_) {}
 
@@ -780,6 +796,7 @@ function loadInitialSettings() {
     skin: SKINS.some((s) => s.id === legacySkin) ? legacySkin : 'modern',
     mode: legacyTheme === 'dark' ? 'night' : 'day',
     duet: legacyAccent === 'obsidian' ? 'obsidian' : undefined,
+    colors: { ...DEFAULT_SETTINGS.colors },
   }
 }
 
@@ -790,11 +807,21 @@ export function ThemeProvider({ children }) {
 
   const updateSettings = useCallback((partial) => {
     setSettings((prev) => {
-      const next = typeof partial === 'function' ? partial(prev) : { ...prev, ...partial }
+      const prevSafe = prev || DEFAULT_SETTINGS
+      const next = typeof partial === 'function' ? partial(prevSafe) : { ...prevSafe, ...partial }
+      const safeNext = {
+        ...DEFAULT_SETTINGS,
+        ...next,
+        colors: {
+          ...DEFAULT_SETTINGS.colors,
+          ...(prevSafe.colors || {}),
+          ...(next.colors || {}),
+        },
+      }
       try {
-        localStorage.setItem('rava-studio-v3', JSON.stringify(next))
+        localStorage.setItem('rava-studio-v3', JSON.stringify(safeNext))
       } catch (_) {}
-      return next
+      return safeNext
     })
   }, [])
 
@@ -827,7 +854,7 @@ export function ThemeProvider({ children }) {
 
   const toggle = useCallback(() => {
     updateSettings((prev) => ({
-      mode: prev.mode === 'night' ? 'day' : 'night',
+      mode: (prev && prev.mode) === 'night' ? 'day' : 'night',
     }))
   }, [updateSettings])
 
@@ -845,16 +872,18 @@ export function ThemeProvider({ children }) {
         updateSettings({
           liquidPalette: true,
           duet: newAccent,
-          mode: ['obsidian', 'home'].includes(newAccent) ? 'night' : settings.mode,
+          mode: ['obsidian', 'home'].includes(newAccent) ? 'night' : settings.mode || 'day',
           colors: { day: duetFound.colors[0], night: duetFound.colors[0] },
           rgb: false,
         })
       } else {
         const accFound = ACCENTS.find((a) => a.id === newAccent)
         const hex = accFound ? accFound.hex : newAccent
+        const currentMode = (settings.mode || 'day') === 'night' ? 'night' : 'day'
+        const currentColors = settings.colors || DEFAULT_SETTINGS.colors
         updateSettings({
           liquidPalette: true,
-          colors: { ...settings.colors, [settings.mode]: hex },
+          colors: { ...currentColors, [currentMode]: hex },
           rgb: false,
           duet: undefined,
         })
