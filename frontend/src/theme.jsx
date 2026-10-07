@@ -8,12 +8,12 @@ import {
 } from './themeWallpapers.js'
 
 export const SKINS = [
-  { id: 'modern', name: 'دیفالت', name_fa: 'مدرن دیفالت', en: 'DEFAULT', name_en: 'Default Modern', desc: 'حالت اولیهٔ اتما', desc_fa: 'طراحی استاندارد و تفکیک‌شده', icon: '✨' },
-  { id: 'aero', name: 'فروتیگر ایرو', name_fa: 'فروتیگر ایرو (Frutiger Aero)', en: 'FRUTIGER AERO', name_en: 'Frutiger Aero', desc: 'آسمان، آب و آینده‌ای خوش‌بینانه', desc_fa: 'آسمان، آب و شیشه‌های شفاف اقیانوسی', icon: '🌊' },
-  { id: 'xp', name: 'ویندوز XP', name_fa: 'کلاسیک ویندوز XP', en: 'DESKTOP 2001', name_en: 'Windows XP Classic', desc: 'پنجره‌های آبی و تپه‌های آشنا', desc_fa: 'پنجره‌های آبی Luna و تپه‌های Bliss', icon: '🪟' },
-  { id: 'y2k', name: 'کروم Y2K', name_fa: 'کروم نئون Y2K', en: 'DIGITAL FUTURE', name_en: 'Cyber Chrome Y2K', desc: 'فلز صیقلی و نور الکتریکی', desc_fa: 'فلز صیقلی، نئون سبز و سایبر', icon: '⚡' },
-  { id: 'neo', name: 'پاپ رترو', name_fa: 'پاپ رترو نئو', en: 'NEO / RETRO', name_en: 'Neo Pop Retro', desc: 'رنگ جسور، خط ضخیم، پنجره رترو', desc_fa: 'رنگ‌های جسور و گرافیک رترو', icon: '🎨' },
-  { id: 'liquid', name: 'لیکوئید گلس', name_fa: 'شیشه‌ای مایع (Liquid Glass)', en: 'LIQUID GLASS', name_en: 'Liquid Glass Flow', desc: 'لایه‌های شیشه‌ای و کنترل‌های شناور', desc_fa: 'بلور با انکسار نوری و شیشه‌های مات ژله‌ای', icon: '💎' },
+  { id: 'modern', name: 'Default Modern', name_fa: 'Default Modern', en: 'DEFAULT', name_en: 'Default Modern', desc: 'Standard & modular design', desc_fa: 'طراحی استاندارد و تفکیک‌شده', icon: '✨' },
+  { id: 'aero', name: 'Frutiger Aero', name_fa: 'Frutiger Aero', en: 'FRUTIGER AERO', name_en: 'Frutiger Aero', desc: 'Optimistic sky, water and glassy flow', desc_fa: 'آسمان، آب و شیشه‌های شفاف اقیانوسی', icon: '🌊' },
+  { id: 'xp', name: 'Windows XP', name_fa: 'Windows XP', en: 'DESKTOP 2001', name_en: 'Windows XP', desc: 'Classic blue taskbars and rolling hills', desc_fa: 'پنجره‌های آبی Luna و تپه‌های Bliss', icon: '🪟' },
+  { id: 'y2k', name: 'Cyber Chrome Y2K', name_fa: 'Cyber Chrome Y2K', en: 'DIGITAL FUTURE', name_en: 'Cyber Chrome Y2K', desc: 'Brushed metal and electric neon', desc_fa: 'فلز صیقلی، نئون سبز و سایبر', icon: '⚡' },
+  { id: 'neo', name: 'Neo Pop Retro', name_fa: 'Neo Pop Retro', en: 'NEO / RETRO', name_en: 'Neo Pop Retro', desc: 'Bold colors, chunky outlines, retro vibes', desc_fa: 'رنگ‌های جسور و گرافیک رترو', icon: '🎨' },
+  { id: 'liquid', name: 'Liquid Glass', name_fa: 'Liquid Glass', en: 'LIQUID GLASS', name_en: 'Liquid Glass', desc: 'Refractive crystal layers & frosted blur', desc_fa: 'بلور با انکسار نوری و شیشه‌های مات ژله‌ای', icon: '💎' },
 ]
 
 export const DUETS = [

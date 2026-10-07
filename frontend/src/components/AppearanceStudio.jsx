@@ -229,8 +229,8 @@ export default function AppearanceStudio({ isOpen, onClose }) {
                     </div>
                     <div className="skin-description">
                       <span>{sk.en}</span>
-                      <strong>{sk.name}</strong>
-                      <small>{sk.desc}</small>
+                      <strong>{sk.name_en || sk.name}</strong>
+                      <small>{isEn ? sk.desc : sk.desc_fa || sk.desc}</small>
                     </div>
                   </button>
                 )
