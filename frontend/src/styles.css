@@ -2627,3 +2627,279 @@ html[data-accent='cyan'] {
   transform: translateY(-2px);
   box-shadow: var(--shadow-hover);
 }
+
+
+/* =========================================================================
+   UIVERSE ANIMATED TOGGLE SWITCH (By Galahhad) & TASK CHECKBOX (By MattiaCode-IT)
+   ========================================================================= */
+
+/* ── Uiverse Switch by Galahhad ──────────────────────────────────────── */
+.switch {
+  --switch-width: 44px;
+  --switch-height: 23px;
+  --switch-bg: #9ca3af;
+  --switch-checked-bg: #10b981;
+  --circle-diameter: 17px;
+  --circle-bg: #ffffff;
+  --circle-shadow: 1px 1px 2px rgba(0, 0, 0, 0.22);
+  --circle-checked-shadow: -1px 1px 2px rgba(0, 0, 0, 0.22);
+  --switch-offset: calc((var(--switch-height) - var(--circle-diameter)) / 2);
+  --switch-transition: all 0.24s cubic-bezier(0.27, 0.2, 0.25, 1.51);
+  --icon-transition: all 0.24s cubic-bezier(0.27, 0.2, 0.25, 1.51);
+  --icon-cross-color: var(--switch-bg);
+  --icon-cross-size: 6px;
+  --icon-checkmark-color: var(--switch-checked-bg);
+  --icon-checkmark-size: 10px;
+  --effect-width: calc(var(--circle-diameter) / 2);
+  --effect-height: calc(var(--effect-width) / 2 - 1px);
+  --effect-bg: var(--circle-bg);
+  --effect-border-radius: 1px;
+  --effect-transition: all 0.2s ease-in-out;
+  display: inline-block;
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+}
+
+.switch input {
+  display: none !important;
+}
+
+.switch svg {
+  transition: var(--icon-transition);
+  position: absolute;
+  height: auto;
+}
+
+.switch .checkmark {
+  width: var(--icon-checkmark-size);
+  color: var(--icon-checkmark-color);
+  transform: scale(0);
+}
+
+.switch .cross {
+  width: var(--icon-cross-size);
+  color: var(--icon-cross-color);
+}
+
+.switch .slider {
+  box-sizing: border-box;
+  width: var(--switch-width);
+  height: var(--switch-height);
+  background: var(--switch-bg);
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  position: relative;
+  transition: var(--switch-transition);
+}
+
+.switch .circle {
+  width: var(--circle-diameter);
+  height: var(--circle-diameter);
+  background: var(--circle-bg);
+  border-radius: inherit;
+  box-shadow: var(--circle-shadow);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--switch-transition);
+  z-index: 1;
+  position: absolute;
+  left: var(--switch-offset);
+}
+
+.switch .slider::before {
+  content: "";
+  position: absolute;
+  width: var(--effect-width);
+  height: var(--effect-height);
+  left: calc(var(--switch-offset) + (var(--effect-width) / 2));
+  background: var(--effect-bg);
+  border-radius: var(--effect-border-radius);
+  transition: var(--effect-transition);
+}
+
+.switch input:checked + .slider {
+  background: var(--switch-checked-bg);
+}
+
+.switch input:checked + .slider .checkmark {
+  transform: scale(1);
+}
+
+.switch input:checked + .slider .cross {
+  transform: scale(0);
+}
+
+.switch input:checked + .slider::before {
+  left: calc(100% - var(--effect-width) - (var(--effect-width) / 2) - var(--switch-offset));
+}
+
+.switch input:checked + .slider .circle {
+  left: calc(100% - var(--circle-diameter) - var(--switch-offset));
+  box-shadow: var(--circle-checked-shadow);
+}
+
+/* ── Uiverse Task Checkbox by MattiaCode-IT ─────────────────────────── */
+.checkbox-container {
+  display: inline-flex;
+  align-items: center;
+  user-select: none;
+}
+
+.task-checkbox {
+  display: none !important;
+}
+
+.checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--ink);
+  font-weight: 600;
+  transition: all 0.2s ease;
+  padding: 4px 6px;
+  border-radius: 8px;
+}
+
+.checkbox-label:hover {
+  background: rgba(16, 185, 129, 0.08);
+}
+
+.checkbox-box {
+  position: relative;
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--line, #d1d5db);
+  border-radius: 6px;
+  margin-inline-end: 8px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  background: var(--card, #ffffff);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: visible;
+}
+
+.checkbox-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  transform: scale(0);
+  transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  border-radius: 4px;
+  opacity: 0;
+}
+
+.checkbox-box .checkmark {
+  position: relative;
+  z-index: 2;
+  opacity: 0;
+  transform: scale(0.3) rotate(20deg);
+  transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+.checkbox-box .check-icon {
+  width: 13px;
+  height: 13px;
+  fill: #ffffff;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
+}
+
+.success-ripple {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: rgba(16, 185, 129, 0.4);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.checkbox-text {
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.checkbox-label:hover .checkbox-box {
+  border-color: #10b981;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.15);
+}
+
+.task-checkbox:checked + .checkbox-label .checkbox-box {
+  border-color: #10b981;
+  background: #10b981;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3), 0 0 0 2px rgba(16, 185, 129, 0.2);
+}
+
+.task-checkbox:checked + .checkbox-label .checkbox-fill {
+  transform: scale(1);
+  opacity: 1;
+}
+
+.task-checkbox:checked + .checkbox-label .checkbox-box .checkmark {
+  opacity: 1;
+  transform: scale(1) rotate(0deg);
+  animation: checkPop 0.3s ease-out 0.2s;
+}
+
+.task-checkbox:checked + .checkbox-label .success-ripple {
+  animation: rippleSuccess 0.6s ease-out;
+}
+
+.task-checkbox:checked + .checkbox-label .checkbox-text {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.checkbox-label:active .checkbox-box {
+  transform: scale(0.92);
+}
+
+@keyframes checkPop {
+  0% { transform: scale(1) rotate(0deg); }
+  50% { transform: scale(1.25) rotate(-6deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+
+@keyframes rippleSuccess {
+  0% { width: 0; height: 0; opacity: 0.6; }
+  70% { width: 44px; height: 44px; opacity: 0.25; }
+  100% { width: 54px; height: 54px; opacity: 0; }
+}
+
+/* ── Absolute Optical Centering for Topbar Date Badge ──────────────── */
+.topbar {
+  position: relative !important;
+}
+
+.topbar-center-date {
+  position: absolute !important;
+  left: 50% !important;
+  top: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  pointer-events: none !important;
+  z-index: 10 !important;
+}
+
+.topbar-center-date .topbar-date-pill {
+  pointer-events: auto !important;
+}
+
+@media (max-width: 680px) {
+  .topbar-center-date {
+    display: none !important;
+  }
+}

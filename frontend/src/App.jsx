@@ -99,19 +99,35 @@ function Shell({ children, route, navigate, bare = false, hideFloats = false }) 
           <span style={{ fontWeight: 900, fontSize: 17.5, color: 'var(--ink)' }}>{t('appName')}</span>
         </a>
 
-        {/* Center: Persian / Gregorian Date Display */}
-        <div className="topbar-center-date" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        {/* Center: Persian / Gregorian Date Display (Mathematically & Optically Dead-Centered) */}
+        <div
+          className="topbar-center-date"
+          style={{
+            position: 'absolute',
+            left: '50%',
+            top: '50%',
+            transform: 'translate(-50%, -50%)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            pointerEvents: 'none',
+            zIndex: 10,
+          }}
+        >
           <span
             className="badge topbar-date-pill"
             style={{
               background: 'var(--tint-fill)',
               color: 'var(--ink)',
               border: '1px solid var(--line)',
-              padding: '5px 14px',
+              padding: '5px 16px',
               borderRadius: 999,
               fontSize: 12.5,
-              fontWeight: 700,
+              fontWeight: 800,
               letterSpacing: '-0.01em',
+              boxShadow: 'var(--shadow-subtle)',
+              pointerEvents: 'auto',
+              whiteSpace: 'nowrap',
             }}
           >
             🗓️ {todayStr}
