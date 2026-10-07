@@ -1,6 +1,7 @@
 import { useRef } from 'react'
 import { useTheme } from '../theme.jsx'
 import { useLang } from '../i18n.jsx'
+import UiverseSwitch from './UiverseSwitch.jsx'
 
 function InfoIcon({ text }) {
   return (
@@ -48,21 +49,32 @@ function ChoiceSetting({ label, value, options, onChange, tooltip }) {
 
 function SwitchRow({ label, note, checked, onChange }) {
   return (
-    <label className="setting-row">
-      <span>
-        <b>
+    <div
+      className="setting-row"
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '10px 14px',
+        background: 'var(--bg)',
+        borderRadius: 14,
+        border: '1px solid var(--line)',
+        marginBottom: 8,
+      }}
+    >
+      <div style={{ flex: 1, paddingInlineEnd: 12 }}>
+        <b style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--ink)' }}>
           {label}
           {note && <InfoIcon text={note} />}
         </b>
-        {note && <small>{note}</small>}
-      </span>
-      <input
-        className="switch-input"
-        type="checkbox"
+        {note && <small style={{ display: 'block', fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2 }}>{note}</small>}
+      </div>
+      <UiverseSwitch
         checked={!!checked}
-        onChange={(e) => onChange(e.target.checked)}
+        onChange={onChange}
+        ariaLabel={label}
       />
-    </label>
+    </div>
   )
 }
 

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { useLang } from '../i18n.jsx'
 import { fa } from '../api.js'
 import { soundEngine } from '../utils/audioSynth.js'
+import UiverseCheckbox from './UiverseCheckbox.jsx'
 
 const PRIORITIES = [
   { id: 'high', label_fa: 'مهم و سخت', label_en: 'High / Critical', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.08)', flag: '🚩' },
@@ -690,40 +691,25 @@ export default function StudyCalendarMatrix({
                         }}
                         title={isEn ? 'Click to view full notes & launch timer' : 'برای مشاهده جزئیات و شروع تایمر کلیک کنید'}
                       >
-                        {/* Task Header: Checkbox + Subject/Topic + Priority Flag (NO notes in column view) */}
-                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                          <div
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              if (onTickTask) {
-                                onTickTask(dayIndex, task, isDone ? '' : 'done', day.date_str)
-                              } else {
-                                const updated = [...calendarDays]
-                                const dayTasks = [...(updated[dayIndex].tasks || [])]
-                                dayTasks[taskIndex] = { ...dayTasks[taskIndex], status: isDone ? '' : 'done' }
-                                updated[dayIndex] = { ...updated[dayIndex], tasks: dayTasks }
-                                setCalendarDays(updated)
-                                if (!isDone) soundEngine.playChime()
-                              }
-                            }}
-                            style={{
-                              width: 18,
-                              height: 18,
-                              borderRadius: '50%',
-                              border: isDone ? '2px solid #22c55e' : '2px solid var(--line)',
-                              background: isDone ? '#22c55e' : 'transparent',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              color: '#fff',
-                              fontSize: 10,
-                              fontWeight: 'bold',
-                              cursor: 'pointer',
-                              flexShrink: 0,
-                              marginTop: 2,
-                            }}
-                          >
-                            {isDone && '✓'}
+                        {/* Task Header: Uiverse Checkbox + Subject/Topic + Priority Flag (NO notes in column view) */}
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                          <div onClick={(e) => e.stopPropagation()} style={{ flexShrink: 0, marginTop: 1 }}>
+                            <UiverseCheckbox
+                              id={`task-chk-${dayIndex}-${taskIndex}-${task.id || ''}`}
+                              checked={isDone}
+                              onChange={() => {
+                                if (onTickTask) {
+                                  onTickTask(dayIndex, task, isDone ? '' : 'done', day.date_str)
+                                } else {
+                                  const updated = [...calendarDays]
+                                  const dayTasks = [...(updated[dayIndex].tasks || [])]
+                                  dayTasks[taskIndex] = { ...dayTasks[taskIndex], status: isDone ? '' : 'done' }
+                                  updated[dayIndex] = { ...updated[dayIndex], tasks: dayTasks }
+                                  setCalendarDays(updated)
+                                  if (!isDone) soundEngine.playChime()
+                                }
+                              }}
+                            />
                           </div>
 
                           <div style={{ flex: 1, minWidth: 0 }}>
