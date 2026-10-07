@@ -107,7 +107,7 @@ export default function FloatingSettingsPanel({ isOpen, onClose, onOpenStudio, n
                 whiteSpace: 'nowrap',
               }}
             >
-              {user.full_name || 'کاربر سیناپس'}
+              {user.full_name || (isEn ? 'Synapse User' : 'کاربر سیناپس')}
             </b>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
               <span
@@ -121,10 +121,10 @@ export default function FloatingSettingsPanel({ isOpen, onClose, onOpenStudio, n
                 }}
               >
                 {user.role === 'admin'
-                  ? 'مدیر ارشد'
+                  ? (isEn ? 'Admin' : 'مدیر ارشد')
                   : user.role === 'mentor'
-                  ? 'مشاور تحصیلی'
-                  : 'دانش‌آموز'}
+                  ? (isEn ? 'Mentor' : 'مشاور تحصیلی')
+                  : (isEn ? 'Student' : 'دانش‌آموز')}
               </span>
               <span
                 className="small muted"
@@ -142,7 +142,7 @@ export default function FloatingSettingsPanel({ isOpen, onClose, onOpenStudio, n
         </div>
       ) : (
         <div style={{ paddingBottom: 12, borderBottom: '1px solid var(--line)', marginBottom: 12 }}>
-          <b style={{ fontSize: 14, color: 'var(--ink)' }}>تنظیمات سامانه</b>
+          <b style={{ fontSize: 14, color: 'var(--ink)' }}>{isEn ? 'System Settings' : 'تنظیمات سامانه'}</b>
         </div>
       )}
 
@@ -168,6 +168,7 @@ export default function FloatingSettingsPanel({ isOpen, onClose, onOpenStudio, n
           <AnimatedThemeToggle
             isDark={theme === 'dark'}
             onToggle={toggle}
+            isEn={isEn}
           />
         </div>
 
@@ -196,7 +197,7 @@ export default function FloatingSettingsPanel({ isOpen, onClose, onOpenStudio, n
             <span>{isEn ? 'Appearance & Skins' : 'استودیو پوسته و تم'}</span>
           </div>
           <span className="badge" style={{ background: 'var(--tint-fill)', color: 'var(--primary)', fontSize: 11 }}>
-            {activeSkinObj.name}
+            {activeSkinObj.name_en || activeSkinObj.name}
           </span>
         </button>
 

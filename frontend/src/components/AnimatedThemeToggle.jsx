@@ -6,11 +6,19 @@ import React from 'react'
  * - Day: Sky-blue track, fluffy drifting clouds, bright golden sun knob with warm radial gradient.
  * - Night: Midnight-indigo track, twinkling stars, cratered silver moon with crater details.
  */
-export default function AnimatedThemeToggle({ isDark, onToggle, label = '' }) {
+export default function AnimatedThemeToggle({ isDark, onToggle, label = '', isEn = false }) {
   const handleChange = (e) => {
     e.stopPropagation()
     if (onToggle) onToggle()
   }
+
+  const titleText = isDark
+    ? isEn
+      ? 'Night mode is active'
+      : 'حالت شب فعال است'
+    : isEn
+    ? 'Day mode is active'
+    : 'حالت روز فعال است'
 
   return (
     <div className="uiverse-toggle-wrapper" style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
@@ -19,12 +27,12 @@ export default function AnimatedThemeToggle({ isDark, onToggle, label = '' }) {
           {label}
         </span>
       )}
-      <label className="uiverse-theme-switch" title={isDark ? 'حالت شب فعال است' : 'حالت روز فعال است'}>
+      <label className="uiverse-theme-switch" title={titleText}>
         <input
           type="checkbox"
           checked={!!isDark}
           onChange={handleChange}
-          aria-label="Toggle Night/Day Mode"
+          aria-label={isEn ? 'Toggle Night/Day Mode' : 'تغییر حالت شب و روز'}
         />
         <span className="uiverse-theme-slider">
           {/* Day Mode Clouds */}

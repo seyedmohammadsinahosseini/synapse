@@ -2,8 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import { useLang } from '../i18n.jsx'
 import { useTheme } from '../theme.jsx'
 import { fa } from '../api.js'
-import PomodoroTimer from '../components/PomodoroTimer.jsx'
-import LeitnerFlashcards from '../components/LeitnerFlashcards.jsx'
 
 /* ═══════════════════════════════════════════════════════════════════
    Home / landing page for guests — an immersive showcase featuring:
@@ -91,9 +89,6 @@ const CONTENT = {
     cta1: 'شروع رایگان و ورود به پنل',
     cta2: 'ورود به حساب کاربری',
     trust: ['بدون نیاز به کارت بانکی', 'فعال‌سازی آنی و رایگان', 'ویژه کنکور سراسری، نهایی و مدرسه'],
-    interactiveTag: '🎮 تست زنده بدون نیاز به ورود',
-    interactiveTitle: 'اتاق کار تعاملی و ابزارهای هوشمند سیناپس را همین حالا امتحان کنید',
-    interactiveSub: 'تایمر تمرکز پومودورو همراه با صدای باران و امواج، جعبه لایتنر سه‌بعدی و پوسته‌های شیشه‌ای و نئونی مدرن را به صورت زنده تست کنید.',
     featuresTitle: 'چرا دانش‌آموزها و مشاوران برتر، سیناپس را انتخاب می‌کنند؟',
     featuresSub: 'همهٔ ابزارهای لازم برای مطالعهٔ رتبه‌ساز، کنار هم و هماهنگ با هم.',
     features: [
@@ -177,9 +172,6 @@ const CONTENT = {
     cta1: 'Get Started for Free',
     cta2: 'Sign In to Account',
     trust: ['No credit card required', 'Instant activation', 'For Entrance Exams & High School'],
-    interactiveTag: '🎮 Live Sandbox Demo',
-    interactiveTitle: 'Try Synapse Interactive Workspaces Right Now Without Login',
-    interactiveSub: 'Test the Deep Work Pomodoro with rain and ocean soundscapes, 3D Leitner flashcards, and live theme skin customizer instantly.',
     featuresTitle: 'Why Top Students & Mentors Choose Synapse',
     featuresSub: 'All essential study tools harmonized in one seamless platform.',
     features: [
@@ -267,7 +259,6 @@ export default function HomePage({ navigate }) {
 
   const [aiStep, setAiStep] = useState(0)
   const [aiTyping, setAiTyping] = useState(false)
-  const [activeSandboxTab, setActiveSandboxTab] = useState('pomo')
 
   const S = CONTENT[lang] || CONTENT.fa
   const faNum = lang === 'fa'
@@ -425,170 +416,6 @@ export default function HomePage({ navigate }) {
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ═══════════════ INTERACTIVE SANDBOX DEMO ═══════════════ */}
-      <section className="hp-sec" style={{ position: 'relative', zIndex: 1 }}>
-        <div className="hp-sec-head hp-rv hp-v">
-          <span className="badge" style={{ background: 'rgba(99, 102, 241, 0.15)', color: 'var(--primary)', marginBottom: 8 }}>
-            {S.interactiveTag}
-          </span>
-          <h2>{S.interactiveTitle}</h2>
-          <p>{S.interactiveSub}</p>
-        </div>
-
-        {/* Tab switch for live interactive demo */}
-        <div style={{ maxWidth: 880, margin: '0 auto' }}>
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              className="btn"
-              style={{
-                borderRadius: 14,
-                padding: '10px 22px',
-                background: activeSandboxTab === 'pomo' ? 'var(--primary)' : 'var(--card)',
-                color: activeSandboxTab === 'pomo' ? '#fff' : 'var(--ink)',
-                border: activeSandboxTab === 'pomo' ? '1px solid var(--primary)' : '1px solid var(--line)',
-                fontWeight: 700,
-                boxShadow: activeSandboxTab === 'pomo' ? '0 6px 20px rgba(79, 70, 229, 0.3)' : 'none',
-              }}
-              onClick={() => setActiveSandboxTab('pomo')}
-            >
-              ⏱️ {faNum ? 'تایمر تمرکز پومودورو با صداهای آرامش‌بخش' : 'Focus Pomodoro & Ambient Soundscape'}
-            </button>
-
-            <button
-              type="button"
-              className="btn"
-              style={{
-                borderRadius: 14,
-                padding: '10px 22px',
-                background: activeSandboxTab === 'leitner' ? 'var(--primary)' : 'var(--card)',
-                color: activeSandboxTab === 'leitner' ? '#fff' : 'var(--ink)',
-                border: activeSandboxTab === 'leitner' ? '1px solid var(--primary)' : '1px solid var(--line)',
-                fontWeight: 700,
-                boxShadow: activeSandboxTab === 'leitner' ? '0 6px 20px rgba(79, 70, 229, 0.3)' : 'none',
-              }}
-              onClick={() => setActiveSandboxTab('leitner')}
-            >
-              🗂️ {faNum ? 'جعبه لایتنر ۳بعدی و مرور فاصله‌دار' : 'Leitner 3D Flashcard Box'}
-            </button>
-
-            <button
-              type="button"
-              className="btn"
-              style={{
-                borderRadius: 14,
-                padding: '10px 22px',
-                background: activeSandboxTab === 'skins' ? 'var(--primary)' : 'var(--card)',
-                color: activeSandboxTab === 'skins' ? '#fff' : 'var(--ink)',
-                border: activeSandboxTab === 'skins' ? '1px solid var(--primary)' : '1px solid var(--line)',
-                fontWeight: 700,
-                boxShadow: activeSandboxTab === 'skins' ? '0 6px 20px rgba(79, 70, 229, 0.3)' : 'none',
-              }}
-              onClick={() => setActiveSandboxTab('skins')}
-            >
-              🎨 {faNum ? 'استودیو پوسته و تم زنده' : 'Live Skin & Appearance Studio'}
-            </button>
-          </div>
-
-          {/* Sandbox Content Container */}
-          <div className="card hp-rv hp-scale" style={{ padding: 24, borderRadius: 24, boxShadow: '0 20px 45px rgba(0,0,0,0.06)' }}>
-            {activeSandboxTab === 'pomo' && (
-              <div>
-                <div style={{ textAlign: 'center', marginBottom: 14 }}>
-                  <span className="badge" style={{ background: '#dcfce7', color: '#16a34a', fontWeight: 700 }}>
-                    ● {faNum ? 'موتور صوتی Web Audio فعال است — صدا را پلی کنید و لذت ببرید' : 'Web Audio synth active — click play to listen'}
-                  </span>
-                </div>
-                <PomodoroTimer initialSubject="زیست‌شناسی کنکور" />
-              </div>
-            )}
-
-            {activeSandboxTab === 'leitner' && (
-              <div>
-                <LeitnerFlashcards />
-              </div>
-            )}
-
-            {activeSandboxTab === 'skins' && (
-              <div>
-                <div style={{ textAlign: 'center', marginBottom: 20 }}>
-                  <h3 style={{ margin: '0 0 6px 0' }}>{faNum ? 'پیش‌نمایش زنده تم‌ها و پوسته‌های بصری' : 'Live Theme & Skin Showcase'}</h3>
-                  <p className="small muted">
-                    {faNum ? 'روی هر پوسته یا رنگ هایلایت کلیک کنید تا تمام اجزای صفحه بلافاصله تغییر چهره دهند!' : 'Click any skin or accent color below to see the entire UI transform instantly!'}
-                  </p>
-                </div>
-
-                {/* Skins grid */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14, marginBottom: 24 }}>
-                  {SKINS.map((s) => {
-                    const active = skin === s.id
-                    return (
-                      <div
-                        key={s.id}
-                        style={{
-                          background: active ? 'var(--tint-fill)' : 'var(--bg)',
-                          border: active ? '2px solid var(--primary)' : '1px solid var(--line)',
-                          borderRadius: 16,
-                          padding: 18,
-                          textAlign: 'center',
-                          cursor: 'pointer',
-                          boxShadow: active ? '0 10px 25px rgba(79, 70, 229, 0.15)' : 'none',
-                          transition: 'all 0.2s',
-                        }}
-                        onClick={() => setSkin(s.id)}
-                      >
-                        <div style={{ fontSize: 32, marginBottom: 8 }}>{s.icon}</div>
-                        <b style={{ display: 'block', fontSize: 15, color: active ? 'var(--primary)' : 'var(--ink)' }}>
-                          {faNum ? s.name_fa : s.name_en}
-                        </b>
-                        <div className="small muted" style={{ marginTop: 4, fontSize: 12 }}>
-                          {faNum ? s.desc_fa : s.desc_en}
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-
-                {/* Accent selector */}
-                <div style={{ background: 'var(--bg)', borderRadius: 16, padding: 16, border: '1px solid var(--line)', textAlign: 'center' }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>
-                    {faNum ? 'انتخاب پالت رنگی هایلایت (Accent Palette):' : 'Select Highlight Accent Palette:'}
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'center', gap: 12, flexWrap: 'wrap' }}>
-                    {ACCENTS.map((a) => {
-                      const active = accent === a.id
-                      return (
-                        <button
-                          key={a.id}
-                          type="button"
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 8,
-                            padding: '8px 16px',
-                            borderRadius: 12,
-                            background: active ? 'var(--tint-fill)' : 'var(--card)',
-                            border: active ? `2px solid ${a.hex}` : '1px solid var(--line)',
-                            cursor: 'pointer',
-                            transition: 'all 0.15s',
-                          }}
-                          onClick={() => setAccent(a.id)}
-                        >
-                          <div style={{ width: 18, height: 18, borderRadius: '50%', background: a.hex }} />
-                          <span style={{ fontSize: 13, fontWeight: active ? 800 : 500, color: 'var(--ink)' }}>
-                            {faNum ? a.label_fa : a.label_en}
-                          </span>
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </section>
