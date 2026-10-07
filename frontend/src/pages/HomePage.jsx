@@ -326,11 +326,8 @@ export default function HomePage({ navigate }) {
     <div className="hp" ref={rootRef} style={{ position: 'relative', overflow: 'hidden' }}>
       <div id="hp-progress" className="hp-progress" aria-hidden="true" />
 
-      {/* ═══════════════ HERO WITH AURORA GLOW ═══════════════ */}
+      {/* ═══════════════ HERO ═══════════════ */}
       <section className="hp-hero" style={{ position: 'relative' }}>
-        {/* Glowing Aurora Animated Mesh */}
-        <div className="aurora-hero-bg" aria-hidden="true" />
-
         <div className="hp-hero-inner" style={{ position: 'relative', zIndex: 1 }}>
           <div className="hp-hero-copy">
             <div
