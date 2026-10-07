@@ -1755,7 +1755,6 @@ div[class*="studio-background"] {
 .app-frame,
 .app-main,
 .route-page-container,
-.topbar,
 .slide-bar {
   position: relative;
   z-index: 10;
@@ -1763,7 +1762,10 @@ div[class*="studio-background"] {
 }
 
 .topbar {
-  z-index: 50 !important;
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 100 !important;
+  visibility: visible !important;
 }
 
 .slide-bar {
