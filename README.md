@@ -34,17 +34,32 @@
 
 ---
 
-### 3. Real-Time WebSocket Consultation & Audio Messaging
+### 3. Continuous 30-Day Study Planner Matrix & Task Execution
+<img src="docs/screenshots/08-student-study-matrix.png" alt="30-Day Study Matrix" width="90%" style="border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.15);" />
+
+---
+
+### 4. Real-Time WebSocket Consultation & Audio Messaging
 <img src="docs/screenshots/03-mentor-consultation-chat.png" alt="Real-time Consultation Chat" width="90%" style="border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.15);" />
 
 ---
 
-### 4. Interactive Dark Mode & Celestial Theme Engine
+### 5. Advanced HCI Appearance Studio (6 Dynamic Skins & Liquid Glass Refraction)
+<img src="docs/screenshots/06-appearance-studio.png" alt="Appearance Studio" width="90%" style="border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.15);" />
+
+---
+
+### 6. AI Assessment Studio & Curriculum Question Generator
+<img src="docs/screenshots/07-ai-assessment-studio.png" alt="AI Assessment Studio" width="90%" style="border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.15);" />
+
+---
+
+### 7. Interactive Dark Mode & Celestial Theme Engine
 <img src="docs/screenshots/05-dark-mode-theme.png" alt="Celestial Dark Mode" width="90%" style="border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.15);" />
 
 ---
 
-### 5. Multi-Step Academic Onboarding & Goal Profiling
+### 8. Multi-Step Academic Onboarding & Goal Profiling
 <img src="docs/screenshots/04-auth-onboarding.png" alt="Academic Onboarding" width="90%" style="border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.15);" />
 
 </div>
