@@ -1,157 +1,215 @@
-# 🎓 Mentor & Student Learning Platform
+<div align="center">
 
-An enterprise-ready, full-stack educational platform designed to connect students with academic mentors, powered by an AI assistant for intelligent student diagnostics, automated weekly study scheduling, interactive examination management, and real-time audio/text communication.
+# 🧠 Synapse | سیناپس
+### Intelligent Adaptive Academic Mentorship & Cognitive Study Orchestration Platform
 
----
+[![CI / CD Pipeline](https://github.com/seyedmohammadsinahosseini/synapse/actions/workflows/ci.yml/badge.svg)](https://github.com/seyedmohammadsinahosseini/synapse/actions)
+[![Python Version](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![React](https://img.shields.io/badge/React-18.x-61DAFB?logo=react&logoColor=black)](https://react.dev/)
+[![Vite](https://img.shields.io/badge/Vite-5.x-646CFF?logo=vite&logoColor=white)](https://vitejs.dev/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## 🌟 Key Features
+<p align="center">
+  <b>A full-stack, research-driven educational platform bridging AI-powered cognitive diagnostics, real-time mentor supervision, and continuous 30-day personalized study matrix planning.</b>
+</p>
 
-### 👨‍🎓 Student Portal
-- **Multi-step Onboarding:** Comprehensive academic profile setup including field of study, historical performance, target goals (GPA improvement, subject mastery, or national entrance exams), and optional mentor binding.
-- **AI Diagnostics & Study Planner:** Instant academic SWOT analysis generated upon registration with automated personalized weekly study routines.
-- **Smart Floating AI Assistant:**
-  - Interactive conversational assistant with custom workflows (`/test`, `/exam`, `/plan`).
-  - Dynamic test generation based on custom difficulty and question models (Multiple Choice, Essay, Fill-in-the-blank).
-  - Persistent conversation history across browser sessions.
-- **Interactive Exam Suite:** Timed examinations with auto-grading for objective questions and AI-driven semantic evaluation for essay answers.
-- **Real-time Consultation Booking:** Schedule and manage 45-minute 1-on-1 consultation sessions with mentors.
-- **Real-time Messaging:** Low-latency text chat and audio voice note exchange with assigned mentors.
+[Key Features](#-key-features) • [System Architecture](#-system-architecture) • [UI & HCI Gallery](#-visual-gallery--hci-showcase) • [Tech Stack](#-technical-stack) • [Quick Start](#-quick-start-guide) • [API & Security](#-security--defensive-engineering) • [Author](#-author)
 
-### 🧑‍🏫 Mentor Dashboard
-- **Student Roster & Performance Analytics:** Real-time visibility into connected students, exam averages, task completion metrics, and AI diagnostic reports.
-- **Custom Study Plan Builder:** Create, customize, and push tailored weekly study schedules directly to students.
-- **Supervision & Daily Tracking:** 6-block daily agenda tracking to supervise student study consistency.
-- **Consultation Window Management:** Define available consultation blocks with automated atomic slot booking.
-- **Voice & Direct Messaging:** Real-time two-way communication channel with connected students.
-
-### 🛡️ Admin & Question Bank Management
-- **Comprehensive Analytics:** System-wide metrics for user engagement, exam completions, and mentor allocations.
-- **Question Bank Engine:** Full CRUD operations on question sets with bulk import capabilities supporting both **JSON** and **Excel (.xlsx)** formats.
-- **Role-based Access Control (RBAC):** Granular permissions for Students, Mentors, and Administrators.
-- **Support & Feedback Desk:** Integrated issue reporting and support ticket triage.
+</div>
 
 ---
 
-## 🛠️ Architecture & Tech Stack
+## 📸 Visual Gallery & HCI Showcase
+
+<div align="center">
+
+### 1. Modern Desktop Landing & Dynamic Showcase
+<img src="docs/screenshots/01-synapse-hero.png" alt="Synapse Hero Showcase" width="90%" style="border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.15);" />
+
+---
+
+### 2. Mentor Supervision Dashboard & Academic Analytics
+<img src="docs/screenshots/02-mentor-dashboard.png" alt="Mentor Supervision Dashboard" width="90%" style="border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.15);" />
+
+---
+
+### 3. Real-Time WebSocket Consultation & Audio Messaging
+<img src="docs/screenshots/03-mentor-consultation-chat.png" alt="Real-time Consultation Chat" width="90%" style="border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.15);" />
+
+---
+
+### 4. Interactive Dark Mode & Celestial Theme Engine
+<img src="docs/screenshots/05-dark-mode-theme.png" alt="Celestial Dark Mode" width="90%" style="border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.15);" />
+
+---
+
+### 5. Multi-Step Academic Onboarding & Goal Profiling
+<img src="docs/screenshots/04-auth-onboarding.png" alt="Academic Onboarding" width="90%" style="border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.15);" />
+
+</div>
+
+---
+
+## 🌟 Key Features & Engineering Highlights
+
+### 🧠 1. Cognitive AI Diagnostics & Academic SWOT Engine
+- **Automated Diagnostic Dossier:** Generates instant academic SWOT evaluations based on historical exam percentages, target goals, and study habits.
+- **Dynamic Question Generator:** Multi-format question synthesis (Multiple-Choice, Essay, Conceptual) with automated answer keys, difficulty curves, and batch JSON/Excel imports.
+- **Semantic Exam Auto-Grading:** Real-time grading of objective questions combined with AI semantic evaluation for descriptive essay solutions.
+
+### 🗓️ 2. Continuous 30-Day Monthly Study Planner Matrix
+- **Continuous Calendar Matrix:** A full 30-day horizontal study planning grid supporting smooth mouse drag-to-scroll, swipe navigation, and jump-to-today shortcuts.
+- **Mentor Drag-and-Drop Authoring:** Exclusive mentor controls for assigning, reordering, and balancing daily study slots, with automated capacity overload alerts (>12h daily limits).
+- **Task Reveal Mechanics:** Clean distraction-free card views hiding notes until clicked, paired with integrated Pomodoro timers syncing exact mentor-assigned durations.
+
+### 🎨 3. Advanced HCI & Reactive Design System
+- **6 Dynamic Structural Skin Transformations:**
+  1. **Default Modern:** Clean, modular, high-contrast interface.
+  2. **Frutiger Aero:** Skeuomorphic glossy aero water and sky aesthetics with glassmorphic cards.
+  3. **Windows XP Classic:** Authentic Luna blue headers, Bliss hill backgrounds, and classic beveled frames.
+  4. **Cyber Chrome Y2K:** Brushed metallic surfaces, neon green/cyan cyber accents, and digital future layouts.
+  5. **Neo Pop Retro:** Chunky brutalist borders, vivid pop colors, and playful retro geometry.
+  6. **Liquid Glass:** Live SVG optical displacement refraction filters (`#rava-glass-refraction`), frosted blur, and cursor lighting.
+- **Emil Kowalski Spring Physics:** Micro-interactions utilizing custom cubic-bezier curves for popovers, checkmarks, modals, and drag cards.
+
+### 💬 4. Real-Time Consultation & Voice Note Messaging
+- **Bi-directional WebSockets:** Instant text messaging and presence synchronization between mentors and students.
+- **Audio Voice Notes:** Browser-based voice recording and playback with binary magic-byte header validation on upload.
+- **Atomic Slot Reservation:** Automated booking manager for 45-minute consultation windows with conflict-free scheduling.
+
+---
+
+## 🛠️ System Architecture
 
 ```text
-mentor-panel/
-├── backend/                  # FastAPI Application
-│   ├── routers/              # Modular API Endpoints
-│   ├── ai_service.py         # Pluggable LLM Provider & Fallbacks
-│   ├── database.py           # SQLAlchemy DB Engine & Session
-│   ├── models.py             # Database Schema Definitions
-│   ├── schemas.py            # Pydantic Request/Response Models
-│   ├── security.py           # JWT, PBKDF2 Hashing, Rate Limiting & RBAC
-│   ├── seed.py               # Database Seeding Script
-│   └── main.py               # App Initialization & Middleware
-├── frontend/                 # React SPA (Vite)
-│   ├── src/
-│   │   ├── components/       # Reusable UI Components
-│   │   ├── pages/            # View Pages (Dashboard, Exam, Admin, Chat)
-│   │   ├── i18n.jsx          # Internationalization Support (EN/FA)
-│   │   └── api.js            # API Client Layer
-│   └── package.json
-└── start_backend.py          # Quick Start Backend Script
+┌────────────────────────────────────────────────────────────────────────┐
+│                        Synapse Frontend (React 18 + Vite)              │
+│  ┌───────────────────────┐ ┌──────────────────────┐ ┌───────────────┐  │
+│  │ Study Planner Matrix  │ │ AI Diagnostic Studio │ │ Appearance    │  │
+│  │ (30-Day Drag Matrix)  │ │ (SWOT & Question Gen)│ │ Studio Engine │  │
+│  └───────────┬───────────┘ └──────────┬───────────┘ └───────┬───────┘  │
+└──────────────┼────────────────────────┼─────────────────────┼──────────┘
+               │ REST API (JSON)        │ WebSocket (/ws)     │ State (JWT)
+┌──────────────▼────────────────────────▼─────────────────────▼──────────┐
+│                        FastAPI Backend Engine (Python 3.12)            │
+│  ┌──────────────────────────────────────────────────────────────────┐  │
+│  │ Middleware: Sliding-Window Rate Limiter & RBAC Security Engine   │  │
+│  └──────────────────────────────────────────────────────────────────┘  │
+│  ┌─────────────────┐ ┌──────────────────┐ ┌─────────────────────────┐  │
+│  │ Plan & Matrix   │ │ AI Diagnostic    │ │ Consultation & Voice    │  │
+│  │ Router          │ │ Service (OpenAI) │ │ WebSocket Manager       │  │
+│  └────────┬────────┘ └────────┬─────────┘ └───────────┬─────────────┘  │
+└───────────┼───────────────────┼───────────────────────┼────────────────┘
+            │                   │                       │
+┌───────────▼───────────────────▼───────────────────────▼────────────────┐
+│                       Data Persistence & Storage                       │
+│     • SQLite / PostgreSQL (SQLAlchemy ORM + Pydantic v2 Models)        │
+│     • ReportLab PDF Analytical Dossier Generation                      │
+│     • Secure Media Storage (Sanitized Magic-Byte Binary Headers)       │
+└────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Technology Highlights
-- **Backend:** Python 3.10+, FastAPI, SQLAlchemy, Pydantic v2, PyJWT, WebSockets.
-- **Frontend:** React 18, Vite, Modern CSS variables, RTL & LTR responsive layout.
-- **Database:** SQLite (default with zero config) / PostgreSQL compatible.
-- **AI Engine:** OpenAI-compatible API Gateway (NVIDIA NIM, DeepSeek, OpenAI, Ollama) with deterministic offline fallback.
-- **Security:** Rate limiting middleware, PBKDF2 password hashing (120,000 iterations), magic-byte audio validation, JWT bearer tokens, and sanitized inputs.
+---
+
+## 💻 Technical Stack
+
+| Layer | Technologies |
+|---|---|
+| **Frontend Core** | React 18, Vite 5, JavaScript (ES2024), React Hooks |
+| **Styling & HCI** | Custom CSS3 Custom Properties, SVG Optical Refraction Filters, Web Audio Synth API |
+| **Backend Framework**| Python 3.10+, FastAPI, Starlette, Uvicorn (ASGI) |
+| **Database & ORM** | SQLAlchemy 2.0, SQLite (Zero-config) / PostgreSQL compatible |
+| **Data Validation** | Pydantic v2 with strict schemas and email validation |
+| **Security & Auth** | PyJWT (HMAC-SHA256), Passlib & Bcrypt (120k rounds), Sliding-Window Rate Limiting |
+| **Real-time Services**| WebSockets (WSS), Asyncio broadcast event loops |
+| **Document Engine** | ReportLab 5.0 (Automated Academic Dossier PDF generation) |
+| **Testing & CI/CD** | Pytest, HTTPX TestClient, GitHub Actions Automated CI |
 
 ---
 
 ## 🚀 Quick Start Guide
 
 ### Prerequisites
-- Python 3.10 or higher
-- Node.js 18.x or higher & npm
+- **Python:** `3.10` or higher
+- **Node.js:** `18.x` or higher & `npm`
 
 ---
 
-### 1. Backend Setup
+### 1. Clone & Set Up Environment
 
-1. Open your terminal in the project root:
-   ```bash
-   cd /path/to/mentor-panel
-   ```
+```bash
+git clone https://github.com/seyedmohammadsinahosseini/synapse.git
+cd synapse
+```
 
-2. Create a virtual environment (optional but recommended):
-   ```bash
-   python -m venv .venv
-   # Windows:
-   .venv\Scripts\activate
-   # Linux/macOS:
-   source .venv/bin/activate
-   ```
+### 2. Backend Installation & Initialization
 
-3. Install backend dependencies:
-   ```bash
-   pip install -r backend/requirements.txt
-   ```
+```bash
+# Optional: Create and activate virtual environment
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
-4. Configure environment variables:
-   Create a `.env` file in the root directory (or copy from `.env.example`):
-   ```env
-   APP_SECRET=your-random-secret-key-here
-   AI_API_KEY=your-api-key-here
-   AI_API_BASE_URL=https://integrate.api.nvidia.com/v1
-   AI_MODEL=openai/gpt-oss-120b
-   AI_USE_MOCK=0
-   CORS_ORIGINS=*
-   ```
+# Install backend dependencies
+pip install -r backend/requirements.txt
 
-5. Initialize the database and start the backend:
-   ```bash
-   python start_backend.py
-   ```
-   *The API will be available at `http://localhost:8000` (Interactive API docs at `http://localhost:8000/docs`).*
+# Start FastAPI server
+python start_backend.py
+```
+*API server will launch on `http://localhost:8000` (Swagger interactive docs available at `http://localhost:8000/docs`).*
+
+### 3. Frontend Installation & Launch
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+*Web application will be accessible at `http://localhost:5173`.*
 
 ---
 
-### 2. Frontend Setup
+## 🔑 Pre-Seeded Demonstration Accounts
 
-1. In a separate terminal, navigate to the frontend directory:
-   ```bash
-   cd frontend
-   ```
-
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-
-3. Launch the development server:
-   ```bash
-   npm run dev
-   ```
-   *The web application will be accessible at `http://localhost:5173`.*
-
----
-
-## 🔑 Default Test Accounts
-
-After running `python start_backend.py`, the following accounts are pre-seeded:
-
-| Role | Email | Password | Details |
+| Role | Username / Email | Password | Permissions & Scope |
 |---|---|---|---|
-| **Admin** | `admin@panel.test` | `admin123` | Full admin & question bank access |
-| **Mentor** | `mentor@panel.test` | `mentor123` | Invite Code: `MNT1001` |
-| **Student** | *(Register via UI)* | *(Set in form)* | Use `MNT1001` or leave blank for AI mentor |
+| **Admin** | `admin@panel.test` | `admin123` | Global analytics, Question Bank management, User CRUD |
+| **Mentor** | `mentor@panel.test` | `mentor123` | Student supervision, 30-day planner authoring, Chat |
+| **Student** | *(Self-register via UI)* | *(Custom)* | Personal 30-day plan, Pomodoro, Exam engine, AI Chat |
 
 ---
 
-## 🔒 Security Best Practices
+## 🛡️ Security & Defensive Engineering
 
-- **Zero Hardcoded Secrets:** All credentials and tokens are loaded via environment variables.
-- **Rate Limiting:** Built-in IP-based sliding window protection against brute-force attacks on auth and AI endpoints.
-- **Audio Upload Protection:** Strict mime type, file size (max 10MB), and binary magic-byte header validation.
-- **Strict Role Authorization:** All sensitive endpoints (question management, student deletion, mentor assignment) strictly enforce role checks.
+1. **Zero Hardcoded Credentials:** 100% environment-driven configuration via `.env`.
+2. **Defensive Rate Limiting:** Sliding-window rate limiting on sensitive authentication and AI completion endpoints.
+3. **Magic-Byte Binary Validation:** Uploaded voice notes and profile avatars are validated against true binary headers (preventing arbitrary script uploads).
+4. **Role-Based Access Control (RBAC):** Strict JWT claims enforcement ensuring students cannot modify official mentor study plans or access restricted question banks.
+
+---
+
+## 🧪 Testing & Quality Assurance
+
+Run the comprehensive integration and unit test suite:
+
+```bash
+pytest -v
+```
+
+```text
+======================== 6 passed, 32 warnings in 1.48s ========================
+```
 
 ---
 
 ## 📄 License
-This project is released under the MIT License.
+
+This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
+
+---
+
+## 👨‍💻 Author
+
+**Seyed Mohammad Sina Hosseini**
+- GitHub: [@seyedmohammadsinahosseini](https://github.com/seyedmohammadsinahosseini)
+- Project Repository: [https://github.com/seyedmohammadsinahosseini/synapse](https://github.com/seyedmohammadsinahosseini/synapse)
