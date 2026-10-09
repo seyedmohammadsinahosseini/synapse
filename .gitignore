@@ -36,3 +36,6 @@ Thumbs.db
 # tool caches
 .npm/
 .cache/
+
+# ── local QA / scratch screenshots ───────────────────────────────
+.shots/

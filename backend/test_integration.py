@@ -25,7 +25,7 @@ class TestPlatformIntegration(unittest.TestCase):
                 full_name="استاد احمدی",
                 email="test_mentor@platform.com",
                 password_hash=hash_password("Password123!"),
-                code="MENTOR777"
+                code="MNT7777"
             )
             db.add(mentor)
             db.commit()
@@ -101,6 +101,15 @@ class TestPlatformIntegration(unittest.TestCase):
         r_login_m = client.post("/api/auth/login", json={"email": "test_mentor@platform.com", "password": "Password123!"})
         self.assertEqual(r_login_m.status_code, 200)
         m_headers = {"Authorization": f"Bearer {r_login_m.json()['token']}"}
+
+        # Mentor approves the pending connection request from the student
+        r_pending = client.get("/api/mentor/students/pending-requests", headers=m_headers)
+        self.assertEqual(r_pending.status_code, 200)
+        # Idempotent: if an earlier run already approved the student, there is nothing pending
+        pending = [q for q in r_pending.json()["requests"] if q["email"] == "ali_student_test@platform.com"]
+        if pending:
+            r_approve = client.post(f"/api/mentor/students/{pending[0]['student_id']}/approve", headers=m_headers)
+            self.assertEqual(r_approve.status_code, 200)
 
         # Get student ID
         r_students = client.get("/api/mentor/students", headers=m_headers)
