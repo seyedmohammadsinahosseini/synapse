@@ -101,8 +101,8 @@ export async function api(path, { method = 'GET', body, form } = {}) {
 }
 
 // ── i18n-aware formatting ──────────────────────────────────────────────
-let _lang = 'fa'
-export const setLang = (l) => { _lang = l === 'en' ? 'en' : 'fa' }
+let _lang = 'en'
+export const setLang = (l) => { _lang = l === 'fa' ? 'fa' : 'en' }
 export const getLang = () => _lang
 
 const FA = '۰۱۲۳۴۵۶۷۸۹'

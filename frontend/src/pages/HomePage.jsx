@@ -447,7 +447,8 @@ export default function HomePage({ navigate }) {
           <h2>{S.howTitle}</h2>
           <p>{S.howSub}</p>
         </div>
-        <div className="hp-how-steps">
+        <div className="hp-how">
+          <i className="hp-how-line" aria-hidden="true" />
           {S.how.map((st, i) => (
             <div className="hp-how-step hp-rv hp-v" style={{ '--d': `${i * 130}ms` }} key={st.t}>
               <span className="hp-how-num">{st.i}</span>

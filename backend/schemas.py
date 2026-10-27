@@ -37,7 +37,7 @@ class StudentRegisterRequest(BaseModel):
     goal_subjects: List[str] = []
     subject_scores: List[SubjectScore] = []
     mentor_code: str = Field(default="", max_length=40)  # optional
-    lang: str = Field(default="fa", max_length=10)       # UI language (fa | en)
+    lang: str = Field(default="en", max_length=10)       # UI language (en | fa), English by default
 
     @field_validator("password")
     @classmethod

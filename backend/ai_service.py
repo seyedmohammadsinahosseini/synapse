@@ -673,7 +673,7 @@ class AIProvider:
             "ai_dossier": dossier,
         }
 
-    def suggest_videos(self, subjects: list, lang: str = "fa") -> list:
+    def suggest_videos(self, subjects: list, lang: str = "en") -> list:
         payload = {"subjects": subjects}
         return self._mock_videos(payload)
 
@@ -703,7 +703,7 @@ class AIProvider:
 
     def chat(self, messages: list, student_context: dict) -> str:
         """Interactive educational AI chat with online LLM and connection status reporting."""
-        lang = (student_context or {}).get("lang", "fa")
+        lang = (student_context or {}).get("lang", "en")
         if lang == "en":
             system = (
                 "You are Synapse AI, an expert academic mentor and educational assistant. "
@@ -759,10 +759,15 @@ class AIProvider:
 
     def _mock_chat(self, messages: list, student_context: dict) -> str:
         """Generates natural, highly empathetic and actionable educational responses for students/mentors."""
-        lang = (student_context or {}).get("lang", "fa")
-        name = (student_context or {}).get("name") or "دانش‌آموز عزیز"
-        goal = (student_context or {}).get("goal") or "موفقیت تحصیلی و قبولی در کنکور"
-        field = (student_context or {}).get("field") or "تجربی"
+        lang = (student_context or {}).get("lang", "en")
+        if lang == "en":
+            name = (student_context or {}).get("name") or "dear student"
+            goal = (student_context or {}).get("goal") or "academic success and passing the university entrance exam"
+            field = (student_context or {}).get("field") or "Life Sciences"
+        else:
+            name = (student_context or {}).get("name") or "دانش‌آموز عزیز"
+            goal = (student_context or {}).get("goal") or "موفقیت تحصیلی و قبولی در کنکور"
+            field = (student_context or {}).get("field") or "تجربی"
 
         last_text = ""
         if messages:

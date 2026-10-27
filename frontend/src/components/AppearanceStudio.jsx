@@ -145,6 +145,15 @@ export default function AppearanceStudio({ isOpen, onClose }) {
           boxShadow: '0 25px 70px rgba(0, 0, 0, 0.35)',
           overflow: 'hidden',
           position: 'relative',
+          // The base .theme-preview-dialog class is position:fixed with a 50%/50%
+          // offset and a -50% translate. Inside this flex-centered overlay that
+          // stacked offset pushes the dialog to the bottom-right, so reset it here.
+          top: 'auto',
+          left: 'auto',
+          right: 'auto',
+          bottom: 'auto',
+          inset: 'auto',
+          transform: 'none',
         }}
         onClick={(e) => e.stopPropagation()}
       >

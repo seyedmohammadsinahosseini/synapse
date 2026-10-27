@@ -20,10 +20,10 @@ _state_lock = threading.Lock()
 
 class ChatIn(BaseModel):
     message: str = Field(min_length=1, max_length=2000)
-    lang: str = Field(default="fa", max_length=10)
+    lang: str = Field(default="en", max_length=10)
 
 
-def _student_context(profile: StudentProfile, lang: str = "fa") -> dict:
+def _student_context(profile: StudentProfile, lang: str = "en") -> dict:
     return {
         "name": profile.user.full_name if profile.user else "",
         "field": profile.field_of_study,

@@ -1022,11 +1022,13 @@ const DICTS = { fa, en }
 const LangCtx = createContext(null)
 
 export function LangProvider({ children }) {
+  // English is the default for every visitor. The storage key is versioned so
+  // browsers that saved an older Persian preference still open in English.
   const [lang, setLangState] = useState(
-    () => localStorage.getItem('app_lang') || 'fa'
+    () => localStorage.getItem('app_lang_v2') || 'en'
   )
   useEffect(() => {
-    localStorage.setItem('app_lang', lang)
+    localStorage.setItem('app_lang_v2', lang)
     document.documentElement.lang = lang
     document.documentElement.dir = lang === 'fa' ? 'rtl' : 'ltr'
     setApiLang(lang)

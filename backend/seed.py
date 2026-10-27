@@ -90,11 +90,11 @@ def _seed_ali_ahmadi(db, mentor):
     ali = _ensure_user(
         db,
         role="student",
-        full_name="علی احمدی",
+        full_name="Ali Ahmadi",
         email="ali@test.com",
         password="ali123",
         phone="09123456789",
-        address="تهران، خیابان کارگر شمالی، کوچه مهر، پلاک ۱۴",
+        address="Tehran, North Kargar St., Mehr Alley, No. 14",
     )
     db.flush()
 
@@ -108,14 +108,14 @@ def _seed_ali_ahmadi(db, mentor):
 
     prof.grade_level = "دوازدهم"
     prof.field_of_study = "علوم تجربی"
-    prof.goal_type = "کنکور سراسری"
+    prof.goal_type = "konkur"
     prof.last_year_avg = 19.45
     prof.goal_subjects = ["زیست‌شناسی", "شیمی", "فیزیک", "ریاضی"]
     prof.mentor_id = mentor.id
     prof.mentor_connection_status = "approved"
     prof.pending_mentor_id = None
     prof.ai_dossier = (
-        "دانش‌آموز علی احمدی دارای سطح تسلط علمی بسیار بالا در مفاهیم زیست‌شناسی و شیمی کنکور است. "
+        "دانش‌آموز Ali Ahmadi دارای سطح تسلط علمی بسیار بالا در مفاهیم زیست‌شناسی و شیمی کنکور است. "
         "با ساعت مطالعه میانگین ۴۸ ساعت در هفته، پتانسیل کسب رتبه زیر ۳۰۰ کشوری در کنکور تجربی را داراست. "
         "تمرکز بر سرعت تست‌زنی ریاضی و تکنیک ضربدر منها در جلسات مشاوره توصیه شده است."
     )
@@ -294,7 +294,7 @@ def _seed_ali_ahmadi(db, mentor):
             ai_insights={
                 "strengths": ["پیشرفت چشمگیر در تراز کل (۲۵۰ واحد افزایش)", "بهبود چشمگیر در درس فیزیک و تسلط بر زیست دوازدهم"],
                 "weaknesses": ["تداوم تثبیت سرعت حل مسائل ریاضی و مدیریت دفترچه دوم کنکور"],
-                "summary": "روند پیشرفت دانش‌آموز علی احمدی بسیار برجسته بوده و ورود به باشگاه تراز بالای ۷۱۰۰ نشان‌دهنده اثربخشی کامل برنامه مطالعاتی مشاور است.",
+                "summary": "روند پیشرفت دانش‌آموز Ali Ahmadi بسیار برجسته بوده و ورود به باشگاه تراز بالای ۷۱۰۰ نشان‌دهنده اثربخشی کامل برنامه مطالعاتی مشاور است.",
             },
         )
         db.add(rc2)

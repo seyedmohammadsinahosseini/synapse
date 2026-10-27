@@ -672,7 +672,7 @@ def get_supervision(student_id: int, start: str | None = None,
 
 
 @router.get("/students/{student_id}/analysis")
-def performance_analysis(student_id: int, lang: str = "fa", user: User = Depends(get_current_user),
+def performance_analysis(student_id: int, lang: str = "en", user: User = Depends(get_current_user),
                          db: Session = Depends(get_db)):
     _mentor_guard(user)
     profile = db.query(StudentProfile).filter(StudentProfile.user_id == student_id).first()

@@ -1226,12 +1226,41 @@ html[data-theme='dark'] .btn.slot-done { background: #14532d; color: #bbf7d0; bo
   overflow: hidden;
   box-sizing: border-box;
 }
+/* The route wrapper must also be a full-height flex column, otherwise
+   .chat-page's height:100% collapses to its content height (a short strip). */
+.chat-main > .route-page-container {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
 .chat-main .chat-page {
   flex: 1 1 0;
-  height: 100%;
+  height: auto;
   max-height: 100%;
   min-height: 0;
   overflow: hidden;
+}
+
+/* Small screens: stack the conversation list above the thread instead of
+   forcing a fixed 320px sidebar next to it (which left the thread ~8px wide). */
+@media (max-width: 768px) {
+  /* leave room for the fixed bottom navigation bar (74px) on phones */
+  .chat-main {
+    padding: 10px 10px 12px;
+    height: calc(100dvh - 65px - 74px);
+    max-height: calc(100dvh - 65px - 74px);
+  }
+  .chat-main .chat-page { flex-direction: column; gap: 10px; }
+  .chat-main .chat-list-pane {
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+    flex: 0 0 auto;
+    max-height: 34%;
+  }
+  .chat-main .chat-thread-pane { flex: 1 1 0; min-width: 0; min-height: 0; }
 }
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -1728,7 +1757,7 @@ html[dir='ltr'] .hp-link-arr::before { content: '→'; }
 .hp-stats-in { position: relative; display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; padding: clamp(26px, 4vw, 48px) clamp(16px, 3vw, 40px); text-align: center; }
 .hp-stat { color: #fff; position: relative; }
 .hp-stat b { display: block; font-size: clamp(28px, 3.6vw, 46px); font-weight: 900; font-variant-numeric: tabular-nums; line-height: 1.2; text-shadow: 0 4px 18px rgba(0,0,0,.15); }
-.hp-stat span { display: inline-block; margin-top: 4px; font-size: 13px; font-weight: 700; opacity: .9; padding: 4px 14px; border-radius: 999px; background: rgba(255,255,255,.14); }
+.hp-stat > span { display: inline-block; margin-top: 4px; font-size: 13px; font-weight: 700; opacity: .9; padding: 4px 14px; border-radius: 999px; background: rgba(255,255,255,.14); }
 .hp-stats-in::before {
   content: ''; position: absolute; inset: 0; pointer-events: none;
   background: linear-gradient(115deg, transparent, rgba(255,255,255,.2), transparent);
@@ -1820,7 +1849,8 @@ html[dir='rtl'] .hp-stats-in::before {
 
 /* responsive */
 @media (max-width: 1080px) {
-  .hp-hero-inner { grid-template-columns: 1fr; }
+  .hp-hero-inner { flex-direction: column; }
+  .hp-hero-copy, .hp-stage-wrap { flex: 0 0 auto; width: 100%; }
   .hp-hero { min-height: auto; }
   .hp-hero-copy { max-width: 720px; margin-inline: auto; text-align: center; }
   .hp-sub { margin-inline: auto; }
@@ -2534,8 +2564,11 @@ html[data-accent='cyan'] {
 }
 
 /* ── Route Transition: Smooth Mellow Page Opening ───────────────────── */
+/* "backwards" (not "both"): keeping the final transform/filter after the
+   animation makes this wrapper the containing block for position:fixed
+   descendants, which clipped the homepage aurora into a visible rectangle. */
 .route-page-container {
-  animation: route-mellow-reveal 0.32s var(--ease-spring) both;
+  animation: route-mellow-reveal 0.32s var(--ease-spring) backwards;
   width: 100%;
 }
 
